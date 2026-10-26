@@ -12,7 +12,8 @@
     "create-admin": "node --env-file=.env.local scripts/create-admin.mjs",
     "sample-csv": "node scripts/make-sample-csv.mjs",
     "db:push": "supabase db push",
-    "db:types": "supabase gen types typescript --linked --schema public > src/lib/supabase/database.types.ts"
+    "db:types": "supabase gen types typescript --linked --schema public > src/lib/supabase/database.types.ts",
+    "db:bundle": "node scripts/build-setup-sql.mjs"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.7",

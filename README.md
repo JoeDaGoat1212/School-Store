@@ -122,6 +122,14 @@ npx supabase db push --include-seed
 
 > **Use sample data only in a test project.** When you set up the real store, run `npx supabase db push` **without** `--include-seed`.
 
+**If `db push` gets stuck** (it can hang on `Initialising login role...` on school Wi-Fi), use the SQL Editor instead:
+
+1. Open [`supabase/setup-all.sql`](supabase/setup-all.sql) on GitHub and click the **Copy raw file** button (two overlapping squares, top right of the file).
+2. In Supabase, click **SQL Editor** in the left sidebar → **New query**.
+3. Paste, then click **Run**. After a few seconds the result should say **School Store database is ready!**
+
+For the real store, use `supabase/setup-all-no-sample.sql` instead (no fake data). These two files are made from the migrations by `npm run db:bundle`. Run that again whenever you add a migration.
+
 ### 7. Start the website
 
 ```bash
