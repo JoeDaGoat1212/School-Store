@@ -90,8 +90,19 @@ In Supabase, open **Authentication → Sign In / Providers** and turn off **Allo
 2. In Supabase, open **Project Settings → API Keys** and copy these into `.env.local`:
    - the **Publishable key** → `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`
    - the **Secret key** → `SUPABASE_SECRET_KEY`
-3. Under **Project Settings → Data API**, copy the **Project URL** → `NEXT_PUBLIC_SUPABASE_URL`.
-4. For `IP_HASH_SALT`, type any long random string. You can generate one with `openssl rand -hex 32`.
+3. **`NEXT_PUBLIC_SUPABASE_URL`** is your project's web address. Look at your browser's address bar while you're in your Supabase project. It looks like this:
+   ```
+   https://supabase.com/dashboard/project/abcdefghijklmnop
+   ```
+   The letters at the end (`abcdefghijklmnop`) are your **project ID**. Put them into this pattern:
+   ```
+   NEXT_PUBLIC_SUPABASE_URL=https://abcdefghijklmnop.supabase.co
+   ```
+4. **`IP_HASH_SALT`** is a made-up password that only the website uses. It helps stop prank orders without storing anyone's real internet address. Type 30 or more random letters and numbers, with no spaces. Mashing the keyboard works:
+   ```
+   IP_HASH_SALT=k29fjq8x7vmb3n1pz6ty4wd5hs0ralcueg
+   ```
+   Don't copy the example above; make up your own. You never need to remember it.
 
 > **Never share or commit `.env.local`.** The secret key can read and change everything in the database. Git already ignores this file.
 
