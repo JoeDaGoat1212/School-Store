@@ -666,6 +666,7 @@ export type Database = {
       dashboard_summary: { Args: Record<PropertyKey, never>; Returns: Json };
       delete_expense: { Args: { p_expense_id: string }; Returns: string };
       delete_old_orders: { Args: Record<PropertyKey, never>; Returns: number };
+      existing_fingerprints: { Args: { p_fingerprints: string[] }; Returns: string[] };
       expire_uncollected_orders: { Args: Record<PropertyKey, never>; Returns: number };
       get_menu: {
         Args: Record<PropertyKey, never>;
@@ -682,9 +683,11 @@ export type Database = {
         }[];
       };
       get_store_info: { Args: Record<PropertyKey, never>; Returns: Json };
+      import_sales: { Args: { p: Json }; Returns: Json };
       inventory_snapshot: { Args: Record<PropertyKey, never>; Returns: Json };
       is_admin: { Args: Record<PropertyKey, never>; Returns: boolean };
       is_open_day: { Args: { d: string }; Returns: boolean };
+      link_item_name: { Args: { p_product_id: string; p_raw_name: string }; Returns: number };
       lookup_order: { Args: { p_last_name: string; p_order_number: number }; Returns: Json };
       next_open_day: { Args: { d: string }; Returns: string };
       place_order: {
@@ -699,6 +702,7 @@ export type Database = {
         };
         Returns: Json;
       };
+      reconcile_pairs: { Args: { p_pairs: Json }; Returns: undefined };
       reconcile_sales_stock: { Args: { p_day: string; p_product_id: string }; Returns: undefined };
       save_expense: { Args: { p: Json }; Returns: string };
       set_order_status: {
@@ -707,6 +711,17 @@ export type Database = {
       };
       store_now_time: { Args: Record<PropertyKey, never>; Returns: string };
       store_today: { Args: Record<PropertyKey, never>; Returns: string };
+      undo_import: { Args: { p_import_id: string }; Returns: undefined };
+      unmatched_item_names: {
+        Args: Record<PropertyKey, never>;
+        Returns: {
+          last_sold: string;
+          lines: number;
+          raw_item_name: string;
+          revenue_cents: number;
+          units: number;
+        }[];
+      };
     };
     Enums: {
       movement_reason:

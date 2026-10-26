@@ -31,6 +31,21 @@ export async function saveProduct(
   }
   const p = parsed.data;
 
+  // 0. Check the InTouchPay names first: each one can belong to only one
+  //    product. Checking before saving anything means a clash changes nothing.
+  if (p.aliases.length > 0) {
+    let clash = supabase.from("product_aliases").select("alias, products(name)").in("alias", p.aliases);
+    if (productId) clash = clash.neq("product_id", productId);
+    const { data: taken } = await clash;
+    if (taken && taken.length > 0) {
+      const list = taken.map((t) => `${t.alias.toUpperCase()} (${t.products?.name ?? "another product"})`).join(", ");
+      return {
+        errors: { aliases: `Already used by another product: ${list}` },
+        message: "Some fields need fixing.",
+      };
+    }
+  }
+
   // 1. Supplier: use the chosen one, or create the one typed in.
   let supplierId: string | null = p.supplier_id && p.supplier_id !== "none" ? p.supplier_id : null;
   if (p.new_supplier) {
@@ -92,13 +107,8 @@ export async function saveProduct(
   if (p.aliases.length > 0) {
     const { error } = await supabase.from("product_aliases").insert(p.aliases.map((alias) => ({ product_id: id, alias })));
     if (error) {
-      const taken = error.code === "23505"; // "unique violation"
       return {
-        errors: {
-          aliases: taken
-            ? "One of these InTouchPay names already belongs to another product."
-            : `Couldn't save the InTouchPay names: ${error.message}`,
-        },
+        errors: { aliases: `Couldn't save the InTouchPay names: ${error.message}` },
         message: "The product was saved, but its InTouchPay names weren't.",
       };
     }
