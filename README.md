@@ -7,7 +7,7 @@ The website for our student-run store.
 
 This site does **not** replace InTouchPay. Every sale, including online orders, is still rung up in InTouchPay at the window. The site imports InTouchPay's export so it can do the math.
 
-> **Build status:** Phases 1–2 of 8 are done: setup, database, admin login, products, the student menu, checkout, and order lookup. See [Build phases](#build-phases).
+> **Build status:** Phases 1–3 of 8 are done: setup, database, admin login, products, the student menu, checkout, order lookup, and the order queue. See [Build phases](#build-phases).
 
 ---
 
@@ -270,7 +270,7 @@ Run `npm run db:types`.
 
 1. ✅ Setup, login, database, sample data
 2. ✅ Products + public menu + ordering
-3. ⬜ Order queue
+3. ✅ Order queue
 4. ⬜ Inventory + expenses
 5. ⬜ Sales import
 6. ⬜ Insights dashboard

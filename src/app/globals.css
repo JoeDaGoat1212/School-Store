@@ -150,6 +150,18 @@
 }
 
 @media print {
-  .no-print { display: none !important; }
+  /* Hide buttons, the sidebar and the top bar when printing staff pages. */
+  .no-print,
+  [data-slot="sidebar-gap"],
+  [data-slot="sidebar-container"] {
+    display: none !important;
+  }
+  :root {
+    --background: #fff;
+    --card: #fff;
+    --foreground: #000;
+    --muted-foreground: #333;
+  }
   body { background: white; }
+  .shadow-soft { box-shadow: none !important; }
 }
