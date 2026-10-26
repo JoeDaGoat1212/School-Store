@@ -102,7 +102,7 @@
   --popover: #1c2027;
   --popover-foreground: #eceef2;
   /* Lighten the school color a bit so it stays readable on dark backgrounds. */
-  --primary: color-mix(in oklab, var(--brand), white 25%);
+  --primary: color-mix(in oklab, var(--brand), white 18%);
   --secondary: #242830;
   --secondary-foreground: #eceef2;
   --muted: #242830;
@@ -114,14 +114,14 @@
   --warning: #f0a83a;
   --border: #2a2f38;
   --input: #363c47;
-  --ring: color-mix(in oklab, var(--brand), white 25%);
+  --ring: color-mix(in oklab, var(--brand), white 18%);
   --sidebar: #14171c;
   --sidebar-foreground: #eceef2;
-  --sidebar-primary: color-mix(in oklab, var(--brand), white 25%);
+  --sidebar-primary: color-mix(in oklab, var(--brand), white 18%);
   --sidebar-accent: #222731;
   --sidebar-accent-foreground: #eceef2;
   --sidebar-border: #2a2f38;
-  --sidebar-ring: color-mix(in oklab, var(--brand), white 25%);
+  --sidebar-ring: color-mix(in oklab, var(--brand), white 18%);
   --shadow-soft: 0 1px 2px rgb(0 0 0 / 0.3), 0 6px 20px -6px rgb(0 0 0 / 0.5);
 }
 
