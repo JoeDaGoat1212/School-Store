@@ -6,10 +6,13 @@ import { toast } from "sonner";
 
 /**
  * Shows a toast after a redirect. A server action redirects to
- * `/some/page?saved=Hot Cheetos` and this shows "Saved Hot Cheetos",
- * then removes `?saved=` from the address bar.
+ * `/some/page?saved=Hot Cheetos`, and
+ *   <FlashToast param="saved" text="Saved {value}" />
+ * shows "Saved Hot Cheetos", then removes `?saved=` from the address bar.
+ *
+ * Wrap it in <Suspense> on the page (it reads the address bar).
  */
-export function FlashToast({ param = "saved", message }: { param?: string; message: (value: string) => string }) {
+export function FlashToast({ param, text }: { param: string; text: string }) {
   const params = useSearchParams();
   const router = useRouter();
   const pathname = usePathname();
@@ -17,11 +20,11 @@ export function FlashToast({ param = "saved", message }: { param?: string; messa
 
   useEffect(() => {
     if (!value) return;
-    toast.success(message(value));
+    toast.success(text.replace("{value}", value));
     const rest = new URLSearchParams(params);
     rest.delete(param);
     router.replace(rest.size ? `${pathname}?${rest}` : pathname, { scroll: false });
-  }, [value, message, param, params, pathname, router]);
+  }, [value, text, param, params, pathname, router]);
 
   return null;
 }

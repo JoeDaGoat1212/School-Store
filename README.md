@@ -7,7 +7,7 @@ The website for our student-run store.
 
 This site does **not** replace InTouchPay. Every sale, including online orders, is still rung up in InTouchPay at the window. The site imports InTouchPay's export so it can do the math.
 
-> **Build status:** Phases 1–3 of 8 are done: setup, database, admin login, products, the student menu, checkout, order lookup, and the order queue. See [Build phases](#build-phases).
+> **Build status:** Phases 1–4 of 8 are done: setup, database, admin login, products, the student menu, checkout, order lookup, the order queue, inventory, and expenses. See [Build phases](#build-phases).
 
 ---
 
@@ -175,8 +175,17 @@ From now on, every push to the `main` branch redeploys the site automatically.
 | Use our school colors or logo | Edit `src/config/brand.ts` |
 | Change pickup windows, cutoff time, closed days, or banner | **Settings** page *(phase 7)*. Until then, edit the `pickup_windows` and `closed_dates` tables in Supabase. |
 | Make a fresh sample InTouchPay file for testing imports | `npm run sample-csv` (writes `sample-data/intouchpay-sample.csv`) |
-| Change the database | Add a **new** file in `supabase/migrations/`. Never edit old ones; they have already run. Then run `npx supabase db push` and `npm run db:types`. |
-| Check for mistakes before pushing | `npm run typecheck` and `npm run lint` |
+| Change the database | Add a **new** file in `supabase/migrations/`. Never edit old ones; they have already run. Then run `npm run db:bundle` and `npm run db:types`, and apply it (see below). |
+| Check for mistakes before pushing | `npm run typecheck`, `npm run lint` and `npm test` |
+
+### Applying a database update
+
+When a new file shows up in `supabase/migrations/` (after a `git pull`), your Supabase database needs it too. Use either method:
+
+- **SQL Editor (works on any Wi-Fi):** open the matching file in `supabase/sql-editor/`, copy all of it, paste it into Supabase → **SQL Editor** → **New query**, and click **Run**. It should end with a message like *Update … is done!* If you see *already run*, you're up to date.
+- **Terminal:** `npx supabase db push --linked`
+
+Run updates in order (they're numbered) and only once each. The SQL Editor files refuse to run twice, so a double-click is safe.
 
 ---
 
@@ -271,7 +280,7 @@ Run `npm run db:types`.
 1. ✅ Setup, login, database, sample data
 2. ✅ Products + public menu + ordering
 3. ✅ Order queue
-4. ⬜ Inventory + expenses
+4. ✅ Inventory + expenses
 5. ⬜ Sales import
 6. ⬜ Insights dashboard
 7. ⬜ Settings + polish

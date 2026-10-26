@@ -664,6 +664,7 @@ export type Database = {
     };
     Functions: {
       dashboard_summary: { Args: Record<PropertyKey, never>; Returns: Json };
+      delete_expense: { Args: { p_expense_id: string }; Returns: string };
       delete_old_orders: { Args: Record<PropertyKey, never>; Returns: number };
       expire_uncollected_orders: { Args: Record<PropertyKey, never>; Returns: number };
       get_menu: {
@@ -681,6 +682,7 @@ export type Database = {
         }[];
       };
       get_store_info: { Args: Record<PropertyKey, never>; Returns: Json };
+      inventory_snapshot: { Args: Record<PropertyKey, never>; Returns: Json };
       is_admin: { Args: Record<PropertyKey, never>; Returns: boolean };
       is_open_day: { Args: { d: string }; Returns: boolean };
       lookup_order: { Args: { p_last_name: string; p_order_number: number }; Returns: Json };
@@ -698,6 +700,7 @@ export type Database = {
         Returns: Json;
       };
       reconcile_sales_stock: { Args: { p_day: string; p_product_id: string }; Returns: undefined };
+      save_expense: { Args: { p: Json }; Returns: string };
       set_order_status: {
         Args: { p_order_id: string; p_status: Database["public"]["Enums"]["order_status"] };
         Returns: undefined;

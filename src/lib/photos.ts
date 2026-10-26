@@ -10,3 +10,6 @@ export function productPhotoUrl(path: string | null | undefined) {
   if (!path) return null;
   return `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/${PHOTO_BUCKET}/${path}`;
 }
+
+/** Receipts live in the PRIVATE "receipts" bucket: only the admin can open them. */
+export const RECEIPT_BUCKET = "receipts";

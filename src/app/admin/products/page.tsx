@@ -2,11 +2,11 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { Suspense } from "react";
 import { PlusIcon } from "lucide-react";
+import { FlashToast } from "@/components/flash-toast";
 import { PageHeader } from "@/components/staff/page-header";
 import { Button } from "@/components/ui/button";
 import { requireAdmin } from "@/lib/auth";
 import { ProductsTable, type ProductRow } from "./products-table";
-import { SavedToast } from "./saved-toast";
 
 export const metadata: Metadata = { title: "Products" };
 
@@ -48,7 +48,7 @@ export default async function ProductsPage() {
   return (
     <>
       <Suspense>
-        <SavedToast />
+        <FlashToast param="saved" text="Saved {value}" />
       </Suspense>
       <PageHeader
         title="Products"

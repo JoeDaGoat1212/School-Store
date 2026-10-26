@@ -7,7 +7,7 @@ import { requireAdmin } from "@/lib/auth";
 import { formatClock, formatDay, storeToday } from "@/lib/format";
 import { OPEN_STATUSES } from "@/lib/order-status";
 import { isIsoDate, loadOrdersForDay, type QueueOrder } from "../load-orders";
-import { PrintButton } from "./print-button";
+import { PrintButton } from "@/components/staff/print-button";
 
 export const metadata: Metadata = { title: "Prep list" };
 
