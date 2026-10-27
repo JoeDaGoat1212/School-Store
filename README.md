@@ -222,6 +222,7 @@ Later, if the store gets its own website domain, a service like Resend or Brevo 
 | Make a fresh sample InTouchPay file for testing imports | `npm run sample-csv` (writes `sample-data/intouchpay-sample.csv`) |
 | Change the database | Add a **new** file in `supabase/migrations/`. Never edit old ones; they have already run. Then run `npm run db:bundle` and `npm run db:types`, and apply it (see below). |
 | Check for mistakes before pushing | `npm run typecheck`, `npm run lint` and `npm test` |
+| Add a new product to the 3D store | Nothing to do: it shows up in the right section by itself (as a plain labelled box). For a real 3D look, upload a straight-on photo on a plain white background and ask for its model to be built (see **The 3D store** below). |
 
 ### Applying a database update
 
@@ -231,6 +232,21 @@ When a new file shows up in `supabase/migrations/` (after a `git pull`), your Su
 - **Terminal:** `npx supabase db push --linked`
 
 Run updates in order (they're numbered) and only once each. The SQL Editor files refuse to run twice, so a double-click is safe.
+
+### The 3D store
+
+The **Enter store** banner on the menu opens a 3D convenience store: the drinks fridge, the snack shelf and the candy
+rack at the counter. **Drinks / Snacks / Candy** fly the camera there; the chips above them pick a section (a fridge door
+or a shelf bay); tapping a product adds one to the cart. Code: `src/components/public/store/`.
+
+- **Which section a product goes in** is decided by its category and name, in `store/catalog.ts` (e.g. Powerade →
+  *Sports drinks*, Twix → *Chocolate*). Hot food goes on the snack shelf. Other categories (like supplies) stay out of the store.
+- **Every shelf is always full**: a section with only a few products repeats them, and each product stands 1–3 rows deep.
+- **3D models** are made from the product photos, not by hand:
+  drinks and cups are their traced outline spun round (`scripts/build-drink-models.py`, `scripts/build-cup-models.py`),
+  bags and bars are the cut-out photo puffed out (`scripts/build-snack-models.py`). Cookies, Cosmic Brownie, Honey Bun
+  and Zebra Cakes had food photos instead of packaging, so their packages were generated once with Higgsfield.
+- **Slower devices** automatically drop the shiny floor and glow, so the store stays smooth.
 
 ---
 

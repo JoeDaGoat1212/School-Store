@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, type CSSProperties } from "react";
+import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { type Deals, shownPrice } from "@/lib/deals";
 import type { MenuItem } from "@/lib/store-data";
 import { cn } from "@/lib/utils";
@@ -11,6 +11,7 @@ import { FeaturedDeal } from "./featured-deal";
 import { ProductCard } from "./product-card";
 import { SHOWCASE_TOP } from "./showcase/drink-showcase";
 import { DrinksExperience } from "./showcase/drinks-experience";
+import { StoreEntrance } from "./store/store-entrance";
 
 const ALL = "All";
 const DEALS = "Deals";
@@ -34,7 +35,7 @@ export function Menu({
   const pillRef = useRef<HTMLSpanElement>(null);
 
   // Work out every product's price and deal labels once.
-  const priced = items.map((item) => ({ item, shown: shownPrice(item, deals.promotions, isMember) }));
+  const priced = useMemo(() => items.map((item) => ({ item, shown: shownPrice(item, deals.promotions, isMember) })), [items, deals.promotions, isMember]);
   const onDeal = (p: (typeof priced)[number]) =>
     p.shown.regular !== null || p.shown.buyGets.length > 0 || p.shown.memberPrice !== null;
   const hasDeals = deals.bundles.length > 0 || priced.some(onDeal);
@@ -79,8 +80,14 @@ export function Menu({
   const immersive = /drink/i.test(category);
   let n = 0; // position in the grid, for the deal-in stagger
 
+  // The Drinks tab is just the 3D fridge (when there are drinks to show).
+  const drinksFridge = /drink/i.test(category) && visible.length > 0;
+
   return (
     <>
+      {/* The way into the 3D store */}
+      <StoreEntrance priced={priced} maxPerOrder={maxPerOrder} />
+
       {featured && category === ALL && (
         <FeaturedDeal
           promo={featured}
@@ -138,13 +145,11 @@ export function Menu({
         </div>
       </nav>
 
-      {/* Drinks get the 3D fridge (then the flavor slider) above their grid. */}
-      {/drink/i.test(category) && visible.length > 0 && (
-        <DrinksExperience drinks={visible} maxPerOrder={maxPerOrder} inCart={quantityInCart} />
-      )}
+      {/* Drinks get the 3D fridge instead of the usual grid of cards. */}
+      {drinksFridge && <DrinksExperience drinks={visible} maxPerOrder={maxPerOrder} inCart={quantityInCart} />}
 
       {/* key={category}: a new grid for each category, so the cards deal in again. */}
-      <div key={category} className="grid grid-cols-2 gap-x-4 gap-y-9 sm:grid-cols-3 lg:grid-cols-4">
+      <div key={category} hidden={drinksFridge} className="grid grid-cols-2 gap-x-4 gap-y-9 sm:grid-cols-3 lg:grid-cols-4">
         {showBundles &&
           deals.bundles.map((b) => (
             <div key={b.id} className="deal-in" style={{ "--i": Math.min(n++, 12) } as CSSProperties}>
