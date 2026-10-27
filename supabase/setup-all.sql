@@ -1545,6 +1545,170 @@ grant  execute on function public.link_item_name(text, uuid)      to authenticat
 grant  execute on function public.unmatched_item_names()          to authenticated;
 grant  execute on function public.existing_fingerprints(text[])   to authenticated;
 
+-- >>>>>>>>>>>>>>>>>>>>>>>> 20261026000008_insights.sql >>>>>>>>>>>>>>>>>>>>>>>>
+-- =============================================================================
+-- School Store — numbers for the Insights page (phase 6)
+-- =============================================================================
+-- insights(from, to, bucket) returns everything the page shows for one date
+-- range, as JSON. `bucket` ('day', 'week' or 'month') sets the size of each
+-- bar in the trend chart.
+--
+-- Where each number comes from:
+--   revenue     imported InTouchPay sales (online orders are included, since
+--               they're rung up at pickup)
+--   spending    shopping trips (expenses)
+--   profit      revenue − spending (cash in minus cash out for the range)
+--   gross profit  per product: revenue − units sold × the product's cost
+--   units paid  stock that left because it was paid for (online pickups +
+--               imported in-person sales), from the stock history
+-- =============================================================================
+
+create or replace function public.insights(p_from date, p_to date, p_bucket text default 'week')
+returns jsonb
+language plpgsql stable security definer
+set search_path = public
+as $$
+declare
+  v_days       int := p_to - p_from + 1;
+  v_prev_from  date := p_from - (p_to - p_from + 1);
+  v_prev_to    date := p_from - 1;
+  v_bucket     text := case when p_bucket in ('day', 'week', 'month') then p_bucket else 'week' end;
+begin
+  if not public.is_admin() then
+    raise exception 'NOT_ALLOWED' using hint = 'Only the store admin can do that.';
+  end if;
+  if p_from is null or p_to is null or p_to < p_from then
+    raise exception 'BAD_RANGE' using hint = 'Choose a start date before the end date.';
+  end if;
+  if v_days > 1100 then
+    raise exception 'BAD_RANGE' using hint = 'Choose a range of three years or less.';
+  end if;
+
+  return jsonb_build_object(
+    'from', p_from,
+    'to', p_to,
+    'bucket', v_bucket,
+
+    -- ---- Headline numbers, this range and the one before it ----
+    'totals', (
+      select jsonb_build_object(
+        'revenue_cents',      (select coalesce(sum(total_cents), 0) from sales_lines where sale_date between p_from and p_to),
+        'spending_cents',     (select coalesce(sum(total_cents), 0) from expenses where purchased_on between p_from and p_to),
+        'gross_profit_cents', (select coalesce(sum(sl.total_cents - sl.quantity * p.unit_cost_cents), 0)
+                               from sales_lines sl join products p on p.id = sl.product_id
+                               where sl.sale_date between p_from and p_to),
+        'transactions',       (select count(distinct coalesce(transaction_ref, id::text)) from sales_lines where sale_date between p_from and p_to),
+        'units_sold',         (select coalesce(sum(quantity), 0) from sales_lines where sale_date between p_from and p_to),
+        'online_orders',      (select count(distinct source_id) from stock_movements
+                               where reason = 'online_pickup' and effective_date between p_from and p_to),
+        'last_sale_date',     (select max(sale_date) from sales_lines)
+      )
+    ),
+    'previous', (
+      select jsonb_build_object(
+        'from', v_prev_from,
+        'to', v_prev_to,
+        'revenue_cents',  (select coalesce(sum(total_cents), 0) from sales_lines where sale_date between v_prev_from and v_prev_to),
+        'spending_cents', (select coalesce(sum(total_cents), 0) from expenses where purchased_on between v_prev_from and v_prev_to),
+        'gross_profit_cents', (select coalesce(sum(sl.total_cents - sl.quantity * p.unit_cost_cents), 0)
+                               from sales_lines sl join products p on p.id = sl.product_id
+                               where sl.sale_date between v_prev_from and v_prev_to),
+        'units_sold',     (select coalesce(sum(quantity), 0) from sales_lines where sale_date between v_prev_from and v_prev_to)
+      )
+    ),
+
+    -- ---- Trend: one row per day / week / month ----
+    'series', (
+      select coalesce(jsonb_agg(jsonb_build_object(
+               'start', b.start,
+               'revenue_cents', coalesce(r.cents, 0),
+               'spending_cents', coalesce(e.cents, 0)) order by b.start), '[]'::jsonb)
+      from (
+        -- A bar never starts before the range (e.g. October's first week starts Oct 1).
+        select distinct greatest(date_trunc(v_bucket, d)::date, p_from) as start
+        from generate_series(p_from, p_to, interval '1 day') d
+      ) b
+      left join (
+        select greatest(date_trunc(v_bucket, sale_date)::date, p_from) as start, sum(total_cents) as cents
+        from sales_lines where sale_date between p_from and p_to group by 1
+      ) r on r.start = b.start
+      left join (
+        select greatest(date_trunc(v_bucket, purchased_on)::date, p_from) as start, sum(total_cents) as cents
+        from expenses where purchased_on between p_from and p_to group by 1
+      ) e on e.start = b.start
+    ),
+
+    -- ---- How people paid ----
+    'payments', (
+      select coalesce(jsonb_object_agg(payment_type, cents), '{}'::jsonb)
+      from (select payment_type, sum(total_cents) as cents from sales_lines
+            where sale_date between p_from and p_to group by 1) t
+    ),
+
+    -- ---- Online vs in person, in units paid for ----
+    'channels', (
+      select jsonb_build_object(
+        'online_units',  coalesce(-sum(change) filter (where reason in ('online_pickup', 'online_pickup_undo')), 0),
+        'total_units',   coalesce(-sum(change), 0)
+      )
+      from stock_movements
+      where reason in ('online_pickup', 'online_pickup_undo', 'sale_import')
+        and effective_date between p_from and p_to
+    ),
+
+    -- ---- Spending by store ----
+    'suppliers', (
+      select coalesce(jsonb_agg(jsonb_build_object('name', name, 'cents', cents, 'trips', trips) order by cents desc), '[]'::jsonb)
+      from (
+        select coalesce(s.name, 'No store') as name, sum(e.total_cents) as cents, count(*) as trips
+        from expenses e left join suppliers s on s.id = e.supplier_id
+        where e.purchased_on between p_from and p_to
+        group by 1
+      ) t
+    ),
+
+    -- ---- Every product: units, revenue, margin, sell-through ----
+    'products', (
+      select coalesce(jsonb_agg(row_to_json(t) order by t.revenue_cents desc, t.name), '[]'::jsonb)
+      from (
+        select
+          p.id, p.name, p.category, p.emoji, p.archived,
+          p.price_cents, p.unit_cost_cents, p.stock,
+          coalesce(s.units, 0)::int as units,
+          coalesce(s.revenue, 0)::int as revenue_cents,
+          (coalesce(s.revenue, 0) - coalesce(s.units, 0) * p.unit_cost_cents)::int as gross_profit_cents,
+          -- Stock before the range, plus what was bought during it = what was available to sell.
+          coalesce((select sum(change) from stock_movements m
+                    where m.product_id = p.id and m.effective_date < p_from), 0)::int as start_stock,
+          coalesce((select sum(change) from stock_movements m
+                    where m.product_id = p.id and m.reason = 'restock'
+                      and m.effective_date between p_from and p_to), 0)::int as restocked,
+          coalesce((select -sum(change) from stock_movements m
+                    where m.product_id = p.id
+                      and m.reason in ('sale_import', 'online_pickup', 'online_pickup_undo')
+                      and m.effective_date between p_from and p_to), 0)::int as units_paid
+        from products p
+        left join (
+          select product_id, sum(quantity) as units, sum(total_cents) as revenue
+          from sales_lines where sale_date between p_from and p_to and product_id is not null
+          group by product_id
+        ) s on s.product_id = p.id
+        where not p.archived or s.units is not null
+      ) t
+    ),
+
+    -- Sales that aren't linked to a product (they count in revenue only).
+    'unmatched_revenue_cents', (
+      select coalesce(sum(total_cents), 0) from sales_lines
+      where sale_date between p_from and p_to and product_id is null
+    )
+  );
+end;
+$$;
+
+revoke execute on function public.insights(date, date, text) from public, anon;
+grant  execute on function public.insights(date, date, text) to authenticated;
+
 -- >>>>>>>>>>>>>>>>>>>>>>>> seed.sql (sample data) >>>>>>>>>>>>>>>>>>>>>>>>
 -- =============================================================================
 -- School Store — sample data for testing
@@ -1900,7 +2064,8 @@ insert into supabase_migrations.schema_migrations (version, name) values
   ('20261026000004', 'scheduled_jobs'),
   ('20261026000005', 'dashboard'),
   ('20261026000006', 'inventory_expenses'),
-  ('20261026000007', 'sales_import')
+  ('20261026000007', 'sales_import'),
+  ('20261026000008', 'insights')
 on conflict (version) do nothing;
 
 -- Tell the API about the new tables and functions right away.

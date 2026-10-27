@@ -77,8 +77,10 @@
   --ring: var(--brand);
   --sticker: var(--brand-accent);
   --sticker-foreground: var(--brand-accent-foreground);
+  /* Chart series colors, checked for color-blind safety (dataviz validator).
+     If you change the brand color, re-check revenue vs spending stay distinct. */
   --chart-1: var(--brand);
-  --chart-2: #e8a317;
+  --chart-2: #c78a00;
   --chart-3: #15804f;
   --chart-4: #8a5cf5;
   --chart-5: #d13438;
@@ -115,6 +117,8 @@
   --border: #2a2f38;
   --input: #363c47;
   --ring: color-mix(in oklab, var(--brand), white 18%);
+  --chart-1: color-mix(in oklab, var(--brand), white 30%);
+  --chart-2: #b98200;
   --sidebar: #14171c;
   --sidebar-foreground: #eceef2;
   --sidebar-primary: color-mix(in oklab, var(--brand), white 18%);

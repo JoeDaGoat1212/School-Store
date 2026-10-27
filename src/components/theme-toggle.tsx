@@ -15,7 +15,9 @@ export function ThemeToggle({ className }: { className?: string }) {
       size="icon"
       className={className}
       onClick={() => setTheme(isDark ? "light" : "dark")}
-      aria-label={isDark ? "Switch to light mode" : "Switch to dark mode"}
+      // One fixed label: the server can't know the visitor's theme, and a
+      // label that changes after loading causes a "hydration" warning.
+      aria-label="Switch between light and dark mode"
     >
       {/* Both icons render; CSS shows the right one, so there's no flash on load. */}
       <SunIcon className="hidden dark:block" />

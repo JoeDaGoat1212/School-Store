@@ -684,6 +684,7 @@ export type Database = {
       };
       get_store_info: { Args: Record<PropertyKey, never>; Returns: Json };
       import_sales: { Args: { p: Json }; Returns: Json };
+      insights: { Args: { p_bucket?: string; p_from: string; p_to: string }; Returns: Json };
       inventory_snapshot: { Args: Record<PropertyKey, never>; Returns: Json };
       is_admin: { Args: Record<PropertyKey, never>; Returns: boolean };
       is_open_day: { Args: { d: string }; Returns: boolean };
