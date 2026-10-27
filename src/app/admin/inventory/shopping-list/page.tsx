@@ -52,7 +52,7 @@ export default async function ShoppingListPage() {
 
       {/* How often to shop */}
       <section className="mt-6 flex gap-4 rounded-2xl border bg-card p-5 shadow-soft print:border-black">
-        <span className="grid size-11 shrink-0 place-items-center rounded-xl bg-primary/10 text-primary">
+        <span className="grid size-11 shrink-0 place-items-center rounded-xl bg-primary/10 text-ember-ink">
           <CalendarClockIcon className="size-5" />
         </span>
         <div>

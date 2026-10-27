@@ -1,8 +1,8 @@
-# School Store
+# Firebirds Nest (school store website)
 
 The website for our student-run store.
 
-- **Students** scan a QR code, browse the menu, and place an order to **pay at pickup** (cash or debit). They get an order number like `SS-0042`.
+- **Students** scan a QR code, browse the menu, and place an order to **pay at pickup** (cash or debit). They get an order number like `FN-0042`.
 - **The admin** logs in to run the order queue, import sales from InTouchPay, log shopping trips, track inventory, and see profit.
 
 This site does **not** replace InTouchPay. Every sale, including online orders, is still rung up in InTouchPay at the window. The site imports InTouchPay's export so it can do the math.
@@ -245,7 +245,7 @@ The site never counts online orders as revenue. Revenue arrives through the InTo
 - Students can't read any table directly. They can only call four database functions: get the menu, get store info, look up an order (needs the number **and** last name), and place an order (through the website's server only).
 - Row Level Security blocks everything else unless you're the admin.
 - Orders older than 90 days are deleted automatically every night. The number is a setting.
-- Order numbers are counted up (`SS-0001`, `SS-0002`…) and contain no personal information.
+- Order numbers are counted up (`FN-0001`, `FN-0002`…) and contain no personal information.
 
 ### Nightly jobs
 Two jobs run inside the database every night (Arizona time):

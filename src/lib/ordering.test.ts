@@ -48,8 +48,9 @@ describe("pickupDays", () => {
 
 describe("order numbers", () => {
   it("formats and parses", () => {
-    expect(formatOrderNumber(42)).toBe("SS-0042");
-    expect(parseOrderNumber("ss-0042")).toBe(42);
+    expect(formatOrderNumber(42)).toBe("FN-0042");
+    expect(parseOrderNumber("fn-0042")).toBe(42);
+    expect(parseOrderNumber("SS-0042")).toBe(42); // tickets from before the rename
     expect(parseOrderNumber(" #42 ")).toBe(42);
     expect(parseOrderNumber("abc")).toBeNull();
   });

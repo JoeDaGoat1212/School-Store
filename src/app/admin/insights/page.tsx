@@ -56,7 +56,7 @@ export default async function InsightsPage(props: PageProps<"/admin/insights">) 
           {t.last_sale_date ? (
             <>
               Sales imported through {formatDay(t.last_sale_date)}.{" "}
-              <Link href="/admin/imports" className="font-medium text-primary underline-offset-4 hover:underline">
+              <Link href="/admin/imports" className="font-medium text-ember-ink underline-offset-4 hover:underline">
                 Import newer sales
               </Link>
             </>

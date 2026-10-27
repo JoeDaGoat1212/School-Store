@@ -1,13 +1,13 @@
 import { productPhotoUrl } from "@/lib/photos";
 import { cn } from "@/lib/utils";
 
-// Soft background tints for products without a photo, picked by category so
-// the menu still looks colorful before real photos are added.
+// Soft orange and teal tints for products without a photo, picked by
+// category so the menu still looks on-brand before real photos are added.
 const CATEGORY_TINTS: Record<string, string> = {
-  Snacks: "bg-[#fff1d6] dark:bg-[#3a2f17]",
-  Drinks: "bg-[#dff1ff] dark:bg-[#15303f]",
-  "Hot food": "bg-[#ffe3dc] dark:bg-[#3d211b]",
-  Supplies: "bg-[#e8e6ff] dark:bg-[#26233f]",
+  Snacks: "bg-[#ffe7d9] dark:bg-[#33190d]",
+  Drinks: "bg-[#d6f1ef] dark:bg-[#0c2b2a]",
+  "Hot food": "bg-[#ffdcc9] dark:bg-[#3a1a0c]",
+  Supplies: "bg-[#e6eeed] dark:bg-[#18201f]",
 };
 const DEFAULT_TINT = "bg-muted";
 

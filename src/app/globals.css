@@ -13,6 +13,9 @@
   --color-warning: var(--warning);
   --color-sticker: var(--sticker);
   --color-sticker-foreground: var(--sticker-foreground);
+  --color-ember-ink: var(--ember-ink);
+  --color-teal-ink: var(--teal-ink);
+  --color-teal: var(--brand-accent);
   --shadow-soft: var(--shadow-soft);
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
@@ -53,80 +56,84 @@
 }
 
 :root {
-  /* --brand* values are injected from src/config/brand.ts (see app/layout.tsx).
-     Everything else is the neutral UI palette. */
-  --background: #f5f6f8;
-  --foreground: #15171c;
+  /* --brand* values are injected from src/config/brand.ts (see app/layout.tsx):
+     orange, teal and black. Everything else is built around them. */
+  --background: #ffffff;
+  --foreground: #000000;
   --card: #ffffff;
-  --card-foreground: #15171c;
+  --card-foreground: #000000;
   --popover: #ffffff;
-  --popover-foreground: #15171c;
+  --popover-foreground: #000000;
   --primary: var(--brand);
   --primary-foreground: var(--brand-foreground);
-  --secondary: #eceef2;
-  --secondary-foreground: #15171c;
-  --muted: #eceef2;
-  --muted-foreground: #5b6170;
-  --accent: #eceef2;
-  --accent-foreground: #15171c;
-  --destructive: #d13438;
-  --success: #15804f;
-  --warning: #a35f00;
-  --border: #e1e4ea;
-  --input: #d3d7df;
+  --secondary: #edf2f1;
+  --secondary-foreground: #000000;
+  --muted: #edf2f1;
+  --muted-foreground: #4d5b5a;
+  --accent: #edf2f1;
+  --accent-foreground: #000000;
+  --destructive: #c8261d;
+  --success: #0b7a4b;
+  --warning: #9a5a00;
+  --border: #dbe3e2;
+  --input: #c6d1d0;
   --ring: var(--brand);
   --sticker: var(--brand-accent);
   --sticker-foreground: var(--brand-accent-foreground);
+  /* Orange and teal that are dark enough to use for text on white. */
+  --ember-ink: #c2410c;
+  --teal-ink: var(--brand-accent-deep);
   /* Chart series colors, checked for color-blind safety (dataviz validator).
-     If you change the brand color, re-check revenue vs spending stay distinct. */
+     Revenue = orange, spending = teal. Re-check if you change the brand colors. */
   --chart-1: var(--brand);
-  --chart-2: #c78a00;
-  --chart-3: #15804f;
+  --chart-2: #009690;
+  --chart-3: #0b7a4b;
   --chart-4: #8a5cf5;
-  --chart-5: #d13438;
-  --radius: 0.875rem;
+  --chart-5: #c8261d;
+  --radius: 0.75rem;
   --sidebar: #ffffff;
-  --sidebar-foreground: #15171c;
+  --sidebar-foreground: #000000;
   --sidebar-primary: var(--brand);
   --sidebar-primary-foreground: var(--brand-foreground);
-  --sidebar-accent: #eef1f8;
-  --sidebar-accent-foreground: #15171c;
-  --sidebar-border: #e1e4ea;
+  --sidebar-accent: #edf2f1;
+  --sidebar-accent-foreground: #000000;
+  --sidebar-border: #dbe3e2;
   --sidebar-ring: var(--brand);
-  --shadow-soft: 0 1px 2px rgb(21 23 28 / 0.04), 0 4px 16px -4px rgb(21 23 28 / 0.08);
+  --shadow-soft: 0 1px 2px rgb(0 0 0 / 0.05), 0 6px 18px -6px rgb(0 40 40 / 0.12);
 }
 
 .dark {
-  --background: #101216;
-  --foreground: #eceef2;
-  --card: #181b21;
-  --card-foreground: #eceef2;
-  --popover: #1c2027;
-  --popover-foreground: #eceef2;
-  /* Lighten the school color a bit so it stays readable on dark backgrounds. */
-  --primary: color-mix(in oklab, var(--brand), white 18%);
-  --secondary: #242830;
-  --secondary-foreground: #eceef2;
-  --muted: #242830;
-  --muted-foreground: #a0a7b4;
-  --accent: #242830;
-  --accent-foreground: #eceef2;
-  --destructive: #f2555a;
+  --background: #000000;
+  --foreground: #ffffff;
+  --card: #0f1414;
+  --card-foreground: #ffffff;
+  --popover: #141b1b;
+  --popover-foreground: #ffffff;
+  --primary: var(--brand);
+  --secondary: #1a2222;
+  --secondary-foreground: #ffffff;
+  --muted: #1a2222;
+  --muted-foreground: #a3b4b2;
+  --accent: #1a2222;
+  --accent-foreground: #ffffff;
+  --destructive: #ff6b5e;
   --success: #3cc68a;
   --warning: #f0a83a;
-  --border: #2a2f38;
-  --input: #363c47;
-  --ring: color-mix(in oklab, var(--brand), white 18%);
-  --chart-1: color-mix(in oklab, var(--brand), white 30%);
-  --chart-2: #b98200;
-  --sidebar: #14171c;
-  --sidebar-foreground: #eceef2;
-  --sidebar-primary: color-mix(in oklab, var(--brand), white 18%);
-  --sidebar-accent: #222731;
-  --sidebar-accent-foreground: #eceef2;
-  --sidebar-border: #2a2f38;
-  --sidebar-ring: color-mix(in oklab, var(--brand), white 18%);
-  --shadow-soft: 0 1px 2px rgb(0 0 0 / 0.3), 0 6px 20px -6px rgb(0 0 0 / 0.5);
+  --border: #243030;
+  --input: #2f3d3d;
+  --ring: var(--brand);
+  --ember-ink: #ff7a45;
+  --teal-ink: var(--brand-accent);
+  --chart-1: #f0541a;
+  --chart-2: var(--brand-accent);
+  --sidebar: #0a0f0f;
+  --sidebar-foreground: #ffffff;
+  --sidebar-primary: var(--brand);
+  --sidebar-accent: #1a2222;
+  --sidebar-accent-foreground: #ffffff;
+  --sidebar-border: #243030;
+  --sidebar-ring: var(--brand);
+  --shadow-soft: 0 1px 2px rgb(0 0 0 / 0.4), 0 6px 20px -6px rgb(0 0 0 / 0.6);
 }
 
 @layer base {
@@ -143,11 +150,119 @@
     @apply font-sans;
   }
 }
+/* ---------------------------------------------------------------------------
+   Storefront motion. Everything here is switched off by the "reduce motion"
+   rule below (animations jump straight to their last frame).
+   --------------------------------------------------------------------------- */
+
+/* The wordmark "catches fire": each letter rises in, then the orange creeps
+   up from the bottom of the letters and keeps flickering slowly. */
+.burn-letter {
+  display: inline-block;
+  color: transparent;
+  background-image: linear-gradient(
+    0deg,
+    var(--brand) 0%,
+    #ff8a3d 16%,
+    #ffc58f 30%,
+    #ffffff 44%,
+    #ffffff 100%
+  );
+  background-size: 100% 240%;
+  background-position: 50% 0%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  animation:
+    letter-rise 700ms cubic-bezier(0.2, 0.8, 0.2, 1) both,
+    ignite 1400ms cubic-bezier(0.3, 0.7, 0.3, 1) both,
+    flicker 3.2s ease-in-out infinite alternate;
+  /* --i is the letter's position, set inline: letters go one after another. */
+  animation-delay:
+    calc(var(--i) * 45ms),
+    calc(500ms + var(--i) * 45ms),
+    calc(1900ms + var(--i) * 140ms);
+}
+@keyframes letter-rise {
+  from { transform: translateY(0.35em) scaleY(0.85); opacity: 0; }
+  to { transform: none; opacity: 1; }
+}
+@keyframes ignite {
+  from { background-position: 50% 0%; }
+  to { background-position: 50% 86%; }
+}
+@keyframes flicker {
+  0% { background-position: 50% 86%; }
+  35% { background-position: 50% 78%; }
+  70% { background-position: 50% 92%; }
+  100% { background-position: 50% 81%; }
+}
+
+/* A slow orange glow along the bottom of the hero, like coals. */
+.coal-glow {
+  background: radial-gradient(60% 100% at 30% 100%, rgb(255 90 31 / 0.38), transparent 70%),
+    radial-gradient(40% 80% at 85% 100%, rgb(19 168 160 / 0.22), transparent 70%);
+  animation: coal 6s ease-in-out infinite alternate;
+}
+@keyframes coal {
+  from { opacity: 0.7; }
+  to { opacity: 1; }
+}
+
+/* The teal info strip that scrolls sideways. The content is doubled, so
+   moving it left by half loops seamlessly. */
+.ticker-track {
+  animation: ticker 38s linear infinite;
+}
+.ticker:hover .ticker-track {
+  animation-play-state: paused;
+}
+@keyframes ticker {
+  to { transform: translateX(-50%); }
+}
+
+/* Sparks that fly out of the Add button. */
+.spark {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 7px;
+  height: 7px;
+  margin: -3.5px;
+  border-radius: 9999px;
+  pointer-events: none;
+  animation: spark 620ms cubic-bezier(0.1, 0.7, 0.3, 1) forwards;
+}
+@keyframes spark {
+  0% { transform: rotate(var(--a)) translateY(0) scale(1); opacity: 1; }
+  100% { transform: rotate(var(--a)) translateY(calc(var(--d) * -1)) scale(0.2); opacity: 0; }
+}
+
+/* The cart count gives a little hop when it changes. */
+.hop {
+  animation: hop 420ms cubic-bezier(0.3, 1.6, 0.5, 1);
+}
+@keyframes hop {
+  0% { transform: scale(0.4); }
+  60% { transform: scale(1.25); }
+  100% { transform: scale(1); }
+}
+
+/* Products fade up one after another when the menu (or a category) loads. */
+.deal-in {
+  animation: deal-in 480ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  animation-delay: calc(var(--i, 0) * 40ms);
+}
+@keyframes deal-in {
+  from { opacity: 0; transform: translateY(14px); }
+  to { opacity: 1; transform: none; }
+}
+
 /* Respect "reduce motion" in the operating system. */
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
+    animation-delay: 0s !important;
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
   }

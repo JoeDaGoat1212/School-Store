@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { Bricolage_Grotesque, Figtree } from "next/font/google";
+import { Archivo, Big_Shoulders } from "next/font/google";
 import type { CSSProperties } from "react";
 import { ThemeProvider } from "next-themes";
 import { Toaster } from "@/components/ui/sonner";
@@ -7,14 +7,19 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { brand } from "@/config/brand";
 import "./globals.css";
 
-// Display font: headings, prices and order numbers.
-const display = Bricolage_Grotesque({
+// Display font: the wordmark, headings, prices and order numbers.
+// Big Shoulders is a tall, condensed face in the spirit of team jerseys and
+// scoreboards — it suits a store named after the school mascot.
+const display = Big_Shoulders({
   variable: "--font-display",
   subsets: ["latin"],
+  // Next can't auto-size a fallback for this font, so name close matches.
+  adjustFontFallback: false,
+  fallback: ["Impact", "Arial Narrow", "sans-serif"],
 });
 
-// Body font: everything else.
-const body = Figtree({
+// Body font: everything else. Archivo is a sturdy, very readable sans.
+const body = Archivo({
   variable: "--font-body",
   subsets: ["latin"],
 });
@@ -25,16 +30,17 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: brand.colors.primary,
+  themeColor: brand.colors.ink,
 };
 
-// School colors from src/config/brand.ts, turned into CSS variables that
+// Store colors from src/config/brand.ts, turned into CSS variables that
 // globals.css uses for buttons, stickers, focus rings, etc.
 const brandColors = {
   "--brand": brand.colors.primary,
   "--brand-foreground": brand.colors.primaryText,
   "--brand-accent": brand.colors.accent,
   "--brand-accent-foreground": brand.colors.accentText,
+  "--brand-accent-deep": brand.colors.accentDeep,
 } as CSSProperties;
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

@@ -14,7 +14,11 @@ export function CartButton() {
       <Link href="/cart" aria-label={count ? `Cart, ${count} item${count === 1 ? "" : "s"}` : "Cart, empty"}>
         <ShoppingBagIcon />
         {count > 0 && (
-          <span className="absolute -top-0.5 -right-0.5 grid min-w-5 place-items-center rounded-full bg-sticker px-1 text-[0.7rem] leading-5 font-bold text-sticker-foreground ring-2 ring-background">
+          // key={count}: a new element each time the number changes, so the hop plays again.
+          <span
+            key={count}
+            className="hop absolute -top-0.5 -right-0.5 grid min-w-5 place-items-center rounded-full bg-primary px-1 text-[0.7rem] leading-5 font-bold text-primary-foreground ring-2 ring-black"
+          >
             {count}
           </span>
         )}

@@ -24,7 +24,7 @@ export default async function OrderPage(props: PageProps<"/order/[number]">) {
   if (!lastName) {
     return (
       <div className="mx-auto max-w-md">
-        <h1 className="font-heading text-3xl font-extrabold tracking-tight">Order {formatOrderNumber(number)}</h1>
+        <h1 className="font-heading text-5xl leading-[0.95] font-extrabold">Order {formatOrderNumber(number)}</h1>
         <p className="mt-2 mb-6 text-muted-foreground">Enter the last name on the order to see it.</p>
         <LookupForm initialNumber={formatOrderNumber(number)} />
       </div>
@@ -45,7 +45,7 @@ export default async function OrderPage(props: PageProps<"/order/[number]">) {
       <OrderLive clearCart={isNew === "1"} refreshEvery={stillOpen ? 30 : undefined} />
 
       <div className="mb-6 text-center">
-        <h1 className="font-heading text-3xl font-extrabold tracking-tight">
+        <h1 className="font-heading text-5xl leading-[0.95] font-extrabold">
           {isNew === "1" ? "Order placed!" : "Your order"}
         </h1>
         <p className="mt-1.5 text-muted-foreground">
@@ -57,7 +57,7 @@ export default async function OrderPage(props: PageProps<"/order/[number]">) {
         </p>
       </div>
 
-      <OrderTicket order={order} today={info.today} pickupLocation={info.pickup_location} />
+      <OrderTicket order={order} today={info.today} pickupLocation={info.pickup_location} fresh={isNew === "1"} />
 
       <div className="mt-6 grid gap-2">
         <Button asChild variant="outline" size="xl">

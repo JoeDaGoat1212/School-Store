@@ -25,10 +25,13 @@ export function OrderTicket({
   order,
   today,
   pickupLocation,
+  fresh = false,
 }: {
   order: LookedUpOrder;
   today: string;
   pickupLocation: string;
+  /** True right after ordering: the ticket "prints" in. */
+  fresh?: boolean;
 }) {
   const stepIndex = STEPS.indexOf(order.status);
   const closed = stepIndex === -1; // canceled, no-show, expired
@@ -36,7 +39,10 @@ export function OrderTicket({
   return (
     <article
       aria-label={`Order ${formatOrderNumber(order.order_number)}`}
-      className="relative mx-auto max-w-md overflow-hidden rounded-3xl bg-card shadow-soft ring-1 ring-border"
+      className={cn(
+        "relative mx-auto max-w-md overflow-hidden rounded-3xl bg-card shadow-soft ring-1 ring-border",
+        fresh && "animate-in duration-700 ease-out fade-in slide-in-from-top-10",
+      )}
     >
       {/* Top: the number */}
       <div className="bg-sticker px-6 pt-6 pb-8 text-sticker-foreground">
@@ -45,7 +51,7 @@ export function OrderTicket({
           {brand.name}
         </div>
         <p className="mt-5 text-sm font-medium opacity-75">Order number</p>
-        <p className="font-heading text-6xl leading-none font-extrabold tracking-tight tabular-nums sm:text-7xl">
+        <p className="font-heading text-7xl leading-none font-extrabold tabular-nums sm:text-8xl">
           {formatOrderNumber(order.order_number)}
         </p>
       </div>
@@ -121,7 +127,7 @@ export function OrderTicket({
 
         <div className="flex items-baseline justify-between border-t pt-4">
           <span className="font-semibold">{order.status === "picked_up" ? "Paid" : "Due at pickup"}</span>
-          <span className="font-heading text-3xl font-bold tabular-nums">{formatCents(order.total_cents)}</span>
+          <span className="font-heading text-4xl leading-none font-extrabold tabular-nums">{formatCents(order.total_cents)}</span>
         </div>
         {order.status !== "picked_up" && !closed && (
           <p className="-mt-3 text-sm text-muted-foreground">Cash or debit. Say your order number at the window.</p>

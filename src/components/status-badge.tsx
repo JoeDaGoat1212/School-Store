@@ -2,7 +2,7 @@ import { cn } from "@/lib/utils";
 import { ORDER_STATUS, type OrderStatus } from "@/lib/order-status";
 
 const TONES = {
-  info: "bg-primary/10 text-primary ring-primary/20",
+  info: "bg-primary/10 text-ember-ink ring-primary/20",
   warning: "bg-warning/12 text-warning ring-warning/25",
   success: "bg-success/12 text-success ring-success/25",
   neutral: "bg-muted text-muted-foreground ring-border",

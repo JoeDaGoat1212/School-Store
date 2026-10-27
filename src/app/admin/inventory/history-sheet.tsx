@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { Loader2Icon } from "lucide-react";
+import { brand } from "@/config/brand";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { formatDay } from "@/lib/format";
 import { cn } from "@/lib/utils";
@@ -74,7 +75,7 @@ export function HistorySheet({
                 </span>
                 <span className="min-w-0 flex-1">
                   <span className="block font-medium">{REASON_LABEL[r.reason] ?? r.reason}</span>
-                  {r.note && <span className="block text-muted-foreground">{r.note}</span>}
+                  {r.note && <span className="block text-muted-foreground">{withOrderPrefix(r.note)}</span>}
                 </span>
                 <span className="shrink-0 text-xs text-muted-foreground">{formatDay(r.effective_date)}</span>
               </li>
@@ -84,4 +85,12 @@ export function HistorySheet({
       </SheetContent>
     </Sheet>
   );
+}
+
+/**
+ * The database writes notes like "Online order SS-0042 picked up" (SS was the
+ * original prefix). Show them with the current prefix from brand.ts instead.
+ */
+function withOrderPrefix(note: string) {
+  return note.replace(/\bSS-(\d{4,})/g, `${brand.orderPrefix}-$1`);
 }

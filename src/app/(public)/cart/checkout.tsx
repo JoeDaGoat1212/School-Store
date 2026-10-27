@@ -76,7 +76,7 @@ export function Checkout({
         <span className="mx-auto mb-5 grid size-16 place-items-center rounded-full bg-muted">
           <ShoppingBagIcon className="size-7 text-muted-foreground" />
         </span>
-        <h1 className="font-heading text-2xl font-bold">Your cart is empty</h1>
+        <h1 className="font-heading text-4xl font-extrabold">Your cart is empty</h1>
         <p className="mt-2 text-muted-foreground">Add a snack or two from the menu, then come back here to order.</p>
         <Button asChild size="xl" className="mt-6">
           <Link href="/">Browse the menu</Link>
@@ -87,7 +87,7 @@ export function Checkout({
 
   return (
     <div className="mx-auto max-w-xl">
-      <h1 className="font-heading text-3xl font-extrabold tracking-tight">Your order</h1>
+      <h1 className="font-heading text-5xl leading-[0.95] font-extrabold">Your order</h1>
 
       {/* ---- Items ------------------------------------------------------- */}
       <ul className="mt-5 divide-y rounded-2xl border bg-card px-4 shadow-soft">
@@ -135,13 +135,13 @@ export function Checkout({
         ))}
         <li className="flex items-baseline justify-between py-4">
           <span className="font-semibold">Total</span>
-          <span className="font-heading text-2xl font-bold tabular-nums">{formatCents(total)}</span>
+          <span className="font-heading text-3xl leading-none font-extrabold tabular-nums">{formatCents(total)}</span>
         </li>
       </ul>
       {count > maxItems && (
         <p className="mt-2 text-sm font-medium text-destructive">Orders are limited to {maxItems} items.</p>
       )}
-      <Link href="/" className="mt-3 inline-block text-sm font-medium text-primary underline-offset-4 hover:underline">
+      <Link href="/" className="mt-3 inline-block text-sm font-semibold text-ember-ink underline-offset-4 hover:underline">
         + Add more items
       </Link>
 
@@ -159,7 +159,7 @@ export function Checkout({
           />
 
           <fieldset className="grid gap-4">
-            <legend className="mb-3 font-heading text-lg font-bold">Who&apos;s picking it up?</legend>
+            <legend className="mb-3 font-heading text-2xl font-extrabold">Who&apos;s picking it up?</legend>
             <div className="grid grid-cols-2 gap-3">
               <TextField
                 id="first_name"
@@ -188,7 +188,7 @@ export function Checkout({
           </fieldset>
 
           <fieldset className="grid gap-4">
-            <legend className="mb-3 font-heading text-lg font-bold">When?</legend>
+            <legend className="mb-3 font-heading text-2xl font-extrabold">When?</legend>
 
             <ChoiceGroup label="Pickup day" error={errors.pickup_date}>
               {days.map((d) => (
@@ -250,7 +250,7 @@ export function Checkout({
 
           <Button type="submit" size="xl" className="h-14 text-lg" disabled={placing || hasProblems}>
             {placing ? <Loader2Icon className="animate-spin" /> : null}
-            {placing ? "Placing order…" : `Place order · ${formatCents(total)}`}
+            {placing ? "Placing order…" : `Place order for ${formatCents(total)}`}
           </Button>
           {hasProblems && (
             <p className="-mt-4 text-center text-sm text-muted-foreground">Fix the items marked in red to continue.</p>

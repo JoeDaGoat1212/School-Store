@@ -20,7 +20,7 @@ export default async function LoginPage(props: PageProps<"/login">) {
         <div className="mb-8 flex flex-col items-center gap-4 text-center">
           <BrandMark size={52} />
           <div>
-            <h1 className="font-heading text-2xl font-bold tracking-tight">Staff login</h1>
+            <h1 className="font-heading text-4xl leading-none font-extrabold">Staff login</h1>
             <p className="mt-1 text-sm text-muted-foreground">{brand.name} dashboard</p>
           </div>
         </div>
@@ -31,7 +31,7 @@ export default async function LoginPage(props: PageProps<"/login">) {
 
         <p className="mt-6 text-center text-sm text-muted-foreground">
           Looking for snacks?{" "}
-          <Link href="/" className="font-medium text-primary underline-offset-4 hover:underline">
+          <Link href="/" className="font-medium text-ember-ink underline-offset-4 hover:underline">
             Go to the menu
           </Link>
         </p>

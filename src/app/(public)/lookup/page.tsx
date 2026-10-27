@@ -12,7 +12,7 @@ export default async function LookupPage() {
 
   return (
     <div className="mx-auto max-w-md">
-      <h1 className="font-heading text-3xl font-extrabold tracking-tight">Find my order</h1>
+      <h1 className="font-heading text-5xl leading-[0.95] font-extrabold">Find my order</h1>
       <p className="mt-2 mb-6 text-muted-foreground">Check whether your order is ready for pickup.</p>
 
       {recent.length > 0 && (

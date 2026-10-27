@@ -117,7 +117,7 @@ export default async function DashboardPage() {
         <section className="rounded-2xl border bg-card p-6 shadow-soft lg:col-span-2">
           <div className="flex items-baseline justify-between gap-4">
             <h2 className="font-heading text-lg font-semibold">Running low</h2>
-            <Link href="/admin/inventory" className="text-sm font-medium text-primary underline-offset-4 hover:underline">
+            <Link href="/admin/inventory" className="text-sm font-medium text-ember-ink underline-offset-4 hover:underline">
               Inventory
             </Link>
           </div>
@@ -171,7 +171,7 @@ function QuickLink({ href, icon: Icon, title, text }: { href: string; icon: type
       href={href}
       className="group flex items-center gap-3 rounded-2xl border bg-card p-4 transition-colors hover:border-primary/40 focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
     >
-      <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-primary/10 text-primary">
+      <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-primary/10 text-ember-ink">
         <Icon className="size-5" />
       </span>
       <span className="min-w-0 flex-1">

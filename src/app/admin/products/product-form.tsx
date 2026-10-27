@@ -161,7 +161,7 @@ export function ProductForm({
                 <p className="flex h-10 items-center font-heading text-xl font-semibold tabular-nums">{initial.stock}</p>
                 <p className="text-xs text-muted-foreground">
                   Change counts on the{" "}
-                  <Link href="/admin/inventory" className="text-primary underline-offset-4 hover:underline">
+                  <Link href="/admin/inventory" className="text-ember-ink underline-offset-4 hover:underline">
                     Inventory
                   </Link>{" "}
                   page.
