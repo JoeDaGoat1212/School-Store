@@ -28,6 +28,11 @@ const DrinkScene = dynamic(() => import("./drink-scene"), {
 
 type Entry = { item: MenuItem; shown: ShownPrice; look: ProductLook };
 
+/** The black header (64px) plus the category tabs (65px): the stage sticks just under them. */
+export const SHOWCASE_TOP = 129;
+/** How far you scroll to move one drink along, as a share of the screen height. */
+const STEP = 0.7;
+
 /**
  * The drinks showcase: swipe through the drinks one at a time. The middle one
  * turns in 3D, the background changes to its color, and its flavor (strawberries,
@@ -63,10 +68,81 @@ export function DrinkShowcase({
 
   const [index, setIndex] = useState(0);
   const [burst, setBurst] = useState(0);
+  const [moved, setMoved] = useState(false); // hide the "scroll" hint after the first move
   const sectionRef = useRef<HTMLElement>(null);
   const { visible, calm, webgl } = useEnvironment(sectionRef);
+  const count = entries.length;
 
-  const go = (step: number) => setIndex((i) => Math.min(entries.length - 1, Math.max(0, i + step)));
+  // ---- Scrolling picks the drink ------------------------------------------------
+  // The section is tall (one "step" of scrolling per drink) and the colorful
+  // stage sticks to the screen while you scroll through it. How far you've
+  // scrolled decides which drink is in the middle.
+  /** Which drink the scroll position points at right now. */
+  const indexNow = () => {
+    const el = sectionRef.current;
+    if (!el) return 0;
+    const scrolled = SHOWCASE_TOP - el.getBoundingClientRect().top;
+    return Math.min(count - 1, Math.max(0, Math.floor(scrolled / (window.innerHeight * STEP) + 0.35)));
+  };
+  const indexNowRef = useRef(indexNow);
+  useEffect(() => {
+    indexNowRef.current = indexNow;
+  });
+
+  useEffect(() => {
+    let frame = 0;
+    const onScroll = () => {
+      cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(() => {
+        const next = indexNowRef.current();
+        setIndex((i) => {
+          if (i !== next) setMoved(true);
+          return next;
+        });
+      });
+    };
+    onScroll();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    window.addEventListener("resize", onScroll);
+    return () => {
+      cancelAnimationFrame(frame);
+      window.removeEventListener("scroll", onScroll);
+      window.removeEventListener("resize", onScroll);
+    };
+  }, [count]);
+
+  /** Scroll the page to drink number `i` (arrows, keys and swipes use this). */
+  const scrollTo = (i: number) => {
+    const el = sectionRef.current;
+    if (!el) return;
+    const target = Math.min(count - 1, Math.max(0, i));
+    const top = el.getBoundingClientRect().top + window.scrollY - SHOWCASE_TOP + target * window.innerHeight * STEP;
+    window.scrollTo({ top, behavior: calm ? "auto" : "smooth" });
+  };
+  const go = (step: number) => scrollTo(indexNow() + step);
+  const goRef = useRef(go);
+  useEffect(() => {
+    goRef.current = go;
+  });
+
+  // Arrow keys (← → and ↑ ↓) move between drinks while the showcase is on screen.
+  useEffect(() => {
+    if (!visible) return;
+    const onKey = (e: KeyboardEvent) => {
+      const t = e.target as HTMLElement;
+      if (t.closest("input, textarea, select, [contenteditable]") || e.metaKey || e.ctrlKey || e.altKey) return;
+      const forward = e.key === "ArrowRight" || e.key === "ArrowDown";
+      const back = e.key === "ArrowLeft" || e.key === "ArrowUp";
+      if (!forward && !back) return;
+      // At the ends, let ↓/↑ scroll the page normally (on to the list, or back up).
+      const now = indexNowRef.current();
+      if ((forward && now >= count - 1) || (back && now <= 0)) return;
+      e.preventDefault();
+      goRef.current(forward ? 1 : -1);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [visible, count]);
 
   // The particles of the drink we just left fade out while the new ones fade in.
   const current = entries[index];
@@ -107,13 +183,14 @@ export function DrinkShowcase({
   return (
     <section
       ref={sectionRef}
+      id="drinks-showcase"
       aria-roledescription="carousel"
       aria-label="Drinks"
-      tabIndex={-1}
-      onKeyDown={(e) => {
-        if (e.key === "ArrowRight") go(1);
-        if (e.key === "ArrowLeft") go(-1);
-      }}
+      className="relative mb-8 ml-[calc(50%-50vw)] w-screen select-none"
+      // One screen for the stage, plus one scroll "step" for each drink after the first.
+      style={{ height: `calc(100svh - ${SHOWCASE_TOP}px + ${(count - 1) * STEP * 100}svh)` }}
+    >
+     <div
       onPointerDown={(e) => (drag.current = { x: e.clientX, y: e.clientY })}
       onPointerUp={(e) => {
         const start = drag.current;
@@ -123,15 +200,24 @@ export function DrinkShowcase({
         if (Math.abs(dx) > 45 && Math.abs(dx) > Math.abs(e.clientY - start.y)) go(dx < 0 ? 1 : -1);
       }}
       onWheel={(e) => {
+        // Sideways trackpad swipes also move between drinks (up/down is normal scrolling).
         if (Math.abs(e.deltaX) < 25 || Math.abs(e.deltaX) < Math.abs(e.deltaY)) return;
         const now = Date.now();
         if (now - wheelLock.current < 450) return;
         wheelLock.current = now;
         go(e.deltaX > 0 ? 1 : -1);
       }}
-      className="relative mb-8 ml-[calc(50%-50vw)] h-[min(92svh,720px)] w-screen overflow-hidden select-none sm:h-[600px]"
-      style={{ backgroundColor: look.color, color: ink, transition: "background-color 700ms ease, color 400ms ease" } as CSSProperties}
-    >
+      className="sticky overflow-hidden"
+      style={
+        {
+          top: SHOWCASE_TOP,
+          height: `calc(100svh - ${SHOWCASE_TOP}px)`,
+          backgroundColor: look.color,
+          color: ink,
+          transition: "background-color 700ms ease, color 400ms ease",
+        } as CSSProperties
+      }
+     >
       {/* Light in the middle, darker edges: like a product photo studio. */}
       <div
         aria-hidden
@@ -149,7 +235,7 @@ export function DrinkShowcase({
       {/* The 3D drinks (or a flat picture if the device can't do 3D) */}
       <div className="absolute inset-x-0 top-0 h-[62%] sm:inset-y-0 sm:right-0 sm:left-auto sm:h-full sm:w-[62%]">
         {webgl ? (
-          <DrinkScene items={sceneItems} index={index} active={visible} calm={calm} onSelect={setIndex} />
+          <DrinkScene items={sceneItems} index={index} active={visible} calm={calm} onSelect={scrollTo} />
         ) : (
           <div className="grid h-full place-items-center">
             <ProductArt
@@ -173,7 +259,7 @@ export function DrinkShowcase({
       <div className="pointer-events-none absolute inset-x-0 bottom-0 mx-auto max-w-5xl px-4 pb-6 sm:top-0 sm:flex sm:flex-col sm:justify-center sm:pb-0">
         <div className="pointer-events-auto max-w-sm">
           <p className="text-sm font-semibold opacity-80">
-            Drinks <span className="tabular-nums">{index + 1} / {entries.length}</span>
+            Drinks <span className="tabular-nums">{index + 1} / {count}</span>
           </p>
           <h3 key={item.id} className="mt-1 font-heading text-5xl leading-[0.9] font-extrabold uppercase animate-in fade-in slide-in-from-bottom-3 duration-500 sm:text-7xl">
             {item.name}
@@ -219,14 +305,38 @@ export function DrinkShowcase({
         </div>
       </div>
 
-      {/* Arrows */}
+      {/* Arrows on both sides, so it's clear there's more to see */}
       <ArrowButton side="left" disabled={index === 0} onClick={() => go(-1)} ink={ink} />
-      <ArrowButton side="right" disabled={index === entries.length - 1} onClick={() => go(1)} ink={ink} />
+      <ArrowButton side="right" disabled={index === count - 1} onClick={() => go(1)} ink={ink} />
+
+      {/* Which drink you're on */}
+      <div aria-hidden className="absolute right-4 bottom-5 flex gap-1.5 sm:right-1/2 sm:translate-x-1/2">
+        {entries.map((e, i) => (
+          <span
+            key={e.item.id}
+            className="h-1.5 rounded-full transition-all duration-300"
+            style={{ width: i === index ? 22 : 6, backgroundColor: ink, opacity: i === index ? 0.9 : 0.35 }}
+          />
+        ))}
+      </div>
+
+      {/* A hint until they move for the first time */}
+      {!moved && count > 1 && (
+        <p
+          aria-hidden
+          className="absolute bottom-12 left-1/2 hidden -translate-x-1/2 items-center gap-2 rounded-full px-4 py-1.5 text-sm font-semibold backdrop-blur-sm sm:flex"
+          style={{ backgroundColor: ink === "#ffffff" ? "rgb(255 255 255 / 0.16)" : "rgb(0 0 0 / 0.1)" }}
+        >
+          Scroll or press <kbd className="rounded border border-current/40 px-1.5 font-sans text-xs">←</kbd>
+          <kbd className="rounded border border-current/40 px-1.5 font-sans text-xs">→</kbd> for the next drink
+        </p>
+      )}
 
       {/* Tell screen readers which drink is showing now */}
       <p className="sr-only" aria-live="polite">
-        {item.name}, {formatCents(shown.price)}, drink {index + 1} of {entries.length}
+        {item.name}, {formatCents(shown.price)}, drink {index + 1} of {count}
       </p>
+     </div>
     </section>
   );
 }
@@ -240,12 +350,12 @@ function ArrowButton({ side, disabled, onClick, ink }: { side: "left" | "right";
       disabled={disabled}
       onClick={onClick}
       className={cn(
-        "absolute top-[31%] z-10 grid size-12 -translate-y-1/2 place-items-center rounded-full backdrop-blur-sm transition-opacity focus-visible:ring-3 focus-visible:ring-white/70 focus-visible:outline-none disabled:opacity-0 sm:top-1/2",
-        side === "left" ? "left-3 sm:left-[calc(38%-1.5rem)]" : "right-3 sm:right-6",
+        "absolute top-[31%] z-10 grid size-12 -translate-y-1/2 place-items-center rounded-full shadow-lg backdrop-blur-sm transition-[opacity,transform] hover:scale-110 focus-visible:ring-3 focus-visible:ring-white/70 focus-visible:outline-none active:scale-95 disabled:pointer-events-none disabled:opacity-30 sm:top-1/2 sm:size-16",
+        side === "left" ? "left-3 sm:left-6" : "right-3 sm:right-6",
       )}
       style={{ backgroundColor: ink === "#ffffff" ? "rgb(255 255 255 / 0.18)" : "rgb(0 0 0 / 0.12)" }}
     >
-      <Icon className="size-6" />
+      <Icon className="size-6 sm:size-8" />
     </button>
   );
 }

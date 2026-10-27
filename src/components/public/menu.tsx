@@ -9,7 +9,7 @@ import { CartBar } from "./cart-bar";
 import { useCart } from "./cart-store";
 import { FeaturedDeal } from "./featured-deal";
 import { ProductCard } from "./product-card";
-import { DrinkShowcase } from "./showcase/drink-showcase";
+import { DrinkShowcase, SHOWCASE_TOP } from "./showcase/drink-showcase";
 
 const ALL = "All";
 const DEALS = "Deals";
@@ -74,6 +74,8 @@ export function Menu({
   }, [category]);
 
   const featured = deals.promotions.find((p) => p.featured);
+  // The Drinks tab turns the page into the full-screen 3D showcase.
+  const immersive = /drink/i.test(category);
   let n = 0; // position in the grid, for the deal-in stagger
 
   return (
@@ -93,7 +95,11 @@ export function Menu({
       <nav
         aria-label="Categories"
         // Full width like the hero, with the tabs lined up with the page column.
-        className="sticky top-16 z-20 mb-6 ml-[calc(50%-50vw)] w-screen border-b bg-background/90 backdrop-blur-md"
+        className={cn(
+          "sticky top-16 z-20 ml-[calc(50%-50vw)] w-screen border-b backdrop-blur-md transition-colors duration-500",
+          // In the drinks showcase the tabs turn black, to match the header and frame the scene.
+          immersive ? "dark mb-0 border-white/10 bg-black/90 text-white" : "mb-6 bg-background/90",
+        )}
       >
         <div ref={navRef} className="relative mx-auto flex max-w-5xl gap-1 overflow-x-auto px-4 py-3 [scrollbar-width:none]">
           <span
@@ -109,6 +115,15 @@ export function Menu({
               onClick={(e) => {
                 setCategory(c);
                 e.currentTarget.scrollIntoView({ block: "nearest", inline: "nearest", behavior: "smooth" });
+                // Drinks: bring the showcase up to fill the screen.
+                if (/drink/i.test(c)) {
+                  requestAnimationFrame(() =>
+                    requestAnimationFrame(() => {
+                      const el = document.getElementById("drinks-showcase");
+                      if (el) window.scrollTo({ top: el.getBoundingClientRect().top + window.scrollY - SHOWCASE_TOP, behavior: "smooth" });
+                    }),
+                  );
+                }
               }}
               className={cn(
                 "relative h-10 shrink-0 rounded-full px-4 text-[0.95rem] font-semibold transition-colors duration-200 focus-visible:ring-3 focus-visible:ring-ring/60 focus-visible:outline-none",

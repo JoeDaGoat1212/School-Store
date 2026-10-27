@@ -242,13 +242,19 @@ function Carton({ look, label }: { look: ProductLook; label: THREE.Texture }) {
   );
 }
 
-/** A juice pouch with a straw. */
+/** A juice pouch with a straw. The label is printed on the front and back separately, so neither side reads backwards. */
 function Pouch({ look, label }: { look: ProductLook; label: THREE.Texture }) {
   return (
     <group>
       <RoundedBox args={[0.9, 1.45, 0.2]} radius={0.09} smoothness={6}>
-        <meshPhysicalMaterial map={label} metalness={0.35} roughness={0.25} clearcoat={1} />
+        <meshPhysicalMaterial color={look.color} metalness={0.35} roughness={0.25} clearcoat={1} />
       </RoundedBox>
+      {[0, Math.PI].map((turn) => (
+        <mesh key={turn} rotation-y={turn} position-z={turn ? -0.101 : 0.101}>
+          <planeGeometry args={[0.78, 1.3]} />
+          <meshPhysicalMaterial map={label} metalness={0.35} roughness={0.25} clearcoat={1} />
+        </mesh>
+      ))}
       <mesh position={[0.25, 0.92, 0]} rotation-z={-0.2}>
         <cylinderGeometry args={[0.03, 0.03, 0.55, 16]} />
         <meshStandardMaterial color={look.accent} roughness={0.3} />
