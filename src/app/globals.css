@@ -284,13 +284,15 @@
   }
 }
 
-/* Drinks: the color that spreads out from the drink you tapped in the fridge. */
-.drink-wipe {
-  animation: drink-wipe 560ms cubic-bezier(0.6, 0, 0.3, 1) both;
+/* Drinks: the "+1" that floats up from a drink you tapped in the fridge. */
+.plus-one {
+  animation: plus-one 800ms cubic-bezier(0.2, 0.8, 0.3, 1) forwards;
+  text-shadow: 0 2px 12px rgb(0 0 0 / 0.6);
 }
-@keyframes drink-wipe {
-  from { clip-path: circle(0px at var(--x) var(--y)); }
-  to { clip-path: circle(150vmax at var(--x) var(--y)); }
+@keyframes plus-one {
+  from { transform: translate(-50%, -50%) scale(0.6); opacity: 0; }
+  20% { transform: translate(-50%, -90%) scale(1.15); opacity: 1; }
+  to { transform: translate(-50%, -260%) scale(1); opacity: 0; }
 }
 
 /* Respect "reduce motion" in the operating system. */

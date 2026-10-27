@@ -49,3 +49,20 @@ export function photoModelFor(name: string) {
   const model = PHOTO_MODELS[slug];
   return model ? { slug, ...model } : null;
 }
+
+/** The widest part of the traced model, as a diameter. */
+const widest = (profile: number[]) => {
+  let max = 0;
+  for (let i = 0; i < profile.length; i += 2) max = Math.max(max, profile[i]);
+  return max * 2;
+};
+
+/**
+ * How wide a drink is (scene units, before shrinking onto a shelf), so the
+ * fridge can work out how many fit side by side.
+ */
+export function drinkWidth(name: string, shape: "can" | "bottle" | "carton" | "pouch") {
+  const model = photoModelFor(name);
+  if (model) return widest(model.profile);
+  return { can: 0.72, bottle: 0.71, carton: 0.66, pouch: 0.9 }[shape];
+}

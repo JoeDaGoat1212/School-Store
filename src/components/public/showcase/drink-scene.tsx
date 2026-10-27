@@ -211,48 +211,67 @@ const lathe = (points: [number, number][], segments = 64) =>
 const silver = { color: "#d9dee4", metalness: 1, roughness: 0.22 };
 
 /**
+ * The 3D shape of a traced drink, built once and shared by every copy of it
+ * (the fridge shows the same drink many times).
+ */
+const latheCache = new Map<string, THREE.LatheGeometry>();
+function latheFor(slug: string, profile: number[], segments: number) {
+  const key = `${slug}|${segments}`;
+  let g = latheCache.get(key);
+  if (!g) {
+    const points: THREE.Vector2[] = [];
+    for (let i = 0; i < profile.length; i += 2) points.push(new THREE.Vector2(profile[i], profile[i + 1]));
+    // phiStart = π puts the middle of the label (the front of the photo) at the front.
+    g = new THREE.LatheGeometry(points, segments, Math.PI, Math.PI * 2);
+    g.computeVertexNormals();
+    latheCache.set(key, g);
+  }
+  return g;
+}
+
+/**
  * A real drink: its traced outline spun into a 3D shape, wearing its own
  * label photo all the way round. Until the photo has downloaded, the shape
  * shows in the drink's color.
  */
 function PhotoDrink({ model, color, small }: { model: NonNullable<ReturnType<typeof photoModelFor>>; color: string; small: boolean }) {
-  const geometry = useMemo(() => {
-    const points: [number, number][] = [];
-    for (let i = 0; i < model.profile.length; i += 2) points.push([model.profile[i], model.profile[i + 1]]);
-    // phiStart = π puts the middle of the label (the front of the photo) at the front.
-    const g = new THREE.LatheGeometry(
-      points.map(([r, y]) => new THREE.Vector2(r, y)),
-      small ? 48 : 96,
-      Math.PI,
-      Math.PI * 2,
-    );
-    g.computeVertexNormals();
-    return g;
-  }, [model.profile, small]);
-  useEffect(() => () => geometry.dispose(), [geometry]);
+  const geometry = latheFor(model.slug, model.profile, small ? 40 : 96);
   const label = usePhotoLabel(`/showcase/drinks/${model.slug}${small ? "-sm" : ""}.webp`);
+  const material = materialFor(model, label, color, small);
+  return <mesh geometry={geometry} material={material} />;
+}
 
-  // The photo already has its true colors, so reflections stay low (a shiny finish
-  // washes dark colors out, e.g. blue turns lavender). Bottles are glossier.
-  const finish =
-    model.kind === "bottle"
-      ? { roughness: 0.25, clearcoat: 0.8, clearcoatRoughness: 0.15, envMapIntensity: 0.45 }
-      : { roughness: 0.4, clearcoat: 0.4, clearcoatRoughness: 0.22, envMapIntensity: 0.35 };
-
-  return (
-    <mesh geometry={geometry}>
-      <meshPhysicalMaterial
-        key={label ? "photo" : "plain"}
-        map={label}
-        color={label ? "#ffffff" : color}
-        metalness={0.05}
-        {...finish}
-        transparent={Boolean(model.clear)}
-        // Clear plastic: the label photo says how see-through each spot is.
-        depthWrite={!model.clear}
-      />
-    </mesh>
-  );
+/**
+ * The finish of a traced drink, made once per drink and shared by every copy.
+ * The photo already has its true colors, so reflections stay low (a shiny
+ * finish washes dark colors out, e.g. blue turns lavender). Bottles are
+ * glossier. Small fridge copies use a simpler, faster finish.
+ */
+const materialCache = new Map<string, THREE.Material>();
+function materialFor(model: NonNullable<ReturnType<typeof photoModelFor>>, label: THREE.Texture | null, color: string, small: boolean) {
+  const key = `${model.slug}|${small}|${label ? "photo" : color}`;
+  let m = materialCache.get(key);
+  if (!m) {
+    const bottle = model.kind === "bottle";
+    const common = {
+      map: label,
+      color: label ? "#ffffff" : color,
+      metalness: 0.05,
+      // Clear plastic: the label photo says how see-through each spot is.
+      transparent: Boolean(model.clear),
+      depthWrite: !model.clear,
+    };
+    m = small
+      ? new THREE.MeshStandardMaterial({ ...common, roughness: bottle ? 0.3 : 0.38, envMapIntensity: 0.45 })
+      : new THREE.MeshPhysicalMaterial({
+          ...common,
+          ...(bottle
+            ? { roughness: 0.25, clearcoat: 0.8, clearcoatRoughness: 0.15, envMapIntensity: 0.45 }
+            : { roughness: 0.4, clearcoat: 0.4, clearcoatRoughness: 0.22, envMapIntensity: 0.35 }),
+        });
+    materialCache.set(key, m);
+  }
+  return m;
 }
 
 /** A 12 oz soda can: printed metal body, shiny rims. */

@@ -1,33 +1,30 @@
 "use client";
 
-import { useMemo, useRef, useState, type CSSProperties } from "react";
+import { useEffect, useMemo, useRef, useState, type RefObject } from "react";
 import dynamic from "next/dynamic";
 import { useIsMobile } from "@/hooks/use-mobile";
 import type { ShownPrice } from "@/lib/deals";
 import { formatCents } from "@/lib/format";
 import { drinkBrand, productLook } from "@/lib/product-look";
 import type { MenuItem } from "@/lib/store-data";
-import type { SceneItem } from "./drink-scene";
-import { DrinkShowcase, SHOWCASE_TOP, sizeOf } from "./drink-showcase";
-import type { FridgeBrand, FridgePick } from "./fridge-scene";
-import { SCENES } from "./scene-assets";
+import { cart } from "../cart-store";
+import { sizeOf } from "./drink-showcase";
+import { fridgeLayout, fridgeRatio, type FridgeFlavor, type PlacedFlavor } from "./fridge-layout";
+import type { FridgeTap } from "./fridge-scene";
 
 // The 3D fridge downloads only when the Drinks tab opens.
 const FridgeScene = dynamic(() => import("./fridge-scene"), {
   ssr: false,
-  loading: () => (
-    <div className="grid h-full place-items-center">
-      <span className="h-[70%] w-[min(70%,36rem)] animate-pulse rounded-2xl bg-white/5 ring-1 ring-white/10" />
-    </div>
-  ),
+  loading: () => <span className="block size-full animate-pulse rounded-2xl bg-white/5 ring-1 ring-white/10" />,
 });
 
 type Drink = { item: MenuItem; shown: ShownPrice };
+type Note = { text: string; key: number };
+type Plus = { x: number; y: number; key: number };
 
 /**
- * The Drinks tab: first a lit-up fridge with every drink, one shelf per
- * brand. Picking a drink washes the screen in its color and opens the flavor
- * slider for that brand. "All drinks" goes back to the fridge.
+ * The Drinks tab: a big lit-up fridge with every drink on its shelves.
+ * Tapping a drink adds one to the cart.
  */
 export function DrinksExperience({
   drinks,
@@ -39,138 +36,150 @@ export function DrinksExperience({
   inCart: (id: string) => number;
 }) {
   const isMobile = useIsMobile();
-  const [open, setOpen] = useState<{ brand: string; itemId: string } | null>(null);
-  const [wipe, setWipe] = useState<{ x: number; y: number; color: string; fading: boolean } | null>(null);
-  const [hovered, setHovered] = useState<SceneItem | null>(null);
-  const fridgeRef = useRef<HTMLElement>(null);
+  const [hovered, setHovered] = useState<PlacedFlavor | null>(null);
+  const [note, setNote] = useState<Note | null>(null);
+  const [pluses, setPluses] = useState<Plus[]>([]);
+  const counter = useRef(0);
+  const sectionRef = useRef<HTMLElement>(null);
+  const visible = useOnScreen(sectionRef);
+  const calm = typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
-  // Group the drinks into brands (shelves), keeping the menu's order.
-  const { brands, byBrand, byId } = useMemo(() => {
+  // Brands stay together (in menu order), so a shelf reads like a real fridge.
+  const { layout, byId } = useMemo(() => {
     const groups = new Map<string, Drink[]>();
     for (const d of drinks) {
       const brand = drinkBrand(d.item.name);
       groups.set(brand, [...(groups.get(brand) ?? []), d]);
     }
-    const shelves: FridgeBrand[] = [...groups].map(([name, list]) => ({
-      name,
-      items: list.map(({ item }) => ({ id: item.id, name: item.name, subtitle: sizeOf(item.description), look: productLook(item) })),
+    const flavors: FridgeFlavor[] = [...groups.values()].flat().map(({ item, shown }) => ({
+      item: { id: item.id, name: item.name, subtitle: sizeOf(item.description), look: productLook(item) },
+      label: formatCents(shown.price),
+      soldOut: item.available <= 0,
     }));
-    return { brands: shelves, byBrand: groups, byId: new Map(drinks.map((d) => [d.item.id, d])) };
-  }, [drinks]);
+    // Phones: 2 flavors a shelf on a narrow fridge. Bigger screens: 4 on a wide one.
+    return {
+      layout: isMobile ? fridgeLayout(flavors, 2, 2.8) : fridgeLayout(flavors, 4, 5.6),
+      byId: new Map(drinks.map((d) => [d.item.id, d])),
+    };
+  }, [drinks, isMobile]);
 
-  const columns = isMobile || brands.length <= 3 ? 1 : 2;
-  const rows = Math.ceil(brands.length / columns);
-  const calm = typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  // A message shows for a couple of seconds, then the chip goes back to showing what you point at.
+  const say = (text: string) => {
+    const key = ++counter.current;
+    setNote({ text, key });
+    setTimeout(() => setNote((n) => (n?.key === key ? null : n)), 2200);
+  };
 
-  /** A drink was picked: its color spreads from where they tapped, then the flavors open. */
-  const pick = (p: FridgePick) => {
-    setHovered(null);
-    if (calm) {
-      setOpen({ brand: p.brand, itemId: p.itemId });
-      return;
+  /** Add the tapped drink to the cart (if there's any left and they haven't hit the limit). */
+  const add = (id: string, at?: { x: number; y: number }) => {
+    const drink = byId.get(id);
+    if (!drink) return;
+    const { item, shown } = drink;
+    if (item.available <= 0) return say(`${item.name} is sold out right now.`);
+    const max = Math.min(item.available, maxPerOrder);
+    const have = inCart(item.id);
+    if (have >= max) return say(`That's the most ${item.name} you can get in one order (${max}).`);
+    cart.add({ id: item.id, name: item.name, price_cents: shown.price, emoji: item.emoji, photo_path: item.photo_path, category: item.category });
+    say(`Added ${item.name} · ${have + 1} in your cart`);
+    if (at && !calm) {
+      const plus = { ...at, key: ++counter.current };
+      setPluses((p) => [...p, plus]);
+      setTimeout(() => setPluses((p) => p.filter((x) => x.key !== plus.key)), 800);
     }
-    // Wash the screen in the color of the flavor's photo backdrop, so the hand-off is seamless.
-    const picked = byId.get(p.itemId);
-    const scene = picked ? productLook(picked.item).scene : undefined;
-    setWipe({ x: p.x, y: p.y, color: scene ? SCENES[scene].edge : p.color, fading: false });
-    setTimeout(() => {
-      setOpen({ brand: p.brand, itemId: p.itemId });
-      setWipe((w) => (w ? { ...w, fading: true } : w));
-      setTimeout(() => setWipe(null), 450);
-    }, 560);
   };
 
-  const back = () => {
-    setOpen(null);
-    requestAnimationFrame(() => {
-      const el = fridgeRef.current;
-      if (el) window.scrollTo({ top: el.getBoundingClientRect().top + window.scrollY - SHOWCASE_TOP, behavior: "auto" });
-    });
-  };
-
-  const hoveredDrink = hovered ? byId.get(hovered.id) : null;
+  const tap = ({ flavor, x, y }: FridgeTap) => add(flavor.item.id, { x, y });
+  const info = hovered ? byId.get(hovered.item.id) : null;
 
   return (
-    <>
-      {open ? (
-        <DrinkShowcase
-          key={open.brand}
-          title={open.brand}
-          drinks={byBrand.get(open.brand) ?? []}
-          startId={open.itemId}
-          maxPerOrder={maxPerOrder}
-          inCart={inCart}
-          onBack={back}
-        />
-      ) : (
-        <section
-          ref={fridgeRef}
-          id="drinks-showcase"
-          aria-label="Drinks fridge"
-          className="dark relative mb-8 ml-[calc(50%-50vw)] w-screen overflow-hidden bg-black text-white select-none"
-          style={{ height: isMobile ? `max(calc(100svh - ${SHOWCASE_TOP}px), ${rows * 138 + 160}px)` : `calc(100svh - ${SHOWCASE_TOP}px)` }}
+    <section
+      ref={sectionRef}
+      id="drinks-showcase"
+      aria-label="Drinks fridge"
+      className="dark relative mb-8 ml-[calc(50%-50vw)] w-screen overflow-hidden bg-black pb-6 text-white select-none"
+    >
+      {/* The dim store behind the fridge (a blurry photo), then cool light spilling out of the fridge */}
+      <div aria-hidden className="absolute inset-0 bg-cover bg-center opacity-60" style={{ backgroundImage: "url(/showcase/fridge/room.webp)" }} />
+      <div
+        aria-hidden
+        className="absolute inset-0"
+        style={{
+          background:
+            "radial-gradient(55% 60% at 50% 45%, rgb(19 168 160 / 0.22), transparent 70%), radial-gradient(70% 25% at 50% 100%, rgb(234 247 246 / 0.12), transparent 70%), linear-gradient(to bottom, rgb(0 0 0 / 0.55), transparent 30%)",
+        }}
+      />
+
+      <div className="relative mx-auto max-w-5xl px-4 pt-5 pb-4">
+        <h2 className="font-heading text-4xl leading-none font-extrabold sm:text-5xl">Grab a drink</h2>
+        <p className="mt-1.5 text-sm text-white/70">Tap a drink to add it to your cart. Tap again for another.</p>
+      </div>
+
+      {/* The same drinks as real buttons, for keyboards and screen readers (they appear when tabbed to). */}
+      <ul className="sr-only">
+        {layout.shelves.flat().map((f) => (
+          <li key={f.item.id}>
+            <button
+              type="button"
+              className="focus:not-sr-only focus:absolute focus:top-20 focus:left-4 focus:z-30 focus:rounded-md focus:bg-white focus:px-3 focus:py-1.5 focus:text-black"
+              onClick={() => add(f.item.id)}
+            >
+              {f.soldOut ? `${f.item.name}, sold out` : `Add ${f.item.name}, ${f.label}`}
+            </button>
+          </li>
+        ))}
+      </ul>
+
+      {/* The fridge, as big as the screen is wide (it scrolls with the page on phones) */}
+      <div className="relative mx-auto w-[min(100%-1rem,64rem)]" style={{ aspectRatio: `1 / ${fridgeRatio(layout)}` }}>
+        <FridgeScene layout={layout} active={visible} calm={calm} onTap={tap} onHover={setHovered} />
+      </div>
+
+      {/* What you're pointing at, or what just happened. Stays on screen while you scroll the fridge. */}
+      <div className="pointer-events-none sticky bottom-5 z-10 mt-4 flex justify-center px-4">
+        <p
+          aria-live="polite"
+          className="w-fit max-w-full rounded-full bg-white/12 px-4 py-2 text-center text-sm font-semibold backdrop-blur-md transition-opacity"
+          style={{ opacity: note || info ? 1 : 0 }}
         >
-          {/* The dim store behind the fridge (a blurry photo), then cool light spilling out of the fridge */}
-          <div aria-hidden className="absolute inset-0 bg-cover bg-center opacity-60" style={{ backgroundImage: "url(/showcase/fridge/room.webp)" }} />
-          <div
-            aria-hidden
-            className="absolute inset-0"
-            style={{
-              background:
-                "radial-gradient(55% 60% at 50% 45%, rgb(19 168 160 / 0.22), transparent 70%), radial-gradient(70% 25% at 50% 100%, rgb(234 247 246 / 0.12), transparent 70%), linear-gradient(to bottom, rgb(0 0 0 / 0.55), transparent 30%)",
-            }}
-          />
+          {note ? (
+            <span key={note.key} className="animate-in fade-in slide-in-from-bottom-1 duration-200">
+              {note.text}
+            </span>
+          ) : info ? (
+            <>
+              {info.item.name}
+              <span className="ml-2 font-heading text-base text-primary">{info.item.available <= 0 ? "Sold out" : formatCents(info.shown.price)}</span>
+            </>
+          ) : (
+            " "
+          )}
+        </p>
+      </div>
 
-          <div className="relative mx-auto max-w-5xl px-4 pt-5">
-            <h2 className="font-heading text-4xl leading-none font-extrabold sm:text-5xl">Pick a drink</h2>
-            <p className="mt-1.5 text-sm text-white/70">Tap a drink, or a brand&apos;s tag, to see its flavors.</p>
-          </div>
-
-          {/* The same brands as real buttons, for keyboards and screen readers (they appear when tabbed to). */}
-          <ul className="sr-only">
-            {brands.map((b) => (
-              <li key={b.name}>
-                <button
-                  type="button"
-                  className="focus:not-sr-only focus:absolute focus:top-20 focus:left-4 focus:z-30 focus:rounded-md focus:bg-white focus:px-3 focus:py-1.5 focus:text-black"
-                  onClick={() => pick({ brand: b.name, itemId: b.items[0].id, x: window.innerWidth / 2, y: window.innerHeight / 2, color: b.items[0].look.color })}
-                >
-                  {b.name}, {b.items.length} {b.items.length === 1 ? "drink" : "flavors"}
-                </button>
-              </li>
-            ))}
-          </ul>
-
-          <div className="absolute inset-x-0 top-24 bottom-14 sm:top-28">
-            <FridgeScene brands={brands} columns={columns} active={!open} calm={calm} onPick={pick} onHover={setHovered} />
-          </div>
-
-          {/* What you're pointing at */}
-          <p
-            aria-hidden
-            className="absolute inset-x-0 bottom-4 mx-auto w-fit rounded-full bg-white/10 px-4 py-1.5 text-sm font-semibold backdrop-blur-sm transition-opacity"
-            style={{ opacity: hoveredDrink ? 1 : 0 }}
-          >
-            {hoveredDrink ? (
-              <>
-                {hoveredDrink.item.name}
-                <span className="ml-2 font-heading text-base text-primary">{formatCents(hoveredDrink.shown.price)}</span>
-              </>
-            ) : (
-              " "
-            )}
-          </p>
-        </section>
-      )}
-
-      {/* The color wash between the fridge and the flavors */}
-      {wipe && (
-        <div
+      {/* "+1" floating up from where they tapped */}
+      {pluses.map((p) => (
+        <span
+          key={p.key}
           aria-hidden
-          className="drink-wipe pointer-events-none fixed inset-0 z-40 transition-opacity duration-400"
-          style={{ backgroundColor: wipe.color, "--x": `${wipe.x}px`, "--y": `${wipe.y}px`, opacity: wipe.fading ? 0 : 1 } as CSSProperties}
-        />
-      )}
-    </>
+          className="plus-one pointer-events-none fixed z-50 font-heading text-3xl font-extrabold text-primary"
+          style={{ left: p.x, top: p.y }}
+        >
+          +1
+        </span>
+      ))}
+    </section>
   );
+}
+
+/** Is the element on screen? (The 3D fridge stops drawing when it isn't, to save battery.) */
+function useOnScreen(ref: RefObject<HTMLElement | null>) {
+  const [visible, setVisible] = useState(true);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const io = new IntersectionObserver(([e]) => setVisible(e.isIntersecting), { rootMargin: "100px" });
+    io.observe(el);
+    return () => io.disconnect();
+  }, [ref]);
+  return visible;
 }
