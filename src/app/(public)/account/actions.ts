@@ -36,7 +36,9 @@ export async function sendCode(_prev: SignInState, formData: FormData): Promise<
   });
 
   if (error) {
-    return { step: "email", email: parsed.data, message: friendlyAuthError(error.message, error.status) };
+    // The full error goes to the Terminal running `npm run dev` (and Vercel's logs).
+    console.error("[rewards sign-in] Supabase couldn't send the code:", error.status, error.code, error.message);
+    return { step: "email", email: parsed.data, message: friendlyAuthError(error.message, error.status) + devDetail(error.message) };
   }
   return { step: "code", email: parsed.data, sentAt: Date.now() };
 }
@@ -52,7 +54,8 @@ export async function verifyCode(_prev: SignInState, formData: FormData): Promis
   const supabase = await createClient();
   const { error } = await supabase.auth.verifyOtp({ email: email.data, token: code, type: "email" });
   if (error) {
-    return { step: "code", email: email.data, message: friendlyAuthError(error.message, error.status) };
+    console.error("[rewards sign-in] Code check failed:", error.status, error.code, error.message);
+    return { step: "code", email: email.data, message: friendlyAuthError(error.message, error.status) + devDetail(error.message) };
   }
 
   revalidatePath("/", "layout");
@@ -116,6 +119,11 @@ export async function deleteAccount() {
 function safeNext(value: FormDataEntryValue | null) {
   const next = String(value ?? "");
   return next.startsWith("/") && !next.startsWith("//") ? next : "/account";
+}
+
+/** While testing on your computer (npm run dev), also show Supabase's exact words. */
+function devDetail(message: string) {
+  return process.env.NODE_ENV === "development" ? ` (Supabase says: ${message})` : "";
 }
 
 /** Supabase's error messages, in plain words. */
