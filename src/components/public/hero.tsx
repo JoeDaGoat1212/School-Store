@@ -3,89 +3,147 @@ import { FLAME_PATH } from "@/components/brand-mark";
 import { brand } from "@/config/brand";
 import { formatClock, relativeDay } from "@/lib/format";
 import { pickupDays, toMinutes, type StoreInfo } from "@/lib/ordering";
-import { EnterStoreButton } from "./store/enter-store-button";
+import { OpenStoreButton } from "./store/enter-store-button";
 
-/**
- * The top of the menu page: a full-screen look into the store (a real render
- * of the 3D store), the big "Enter store" button, and a printed ticket that
- * tells students the one thing they need — when to order by.
+/*
+ * The top of the menu page, drawn like the front of a corner store: a sign
+ * board with the name, a striped awning, a shop window looking into the 3D
+ * store, and a glass door with an OPEN sign that says when to order by.
+ * Clicking the window or the door walks you into the 3D store.
  *
- * `counts` is how many drinks, snacks and candy are in the 3D store
- * (no store button if there's nothing in it).
+ * Painted flat colours on purpose (no glows or gradients): it should look
+ * like a real shop front, not a poster.
  */
+
+const CREAM = "#f3eee4";
+
+/** `counts`: how many drinks, snacks and candy are in the 3D store (no door to walk through if it's empty). */
 export function Hero({ info, counts }: { info: StoreInfo; counts: { drinks: number; snacks: number; candy: number } }) {
   const board = scoreboard(info);
-  const inStore = counts.drinks + counts.snacks + counts.candy;
-  const tally = [
-    counts.drinks && `${counts.drinks} drinks`,
-    counts.snacks && `${counts.snacks} snacks`,
-    counts.candy && `${counts.candy} candy`,
-  ].filter(Boolean);
+  const hasStore = counts.drinks + counts.snacks + counts.candy > 0;
 
   return (
     // Full-bleed: break out of the page's centered column.
-    <section className="dark relative -mt-6 ml-[calc(50%-50vw)] flex min-h-[max(34rem,calc(92svh-4rem))] w-screen overflow-hidden bg-black text-white">
-      {/* The store, slowly pushing in */}
-      <div aria-hidden className="hero-push absolute inset-0 bg-cover bg-[center_40%]" style={{ backgroundImage: "url(/showcase/store-poster.webp)" }} />
-      <div aria-hidden className="absolute inset-0 bg-gradient-to-t from-black via-black/55 to-black/10" />
-      <div aria-hidden className="absolute inset-0 bg-gradient-to-r from-black/85 via-black/35 to-transparent max-sm:bg-black/45" />
-      <div aria-hidden className="grain absolute inset-0" />
-
-      <div className="relative mx-auto flex w-full max-w-6xl flex-col justify-end px-4 pt-24 pb-8 sm:pb-12">
-        <div className="grid items-end gap-8 lg:grid-cols-[1fr_auto]">
-          <div>
-            {/* A price-gun sticker */}
-            <p className="mb-4 inline-flex -rotate-3 items-center gap-2 rounded-md bg-primary px-3 py-1 font-heading text-lg font-extrabold tracking-wide text-black uppercase shadow-[3px_3px_0_#000]">
-              New · 3D store
-            </p>
-            <h1 className="font-heading text-[clamp(4.2rem,16vw,10.5rem)] leading-[0.8] font-extrabold tracking-[-0.015em] uppercase">
-              <span className="sr-only">{brand.name}: </span>
-              Walk into
-              <br />
-              the <span className="text-primary">Nest</span>
-            </h1>
-            <p className="mt-5 max-w-md text-lg text-white/80 sm:text-xl">
-              Grab a drink from the fridge, snacks off the shelf, candy at the counter. Tap it, it&apos;s in your cart.
-            </p>
-
-            <div className="mt-7 flex flex-wrap items-center gap-3">
-              {inStore > 0 && <EnterStoreButton />}
-              <a
-                href="#menu"
-                className="inline-flex h-14 items-center gap-2 rounded-2xl border-2 border-white/25 px-6 font-semibold transition-colors hover:border-white hover:bg-white hover:text-black focus-visible:ring-4 focus-visible:ring-white/50 focus-visible:outline-none"
-              >
-                Just show me the menu <ArrowDownIcon className="size-4" />
-              </a>
-            </div>
-            {tally.length > 0 && <p className="mt-5 font-mono text-xs tracking-[0.18em] text-white/55 uppercase">In stock now: {tally.join(" / ")}</p>}
-          </div>
-
-          <Ticket board={board} />
+    <section className="relative -mt-6 ml-[calc(50%-50vw)] w-screen bg-[#e9e2d3] pt-6 text-black sm:pt-10">
+      <div className="mx-auto max-w-6xl px-3 sm:px-4">
+        {/* Sign board over the shop */}
+        <div className="flex items-end justify-between gap-4 rounded-t-lg border-b-[6px] border-black bg-[#141414] px-4 pt-3 pb-2 sm:px-8 sm:pt-5 sm:pb-4">
+          <h1 className="font-heading text-[clamp(2.9rem,10vw,7rem)] leading-[0.85] font-extrabold tracking-wide uppercase" style={{ color: CREAM }}>
+            {brand.name}
+          </h1>
+          <p className="hidden pb-2 text-right font-heading text-xl leading-tight font-bold tracking-wide uppercase md:block" style={{ color: `${CREAM}b0` }}>
+            School store
+            <br />
+            Drinks · Snacks · Candy
+          </p>
         </div>
+
+        {/* Awning */}
+        <div aria-hidden className="awning" />
+
+        {/* Shop front: window and door */}
+        <div className="shopfront grid gap-4 bg-[#0b5d5a] px-3 pt-5 sm:gap-6 sm:px-6 sm:pt-7 md:grid-cols-[1fr_16rem] lg:grid-cols-[1fr_18rem]">
+          {hasStore ? (
+            <OpenStoreButton
+              label="Look inside the 3D store"
+              className="group relative aspect-[16/10] overflow-hidden border-[10px] border-[#ebe4d6] bg-black text-left focus-visible:ring-4 focus-visible:ring-primary focus-visible:outline-none md:aspect-auto md:min-h-[25rem]"
+            >
+              <span
+                aria-hidden
+                className="absolute inset-0 bg-cover bg-center transition-transform duration-700 group-hover:scale-[1.04]"
+                style={{ backgroundImage: "url(/showcase/store-poster.webp)" }}
+              />
+              {/* Window lettering, painted on the glass */}
+              <span className="absolute inset-x-0 bottom-0 flex items-end justify-between gap-3 p-3 sm:p-5">
+                <span className="font-heading text-2xl leading-none font-extrabold tracking-wide uppercase sm:text-4xl" style={{ color: CREAM }}>
+                  Cold drinks · Snacks · Candy
+                </span>
+                <span className="hidden shrink-0 rounded-sm bg-[#f3eee4] px-2 py-1 text-sm font-semibold text-black transition-transform group-hover:-translate-y-0.5 sm:block">
+                  Look inside
+                </span>
+              </span>
+            </OpenStoreButton>
+          ) : (
+            <div className="aspect-[16/10] border-[10px] border-[#ebe4d6] bg-[#10201f] md:aspect-auto md:min-h-[25rem]" />
+          )}
+
+          <Door board={board} hasStore={hasStore} />
+        </div>
+        {/* The step and the sidewalk */}
+        <div aria-hidden className="h-4 bg-[#2a2a2a]" />
+        <div aria-hidden className="h-2 bg-[#bdb5a6]" />
+      </div>
+
+      <div className="mx-auto flex max-w-6xl flex-col gap-3 px-4 pt-5 pb-8 sm:flex-row sm:items-center sm:justify-between sm:pb-10">
+        <p className="max-w-xl text-lg">
+          {brand.tagline} {hasStore && <span className="text-black/60">Walk in through the door to shop the shelves in 3D.</span>}
+        </p>
+        <a href="#menu" className="inline-flex shrink-0 items-center gap-2 font-semibold underline decoration-2 underline-offset-4 hover:text-[#c2410c]">
+          Skip to the menu <ArrowDownIcon className="size-4" />
+        </a>
       </div>
     </section>
   );
 }
 
-/** The "order by" time, printed on a little paper ticket with a torn top edge. */
-function Ticket({ board }: { board: ReturnType<typeof scoreboard> }) {
-  return (
-    <div className="ticket w-full max-w-xs rotate-2 bg-[#f3eee4] px-5 pt-6 pb-5 text-black shadow-[0_18px_40px_rgb(0_0_0/0.55)] sm:w-72 lg:mb-3">
-      <p className="flex items-center justify-between font-mono text-[0.7rem] tracking-[0.2em] text-black/60 uppercase">
-        <span>Pickup</span>
-        <span className="flex items-center gap-1.5">
-          <span aria-hidden className={`size-2 rounded-full ${board.state === "open" ? "animate-pulse bg-[#0a9a8e]" : board.state === "later" ? "bg-[#e08a2c]" : "bg-black/30"}`} />
-          {board.state === "open" ? "Open" : board.state === "later" ? "Next" : "Closed"}
+/**
+ * The shop door: dark glass in a black frame, with a push bar and the OPEN
+ * sign hanging on it. Point at it and it swings open a little, showing the
+ * lit store behind.
+ */
+function Door({ board, hasStore }: { board: ReturnType<typeof scoreboard>; hasStore: boolean }) {
+  const sign = (
+    <span className="absolute top-4 left-1/2 z-10 w-40 -translate-x-1/2 -rotate-2">
+      {/* The string it hangs from */}
+      <span aria-hidden className="mx-auto block h-5 w-20 border-x-2 border-t-2 border-black/70 [border-radius:999px_999px_0_0]" />
+      <span className="block rounded-md border-[3px] border-[#c8102e] bg-white px-3 pt-1.5 pb-2 text-center shadow-[2px_3px_0_rgb(0_0_0/0.35)]">
+        <span className="block font-heading text-4xl leading-none font-extrabold tracking-wider text-[#c8102e]">
+          {board.state === "open" ? "OPEN" : "CLOSED"}
         </span>
-      </p>
-      <p className="mt-3 text-sm font-semibold">{board.label}</p>
-      <p className="font-heading text-6xl leading-[0.9] font-extrabold tabular-nums">{board.big}</p>
-      <p className="mt-2 border-t border-dashed border-black/30 pt-2 text-sm text-black/70">{board.detail}</p>
-    </div>
+        <span className="mt-1 block text-xs font-semibold text-black/70">{board.label}</span>
+        <span className="block font-heading text-2xl leading-tight font-extrabold text-black tabular-nums">{board.big}</span>
+      </span>
+    </span>
+  );
+
+  const panel = (
+    <>
+      {/* Behind the door: the lit store */}
+      <span aria-hidden className="absolute inset-0 bg-[#ff5a1f] bg-cover bg-[18%_50%]" style={{ backgroundImage: "url(/showcase/store-poster.webp)" }} />
+      <span className="door-panel absolute inset-0 border-[10px] border-[#1b1b1b] bg-[#152322]">
+        {/* A little reflection on the glass */}
+        <span aria-hidden className="absolute top-0 left-[14%] h-full w-3 -skew-x-12 bg-white/10" />
+        <span aria-hidden className="absolute top-0 left-[22%] h-full w-1 -skew-x-12 bg-white/10" />
+        {/* Push bar */}
+        <span aria-hidden className="absolute inset-x-3 top-[62%] h-3 rounded-full bg-[#c7ccd1] shadow-[0_2px_0_#6b7075]" />
+        {hasStore && (
+          <span className="absolute inset-x-0 bottom-5 text-center">
+            <span className="block text-xs font-bold tracking-[0.3em] text-white/50 uppercase">Push</span>
+            <span className="block font-heading text-3xl leading-none font-extrabold tracking-wide uppercase" style={{ color: CREAM }}>
+              Step inside
+            </span>
+          </span>
+        )}
+        {/* The OPEN sign hangs on the door, so it swings with it */}
+        {sign}
+      </span>
+    </>
+  );
+
+  const frame = "relative mx-auto block h-80 w-full max-w-60 overflow-hidden [perspective:1100px] md:h-auto md:max-w-none";
+  return hasStore ? (
+    <OpenStoreButton
+      label="Walk into the 3D store"
+      className={`group ${frame} cursor-pointer focus-visible:ring-4 focus-visible:ring-primary focus-visible:outline-none`}
+    >
+      {panel}
+    </OpenStoreButton>
+  ) : (
+    <div className={frame}>{panel}</div>
   );
 }
 
-/** What the ticket says right now. */
+/** What the OPEN sign says right now. */
 function scoreboard(info: StoreInfo) {
   const days = pickupDays(info);
   const today = days.find((d) => d.isToday);
