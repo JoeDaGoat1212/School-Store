@@ -5,6 +5,7 @@ import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { ContactShadows, Environment, Lightformer, RoundedBox } from "@react-three/drei";
 import * as THREE from "three";
 import { readableOn, shade, type ProductLook } from "@/lib/product-look";
+import { labelPhotoFor } from "./scene-assets";
 
 /*
  * The 3D part of the drinks showcase (React Three Fiber = three.js in React).
@@ -173,7 +174,17 @@ function Drink({ item, offset, calm, onClick }: { item: SceneItem; offset: numbe
 
 /** The 3D drink itself (also used on the fridge shelves). */
 export function DrinkModel({ item }: { item: SceneItem }) {
-  const label = useLabel(item);
+  const drawn = useLabel(item);
+  const photo = usePhotoLabel(item.look.shape === "can" ? labelPhotoFor(item.name) : null);
+  if (photo) {
+    // A real 12 oz can is wider than our slim one; the photo label needs those proportions.
+    return (
+      <group scale={[CLASSIC_CAN, 1, CLASSIC_CAN]}>
+        <Can label={photo} />
+      </group>
+    );
+  }
+  const label = drawn;
   switch (item.look.shape) {
     case "bottle":
       return <Bottle look={item.look} label={label} />;
@@ -299,6 +310,34 @@ function Pouch({ look, label }: { look: ProductLook; label: THREE.Texture }) {
 }
 
 // ---- Labels ---------------------------------------------------------------------
+
+/** How much wider a photo-label can is than the slim can (body height ÷ diameter goes from 2.08 to 1.5, like the photo). */
+const CLASSIC_CAN = 1.38;
+
+const photoCache = new Map<string, THREE.Texture>();
+
+/**
+ * A real label photo for the drink, if there is one (see scene-assets.ts).
+ * Returns null while it downloads, so the drawn label shows until then.
+ */
+function usePhotoLabel(url: string | null) {
+  const [loaded, setLoaded] = useState<{ url: string; texture: THREE.Texture } | null>(null);
+  useEffect(() => {
+    if (!url || photoCache.has(url)) return;
+    let alive = true;
+    new THREE.TextureLoader().load(url, (texture) => {
+      texture.colorSpace = THREE.SRGBColorSpace;
+      texture.anisotropy = 8;
+      photoCache.set(url, texture);
+      if (alive) setLoaded({ url, texture });
+    });
+    return () => {
+      alive = false;
+    };
+  }, [url]);
+  if (!url) return null;
+  return photoCache.get(url) ?? (loaded?.url === url ? loaded.texture : null);
+}
 
 /**
  * Draws a label for the drink: its color, a sweeping stripe in the accent

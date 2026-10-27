@@ -29,5 +29,18 @@ export const SCENES: Record<Scene, { edge: string; pieces: Piece[] }> = {
   tropical: { edge: "#fbad36", pieces: [{ name: "pineapple" }, { name: "mango" }, { name: "passion-fruit" }] },
 };
 
-export const backdropUrl = (scene: Scene) => `/showcase/bg/${scene}.webp`;
+/**
+ * Real label photos for cans, unwrapped flat so they wrap all the way around
+ * the 3D can (public/showcase/labels/). A drink uses one when its name
+ * matches every word listed. Cans with a photo get real 12 oz proportions,
+ * because the photo was taken of one.
+ */
+const LABEL_PHOTOS: { words: RegExp[]; file: string }[] = [{ words: [/fanta/i, /orange/i], file: "orange-fanta" }];
+
+export function labelPhotoFor(name: string) {
+  const match = LABEL_PHOTOS.find(({ words }) => words.every((w) => w.test(name)));
+  return match ? `/showcase/labels/${match.file}.webp` : null;
+}
+
+export const backdropUrl =(scene: Scene) => `/showcase/bg/${scene}.webp`;
 export const pieceUrl = (name: string) => `/showcase/pieces/${name}.webp`;
