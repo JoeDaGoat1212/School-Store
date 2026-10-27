@@ -3,11 +3,13 @@ import {
   BoxesIcon,
   ClipboardListIcon,
   FileUpIcon,
+  GiftIcon,
   LayoutDashboardIcon,
   type LucideIcon,
   PackageIcon,
   ReceiptIcon,
   SettingsIcon,
+  TagIcon,
 } from "lucide-react";
 
 /** The staff sidebar. Add a page here to put it in the menu. */
@@ -19,5 +21,7 @@ export const staffNav: { title: string; href: string; icon: LucideIcon }[] = [
   { title: "Sales import", href: "/admin/imports", icon: FileUpIcon },
   { title: "Insights", href: "/admin/insights", icon: BarChart3Icon },
   { title: "Products", href: "/admin/products", icon: PackageIcon },
+  { title: "Deals", href: "/admin/deals", icon: TagIcon },
+  { title: "Rewards", href: "/admin/rewards", icon: GiftIcon },
   { title: "Settings", href: "/admin/settings", icon: SettingsIcon },
 ];

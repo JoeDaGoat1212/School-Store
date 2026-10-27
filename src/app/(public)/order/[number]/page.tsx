@@ -19,9 +19,12 @@ export default async function OrderPage(props: PageProps<"/order/[number]">) {
   if (!Number.isSafeInteger(number) || number <= 0) notFound();
 
   // Only show the order if this phone placed it (or looked it up) — that's
-  // where the last name comes from. Otherwise ask for the last name.
+  // where the last name comes from — or it's the signed-in member's own order.
+  // Otherwise ask for the last name.
+  const supabase = await createClient();
   const lastName = await savedLastName(number);
-  if (!lastName) {
+  const mine = lastName ? null : (await supabase.rpc("lookup_my_order", { p_order_number: number })).data;
+  if (!lastName && !mine) {
     return (
       <div className="mx-auto max-w-md">
         <h1 className="font-heading text-5xl leading-[0.95] font-extrabold">Order {formatOrderNumber(number)}</h1>
@@ -31,9 +34,8 @@ export default async function OrderPage(props: PageProps<"/order/[number]">) {
     );
   }
 
-  const supabase = await createClient();
   const [{ data }, { info }] = await Promise.all([
-    supabase.rpc("lookup_order", { p_order_number: number, p_last_name: lastName }),
+    mine ? Promise.resolve({ data: mine }) : supabase.rpc("lookup_order", { p_order_number: number, p_last_name: lastName! }),
     loadStorefront(),
   ]);
   if (!data) notFound();

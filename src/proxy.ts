@@ -1,8 +1,8 @@
 // Runs before every page request (Next.js "proxy", formerly "middleware").
 //
 // Two jobs:
-//   1. Keep the admin's login fresh (Supabase login cookies expire and must be
-//      refreshed — this does it automatically).
+//   1. Keep logins fresh — the admin's and students' rewards sign-ins
+//      (Supabase login cookies expire and must be refreshed; this does it).
 //   2. Send anyone who isn't logged in away from /admin to /login.
 //
 // This is a fast first check only. Every admin page ALSO calls requireAdmin()
@@ -46,7 +46,7 @@ export async function proxy(request: NextRequest) {
 }
 
 export const config = {
-  // Only run on staff pages and the login page. Public pages (menu, checkout)
-  // don't need a login, so we skip them to keep them fast.
-  matcher: ["/admin/:path*", "/login"],
+  // Every page (students can be signed in to rewards anywhere), but not
+  // images, icons and Next's own files.
+  matcher: ["/((?!_next/static|_next/image|icon|apple-icon|favicon.ico|.*\\.(?:png|jpg|jpeg|svg|webp|ico)$).*)"],
 };

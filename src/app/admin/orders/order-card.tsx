@@ -112,6 +112,11 @@ export function OrderCard({ order }: { order: QueueOrder }) {
           <p className="mt-1.5 truncate font-semibold">
             {order.first_name} {order.last_name}
             <span className="font-normal text-muted-foreground"> · {order.grade}</span>
+            {order.member && (
+              <span className="ml-1.5 rounded-md bg-teal/20 px-1.5 py-0.5 align-middle text-[0.7rem] font-semibold text-teal-ink">
+                Member
+              </span>
+            )}
           </p>
           <p className="text-xs text-muted-foreground">Ordered {formatTime(order.created_at)}</p>
         </div>
@@ -147,11 +152,38 @@ export function OrderCard({ order }: { order: QueueOrder }) {
         </DropdownMenu>
       </div>
 
+      {/* What to pack: loose items, then each bundle with what's inside it. */}
       <ul className="mx-4 grid gap-1 border-t py-3 text-sm">
-        {order.items.map((item) => (
-          <li key={item.product_name} className="flex gap-2">
-            <span className="w-7 shrink-0 font-heading font-bold tabular-nums">{item.quantity}×</span>
-            <span className="flex-1">{item.product_name}</span>
+        {order.items
+          .filter((item) => !item.order_bundle_id)
+          .map((item, i) => (
+            <li key={`${item.product_name}-${i}`} className="flex gap-2">
+              <span className="w-7 shrink-0 font-heading font-bold tabular-nums">{item.quantity}×</span>
+              <span className="flex-1">{item.product_name}</span>
+            </li>
+          ))}
+        {order.bundles.map((b) => (
+          <li key={b.id}>
+            <div className="flex gap-2">
+              <span className="w-7 shrink-0 font-heading font-bold tabular-nums">{b.quantity}×</span>
+              <span className="flex-1 font-medium">{b.bundle_name}</span>
+            </div>
+            <ul className="ml-9 text-muted-foreground">
+              {order.items
+                .filter((item) => item.order_bundle_id === b.id)
+                .map((item) => (
+                  <li key={item.product_name}>
+                    {item.quantity}× {item.product_name}
+                  </li>
+                ))}
+            </ul>
+          </li>
+        ))}
+        {order.discounts.map((d) => (
+          <li key={d.label} className="flex gap-2 text-xs font-medium text-ember-ink">
+            <span className="w-7 shrink-0" />
+            <span className="flex-1">{d.label}</span>
+            <span className="tabular-nums">−{formatCents(d.amount_cents)}</span>
           </li>
         ))}
       </ul>

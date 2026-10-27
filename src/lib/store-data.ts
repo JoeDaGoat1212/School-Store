@@ -1,6 +1,8 @@
 import "server-only";
 
+import { cache } from "react";
 import { createClient } from "@/lib/supabase/server";
+import type { Deals } from "@/lib/deals";
 import type { StoreInfo } from "@/lib/ordering";
 
 export type MenuItem = {
@@ -15,10 +17,17 @@ export type MenuItem = {
   available: number;
 };
 
-/** The public menu and store info. Uses only the functions students may call. */
-export async function loadStorefront() {
+/**
+ * The public menu, store info, and today's deals and bundles. Uses only the
+ * functions students may call. `cache` = asked once per page load.
+ */
+export const loadStorefront = cache(async () => {
   const supabase = await createClient();
-  const [menu, info] = await Promise.all([supabase.rpc("get_menu"), supabase.rpc("get_store_info")]);
+  const [menu, info, deals] = await Promise.all([
+    supabase.rpc("get_menu"),
+    supabase.rpc("get_store_info"),
+    supabase.rpc("get_deals"),
+  ]);
 
   if (menu.error || info.error) {
     throw new Error(`Couldn't load the store: ${(menu.error ?? info.error)!.message}`);
@@ -27,5 +36,7 @@ export async function loadStorefront() {
   return {
     menu: (menu.data ?? []) as MenuItem[],
     info: info.data as unknown as StoreInfo,
+    // If the deals update hasn't been run yet, the menu still works without deals.
+    deals: ((deals.error ? null : deals.data) ?? { promotions: [], bundles: [] }) as unknown as Deals,
   };
-}
+});

@@ -1,8 +1,10 @@
 "use client";
 
 import { useState, type CSSProperties } from "react";
-import { PlusIcon } from "lucide-react";
+import Link from "next/link";
+import { LockIcon, PlusIcon } from "lucide-react";
 import { ProductArt } from "@/components/product-art";
+import { buyGetLabel, type ShownPrice } from "@/lib/deals";
 import { formatCents } from "@/lib/format";
 import type { MenuItem } from "@/lib/store-data";
 import { cn } from "@/lib/utils";
@@ -17,10 +19,13 @@ export function ProductCard({
   item,
   inCart,
   maxPerOrder,
+  shown,
 }: {
   item: MenuItem;
   inCart: number;
   maxPerOrder: number;
+  /** Price after any sale, plus deal labels (from src/lib/deals.ts). */
+  shown: ShownPrice;
 }) {
   const soldOut = item.available <= 0;
   const max = Math.min(item.available, maxPerOrder);
@@ -31,7 +36,7 @@ export function ProductCard({
     cart.add({
       id: item.id,
       name: item.name,
-      price_cents: item.price_cents,
+      price_cents: shown.price,
       emoji: item.emoji,
       photo_path: item.photo_path,
       category: item.category,
@@ -69,12 +74,21 @@ export function ProductCard({
           </span>
         ) : (
           // The price tag: black with orange numbers, like a price-gun sticker.
-          <span className="absolute top-2.5 left-2.5 -rotate-3 rounded-md bg-black px-2 pt-1 pb-0.5 font-heading text-2xl leading-none font-extrabold text-primary tabular-nums">
-            {formatCents(item.price_cents)}
+          // On sale, the old price is crossed out underneath.
+          <span className="absolute top-2.5 left-2.5 -rotate-3 rounded-md bg-black px-2 pt-1 pb-0.5 leading-none">
+            <span className="block font-heading text-2xl font-extrabold text-primary tabular-nums">{formatCents(shown.price)}</span>
+            {shown.regular !== null && (
+              <span className="block pb-0.5 text-xs font-semibold text-white/60 tabular-nums line-through">
+                <span className="sr-only">was </span>
+                {formatCents(shown.regular)}
+              </span>
+            )}
           </span>
         )}
 
-        <div className="absolute bottom-2.5 left-2.5 flex flex-wrap gap-1">
+        <div className="absolute right-2.5 bottom-2.5 left-2.5 flex flex-wrap gap-1">
+          {shown.saleTitle && !soldOut && <Tag className="bg-primary text-black">{shown.saleTitle}</Tag>}
+          {shown.buyGets[0] && !soldOut && <Tag className="bg-black text-white">{buyGetLabel(shown.buyGets[0])}</Tag>}
           {item.tags.includes("new") && <Tag className="bg-teal text-black">New</Tag>}
           {!soldOut && item.available <= FEW_LEFT ? (
             <Tag className="bg-primary text-black">Only {item.available} left</Tag>
@@ -87,6 +101,15 @@ export function ProductCard({
       <div className="mt-3 flex flex-1 flex-col">
         <h3 className="text-[0.95rem] leading-snug font-semibold">{item.name}</h3>
         {item.description && <p className="mt-1 line-clamp-2 text-sm text-muted-foreground">{item.description}</p>}
+        {shown.memberPrice !== null && !soldOut && (
+          <Link
+            href="/account?next=/"
+            className="mt-1.5 inline-flex w-fit items-center gap-1 text-sm font-semibold text-teal-ink underline-offset-4 hover:underline"
+          >
+            <LockIcon className="size-3.5" />
+            Members pay {formatCents(shown.memberPrice)}
+          </Link>
+        )}
 
         <div className="mt-auto pt-3">
           {inCart > 0 ? (
@@ -120,7 +143,7 @@ export function ProductCard({
 }
 
 /** A ring of little orange and teal sparks that fly out and fade (CSS in globals.css). */
-function Sparks() {
+export function Sparks() {
   return (
     <span aria-hidden className="pointer-events-none relative -mt-6 block h-0">
       {Array.from({ length: 10 }, (_, i) => (
@@ -141,6 +164,6 @@ function Sparks() {
   );
 }
 
-function Tag({ children, className }: { children: React.ReactNode; className?: string }) {
+export function Tag({ children, className }: { children: React.ReactNode; className?: string }) {
   return <span className={cn("rounded-md px-2 py-0.5 text-xs font-bold", className)}>{children}</span>;
 }

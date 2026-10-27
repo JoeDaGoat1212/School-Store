@@ -19,6 +19,8 @@ export type StoreInfo = {
   max_items_per_order: number;
   today_is_open: boolean;
   next_open_day: string | null;
+  rewards_enabled?: boolean; // added in phase 8
+  points_per_dollar?: number;
   pickup_windows: PickupWindow[];
 };
 

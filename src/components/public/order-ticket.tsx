@@ -13,6 +13,14 @@ export type LookedUpOrder = {
   total_cents: number;
   created_at: string;
   items: { name: string; quantity: number; unit_price_cents: number }[];
+  // Added with rewards and deals (older database versions leave these out).
+  subtotal_cents?: number;
+  discount_cents?: number;
+  points_earned?: number;
+  points_spent?: number;
+  member?: boolean;
+  bundles?: { name: string; quantity: number; unit_price_cents: number; items: { name: string; quantity: number }[] }[];
+  discounts?: { label: string; amount_cents: number }[];
 };
 
 const STEPS: OrderStatus[] = ["received", "preparing", "ready", "picked_up"];
@@ -113,14 +121,31 @@ export function OrderTicket({
           </div>
         </dl>
 
-        {/* Items */}
+        {/* Items, bundles and discounts */}
         <ul className="grid gap-1.5 border-t pt-4 text-sm">
-          {order.items.map((item) => (
-            <li key={item.name} className="flex justify-between gap-3">
+          {(order.bundles ?? []).map((b) => (
+            <li key={b.name} className="flex justify-between gap-3">
+              <span>
+                <span className="font-semibold tabular-nums">{b.quantity}×</span> {b.name}
+                <span className="block text-xs text-muted-foreground">
+                  {b.items.map((i) => (i.quantity > b.quantity ? `${i.quantity / b.quantity} ${i.name}` : i.name)).join(" + ")}
+                </span>
+              </span>
+              <span className="text-muted-foreground tabular-nums">{formatCents(b.quantity * b.unit_price_cents)}</span>
+            </li>
+          ))}
+          {order.items.map((item, i) => (
+            <li key={`${item.name}-${i}`} className="flex justify-between gap-3">
               <span>
                 <span className="font-semibold tabular-nums">{item.quantity}×</span> {item.name}
               </span>
               <span className="text-muted-foreground tabular-nums">{formatCents(item.quantity * item.unit_price_cents)}</span>
+            </li>
+          ))}
+          {(order.discounts ?? []).map((d) => (
+            <li key={d.label} className="flex justify-between gap-3 font-medium text-ember-ink">
+              <span>{d.label}</span>
+              <span className="tabular-nums">−{formatCents(d.amount_cents)}</span>
             </li>
           ))}
         </ul>
@@ -131,6 +156,13 @@ export function OrderTicket({
         </div>
         {order.status !== "picked_up" && !closed && (
           <p className="-mt-3 text-sm text-muted-foreground">Cash or debit. Say your order number at the window.</p>
+        )}
+        {order.member && (order.points_earned ?? 0) > 0 && !closed && (
+          <p className="-mt-2 rounded-xl bg-teal/15 px-3.5 py-2.5 text-sm font-medium">
+            {order.status === "picked_up"
+              ? `You earned ${order.points_earned} points on this order.`
+              : `You'll earn ${order.points_earned} points when you pick this up.`}
+          </p>
         )}
       </div>
     </article>

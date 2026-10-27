@@ -2,34 +2,47 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useActionState, useEffect, useState } from "react";
-import { AlertCircleIcon, BanknoteIcon, Loader2Icon, ShoppingBagIcon } from "lucide-react";
-import { cart, cartTotals, useCart } from "@/components/public/cart-store";
+import { useActionState, useEffect, useRef, useState } from "react";
+import { AlertCircleIcon, BanknoteIcon, GiftIcon, Loader2Icon, ShoppingBagIcon, SparklesIcon } from "lucide-react";
+import { cart, cartTotals, splitCart, useCart } from "@/components/public/cart-store";
+import { Choice, ChoiceGroup, TextField } from "@/components/public/form-fields";
 import { QuantityStepper } from "@/components/public/quantity-stepper";
 import { ProductArt } from "@/components/product-art";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { formatCents, formatClock, formatDay, relativeDay } from "@/lib/format";
+import type { Reward } from "@/lib/member";
 import type { PickupDay } from "@/lib/ordering";
 import { cn } from "@/lib/utils";
 import { GRADES } from "@/lib/validation";
-import { placeOrder, type CheckoutState } from "../actions";
+import { placeOrder, quoteCart, type CheckoutState, type Quote } from "../actions";
 
 type LiveItem = { id: string; price_cents: number; available: number };
+type LiveBundle = { id: string; price_cents: number; available: number; itemsPer: number; open: boolean };
+export type CheckoutMember = { first_name: string; last_name: string; grade: string; balance: number };
 
 export function Checkout({
   menu,
+  bundles,
   days,
   today,
   maxItems,
   pickupLocation,
+  member,
+  signedIn,
+  rewards,
+  rewardsEnabled,
 }: {
   menu: LiveItem[];
+  bundles: LiveBundle[];
   days: PickupDay[];
   today: string;
   maxItems: number;
   pickupLocation: string;
+  member: CheckoutMember | null;
+  /** Signed in but hasn't finished the rewards profile yet. */
+  signedIn: boolean;
+  rewards: Reward[];
+  rewardsEnabled: boolean;
 }) {
   const router = useRouter();
   const items = useCart();
@@ -42,33 +55,83 @@ export function Checkout({
   const [windowId, setWindowId] = useState<number | null>(null);
   // Kept in state (not just in the inputs) because React clears a form after
   // each submit — this way an error doesn't wipe what the student typed.
-  const [firstName, setFirstName] = useState("");
-  const [lastName, setLastName] = useState("");
-  const [grade, setGrade] = useState("");
+  // Members get their name filled in.
+  const [firstName, setFirstName] = useState(member?.first_name ?? "");
+  const [lastName, setLastName] = useState(member?.last_name ?? "");
+  const [grade, setGrade] = useState(member?.grade ?? "");
+  const [rewardId, setRewardId] = useState<string | null>(null);
   const selectedDay = days.find((d) => d.date === day);
+
+  // ---- Live price from the database ---------------------------------------------
+  // Every time the cart or reward changes, ask the server what it costs with
+  // today's deals. (It waits a moment so tapping + five times asks once.)
+  const [quote, setQuote] = useState<Quote | null>(null);
+  const [quoteError, setQuoteError] = useState<string | null>(null);
+  const request = useRef(0);
+  const cartKey = JSON.stringify(splitCart(items));
+
+  useEffect(() => {
+    const id = ++request.current;
+    const timer = setTimeout(async () => {
+      const result = await quoteCart({ ...JSON.parse(cartKey), rewardId });
+      if (id !== request.current) return; // a newer request is on its way
+      if (result.quote) {
+        setQuote(result.quote);
+        setQuoteError(null);
+      } else {
+        setQuoteError(result.message ?? null);
+        // A reward that can't be used anymore: take it off.
+        if (rewardId && ["NOT_ENOUGH_POINTS", "REWARD_UNAVAILABLE", "SIGN_IN_NEEDED"].includes(result.code ?? "")) {
+          setRewardId(null);
+        }
+      }
+    }, 250);
+    return () => clearTimeout(timer);
+  }, [cartKey, rewardId]);
 
   // If an item sold out while they were checking out, reload the live stock.
   useEffect(() => {
-    if (state.code === "SOLD_OUT" || state.code === "UNAVAILABLE") router.refresh();
+    if (["SOLD_OUT", "UNAVAILABLE", "BUNDLE_UNAVAILABLE"].includes(state.code ?? "")) router.refresh();
   }, [state, router]);
 
-  // Check the cart against what's actually available right now.
-  const live = new Map(menu.map((m) => [m.id, m]));
+  // ---- Check the cart against what's available right now ---------------------------
+  const liveItems = new Map(menu.map((m) => [m.id, m]));
+  const liveBundles = new Map(bundles.map((b) => [b.id, b]));
+  const quoted = new Map(quote?.lines.filter((l) => !l.is_reward).map((l) => [l.product_id, l]) ?? []);
+
   const lines = items.map((item) => {
-    const now = live.get(item.id);
+    const isBundle = item.kind === "bundle";
+    const now = isBundle ? liveBundles.get(item.id) : liveItems.get(item.id);
     const available = now?.available ?? 0;
-    const problem = !now
-      ? "No longer on the menu"
-      : available <= 0
-        ? "Sold out"
-        : item.quantity > available
-          ? `Only ${available} left`
-          : null;
-    return { ...item, price_cents: now?.price_cents ?? item.price_cents, available, problem };
+    const problem =
+      !now || (isBundle && !(now as LiveBundle).open)
+        ? isBundle
+          ? "This bundle isn't available now"
+          : "No longer on the menu"
+        : available <= 0
+          ? "Sold out"
+          : item.quantity > available
+            ? `Only ${available} left`
+            : null;
+    const q = isBundle ? undefined : quoted.get(item.id);
+    return {
+      ...item,
+      isBundle,
+      unit: q?.unit_price_cents ?? item.price_cents,
+      regular: q && q.unit_price_cents < q.regular_price_cents ? q.regular_price_cents : null,
+      dealTitle: q?.deal_title ?? null,
+      itemsEach: isBundle ? ((now as LiveBundle | undefined)?.itemsPer ?? 1) : 1,
+      available,
+      problem,
+    };
   });
-  const { count } = cartTotals(items);
-  const total = lines.reduce((sum, l) => sum + l.price_cents * l.quantity, 0);
-  const hasProblems = lines.some((l) => l.problem) || count > maxItems;
+
+  const count = lines.reduce((n, l) => n + l.quantity * l.itemsEach, 0) + (rewardId ? 1 : 0);
+  const fallbackTotal = cartTotals(items).totalCents;
+  const total = quote?.total_cents ?? fallbackTotal;
+  const hasProblems = lines.some((l) => l.problem) || count > maxItems || Boolean(quoteError);
+  const reward = rewards.find((r) => r.id === rewardId);
+  const usableRewards = member ? rewards.filter((r) => r.available > 0) : [];
 
   if (items.length === 0) {
     return (
@@ -103,7 +166,20 @@ export function Checkout({
             />
             <div className="min-w-0 flex-1">
               <p className="truncate font-semibold">{line.name}</p>
-              <p className="text-sm text-muted-foreground tabular-nums">{formatCents(line.price_cents)} each</p>
+              {line.isBundle && line.detail && <p className="truncate text-xs text-muted-foreground">{line.detail}</p>}
+              <p className="text-sm text-muted-foreground tabular-nums">
+                {formatCents(line.unit)} each
+                {line.regular !== null && (
+                  <>
+                    {" "}
+                    <span className="line-through">
+                      <span className="sr-only">was </span>
+                      {formatCents(line.regular)}
+                    </span>
+                    {line.dealTitle && <span className="ml-1.5 font-semibold text-ember-ink">{line.dealTitle}</span>}
+                  </>
+                )}
+              </p>
               {line.problem && (
                 <p className="mt-0.5 flex items-center gap-1 text-sm font-medium text-destructive">
                   <AlertCircleIcon className="size-3.5" /> {line.problem}
@@ -133,17 +209,132 @@ export function Checkout({
             />
           </li>
         ))}
-        <li className="flex items-baseline justify-between py-4">
-          <span className="font-semibold">Total</span>
-          <span className="font-heading text-3xl leading-none font-extrabold tabular-nums">{formatCents(total)}</span>
+
+        {reward && (
+          <li className="flex items-center gap-3 py-3.5">
+            <ProductArt
+              name={reward.name}
+              photoPath={reward.photo_path}
+              emoji={reward.emoji}
+              category={reward.category}
+              className="size-14 shrink-0 rounded-xl"
+              emojiClassName="text-3xl"
+            />
+            <div className="min-w-0 flex-1">
+              <p className="truncate font-semibold">Free {reward.name}</p>
+              <p className="text-sm text-teal-ink">Reward, {reward.points_cost} points</p>
+            </div>
+            <Button type="button" variant="ghost" size="sm" onClick={() => setRewardId(null)}>
+              Remove
+            </Button>
+          </li>
+        )}
+
+        {/* Totals */}
+        <li className="grid gap-1.5 py-4 text-sm">
+          {quote && quote.discount_cents > 0 && (
+            <>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Before deals</span>
+                <span className="tabular-nums">{formatCents(quote.subtotal_cents)}</span>
+              </div>
+              {quote.discounts.map((d) => (
+                <div key={d.label} className="flex justify-between font-medium text-ember-ink">
+                  <span>{d.label}</span>
+                  <span className="tabular-nums">−{formatCents(d.amount_cents)}</span>
+                </div>
+              ))}
+            </>
+          )}
+          <div className="flex items-baseline justify-between pt-1">
+            <span className="text-base font-semibold">Total</span>
+            <span className={cn("font-heading text-4xl leading-none font-extrabold tabular-nums", !quote && "opacity-60")}>
+              {formatCents(total)}
+            </span>
+          </div>
+          {member && quote && quote.points_earned > 0 && (
+            <p className="flex items-center justify-end gap-1 font-medium text-teal-ink">
+              <SparklesIcon className="size-4" /> You&apos;ll earn {quote.points_earned} points at pickup
+            </p>
+          )}
         </li>
       </ul>
+      {quoteError && (
+        <p role="alert" className="mt-2 text-sm font-medium text-destructive">
+          {quoteError}
+        </p>
+      )}
       {count > maxItems && (
-        <p className="mt-2 text-sm font-medium text-destructive">Orders are limited to {maxItems} items.</p>
+        <p className="mt-2 text-sm font-medium text-destructive">
+          Orders are limited to {maxItems} items (bundles count each item inside).
+        </p>
       )}
       <Link href="/" className="mt-3 inline-block text-sm font-semibold text-ember-ink underline-offset-4 hover:underline">
         + Add more items
       </Link>
+
+      {/* ---- Rewards ------------------------------------------------------ */}
+      {rewardsEnabled && !member && (
+        <Link
+          href="/account?next=/cart"
+          className="mt-6 flex items-center gap-3 rounded-2xl bg-black p-4 text-white transition-transform focus-visible:ring-3 focus-visible:ring-primary focus-visible:outline-none active:scale-[0.99]"
+        >
+          <SparklesIcon className="size-6 shrink-0 text-primary" />
+          <span className="flex-1">
+            <span className="block font-semibold">
+              {signedIn ? "Finish your rewards account" : "Sign in to earn points"}
+            </span>
+            <span className="block text-sm text-white/70">
+              {quote && quote.points_if_member > 0
+                ? `This order would earn you ${quote.points_if_member} points toward free snacks.`
+                : "Earn points on every order and trade them for free snacks."}
+            </span>
+          </span>
+          <span className="font-semibold text-primary">{signedIn ? "Finish" : "Sign in"}</span>
+        </Link>
+      )}
+
+      {member && usableRewards.length > 0 && (
+        <section aria-labelledby="use-reward" className="mt-8">
+          <div className="flex items-baseline justify-between gap-3">
+            <h2 id="use-reward" className="font-heading text-2xl font-extrabold">
+              Use a reward
+            </h2>
+            <p className="text-sm text-muted-foreground">
+              You have <strong className="font-semibold text-foreground">{member.balance}</strong> points
+            </p>
+          </div>
+          <div role="radiogroup" aria-labelledby="use-reward" className="mt-3 flex gap-2 overflow-x-auto pb-1 [scrollbar-width:thin]">
+            {usableRewards.map((r) => {
+              const affordable = member.balance >= r.points_cost;
+              const on = rewardId === r.id;
+              return (
+                <button
+                  key={r.id}
+                  type="button"
+                  role="radio"
+                  aria-checked={on}
+                  disabled={!affordable}
+                  onClick={() => setRewardId(on ? null : r.id)}
+                  className={cn(
+                    "flex w-44 shrink-0 items-center gap-2.5 rounded-xl border-2 bg-card p-2.5 text-left transition-colors focus-visible:ring-3 focus-visible:ring-ring/60 focus-visible:outline-none",
+                    on ? "border-teal bg-teal/10" : "hover:border-teal/50",
+                    !affordable && "cursor-not-allowed opacity-50 hover:border-border",
+                  )}
+                >
+                  <GiftIcon className={cn("size-5 shrink-0", on ? "text-teal-ink" : "text-muted-foreground")} />
+                  <span className="min-w-0">
+                    <span className="block truncate text-sm font-semibold">Free {r.name}</span>
+                    <span className="block text-xs text-muted-foreground tabular-nums">
+                      {affordable ? `${r.points_cost} points` : `${r.points_cost - member.balance} more points`}
+                    </span>
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </section>
+      )}
 
       {/* ---- Details ------------------------------------------------------ */}
       {days.every((d) => !d.anyOpen) ? (
@@ -152,11 +343,9 @@ export function Checkout({
         </p>
       ) : (
         <form action={formAction} className="mt-8 grid gap-7" noValidate>
-          <input
-            type="hidden"
-            name="items"
-            value={JSON.stringify(items.map((i) => ({ product_id: i.id, quantity: i.quantity })))}
-          />
+          <input type="hidden" name="items" value={JSON.stringify(splitCart(items).items)} />
+          <input type="hidden" name="bundles" value={JSON.stringify(splitCart(items).bundles)} />
+          <input type="hidden" name="reward_id" value={rewardId ?? ""} />
 
           <fieldset className="grid gap-4">
             <legend className="mb-3 font-heading text-2xl font-extrabold">Who&apos;s picking it up?</legend>
@@ -248,7 +437,7 @@ export function Checkout({
             </p>
           )}
 
-          <Button type="submit" size="xl" className="h-14 text-lg" disabled={placing || hasProblems}>
+          <Button type="submit" size="xl" className="h-14 text-lg" disabled={placing || hasProblems || !quote}>
             {placing ? <Loader2Icon className="animate-spin" /> : null}
             {placing ? "Placing order…" : `Place order for ${formatCents(total)}`}
           </Button>
@@ -258,109 +447,5 @@ export function Checkout({
         </form>
       )}
     </div>
-  );
-}
-
-function TextField({
-  id,
-  label,
-  error,
-  autoComplete,
-  value,
-  onChange,
-}: {
-  id: string;
-  label: string;
-  error?: string;
-  autoComplete: string;
-  value: string;
-  onChange: (value: string) => void;
-}) {
-  return (
-    <div className="grid gap-2">
-      <Label htmlFor={id}>{label}</Label>
-      <Input
-        id={id}
-        name={id}
-        autoComplete={autoComplete}
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        required
-        maxLength={40}
-        aria-invalid={Boolean(error)}
-        aria-describedby={error ? `${id}-error` : undefined}
-        className="h-12 text-base"
-      />
-      {error && (
-        <p id={`${id}-error`} className="text-sm font-medium text-destructive">
-          {error}
-        </p>
-      )}
-    </div>
-  );
-}
-
-/** A labeled row of big tappable radio buttons. */
-function ChoiceGroup({
-  label,
-  error,
-  grid,
-  children,
-}: {
-  label: string;
-  error?: string;
-  grid?: boolean;
-  children: React.ReactNode;
-}) {
-  return (
-    <div role="radiogroup" aria-label={label} className="grid gap-2">
-      <span className="text-sm font-medium">{label}</span>
-      <div className={cn(grid ? "grid grid-cols-2 gap-2 sm:grid-cols-4" : "flex flex-wrap gap-2")}>{children}</div>
-      {error && <p className="text-sm font-medium text-destructive">{error}</p>}
-    </div>
-  );
-}
-
-/** One radio button styled as a big chip. Works with the keyboard like a normal radio. */
-function Choice({
-  name,
-  value,
-  checked,
-  disabled,
-  onChange,
-  className,
-  children,
-}: {
-  name: string;
-  value: string;
-  checked?: boolean;
-  disabled?: boolean;
-  onChange?: () => void;
-  className?: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <label className={cn("relative", disabled ? "cursor-not-allowed" : "cursor-pointer", className)}>
-      <input
-        type="radio"
-        name={name}
-        value={value}
-        checked={checked}
-        disabled={disabled}
-        onChange={onChange}
-        className="peer sr-only"
-      />
-      <span
-        className={cn(
-          "flex min-h-12 flex-col justify-center rounded-xl border-2 bg-card px-4 py-2 text-sm font-semibold transition-colors",
-          "peer-checked:border-primary peer-checked:bg-primary peer-checked:text-primary-foreground",
-          "peer-focus-visible:ring-3 peer-focus-visible:ring-ring/50",
-          "peer-disabled:border-dashed peer-disabled:bg-transparent peer-disabled:text-muted-foreground",
-          !disabled && "hover:border-primary/50",
-        )}
-      >
-        {children}
-      </span>
-    </label>
   );
 }

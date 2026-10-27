@@ -1,5 +1,5 @@
 -- =============================================================================
--- School Store — sample data for testing
+-- Firebirds Nest — sample data for testing
 -- =============================================================================
 -- Creates ~4 weeks of realistic history ending TODAY, so the dashboard and
 -- charts look real whenever you run it:
@@ -18,7 +18,7 @@ do $$ begin perform setseed(0.42); end $$;  -- repeatable random numbers
 -- Store setup
 -- -----------------------------------------------------------------------------
 update public.settings set
-  store_name      = 'School Store',
+  store_name      = 'Firebirds Nest',
   store_hours     = 'Mon–Fri · before school through 7th hour',
   pickup_location = 'Store window next to the cafeteria',
   banner_text     = 'New: Uncrustables are back in stock!',

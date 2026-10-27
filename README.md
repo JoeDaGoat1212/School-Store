@@ -7,7 +7,7 @@ The website for our student-run store.
 
 This site does **not** replace InTouchPay. Every sale, including online orders, is still rung up in InTouchPay at the window. The site imports InTouchPay's export so it can do the math.
 
-> **Build status:** Phases 1–7 of 8 are done: everything in the plan except the nice-to-haves (phase 8). See [Build phases](#build-phases).
+> **Build status:** Phases 1–8 are done, including rewards accounts, deals and bundles. See [Build phases](#build-phases).
 
 ---
 
@@ -17,11 +17,12 @@ This site does **not** replace InTouchPay. Every sale, including online orders, 
 2. [Set up on your computer](#set-up-on-your-computer)
 3. [Create the admin login](#create-the-admin-login)
 4. [Deploy to Vercel](#deploy-to-vercel)
-5. [Everyday changes](#everyday-changes)
-6. [Where things are in the code](#where-things-are-in-the-code)
-7. [Rules the code follows](#rules-the-code-follows)
-8. [Troubleshooting](#troubleshooting)
-9. [Build phases](#build-phases)
+5. [Rewards accounts setup](#rewards-accounts-setup)
+6. [Everyday changes](#everyday-changes)
+7. [Where things are in the code](#where-things-are-in-the-code)
+8. [Rules the code follows](#rules-the-code-follows)
+9. [Troubleshooting](#troubleshooting)
+10. [Build phases](#build-phases)
 
 ---
 
@@ -73,13 +74,11 @@ npm install
 2. Click **New project**. Pick a name like `school-store`, set a strong database password (save it somewhere safe), and choose the **West US** region.
 3. Wait about two minutes for the project to start.
 
-### 4. Turn off public sign-ups
+### 4. Sign-ups (leave them on)
 
-Only the admin should be able to log in, so make sure no one else can create an account.
+Students make rewards accounts by signing in with an email code, so **Allow new users to sign up** (in **Authentication → Sign In / Providers**) must stay **on**.
 
-In Supabase, open **Authentication → Sign In / Providers** and turn off **Allow new users to sign up**.
-
-(The database also double-checks that you're the admin, so even if someone did sign up they would see nothing. Turning sign-ups off is an extra lock.)
+That's safe: only the account in the `admins` table can see staff pages or staff data. Everyone else can only see their own rewards account. To turn on rewards emails, follow [Rewards accounts setup](#rewards-accounts-setup) after the site is running.
 
 ### 5. Add your keys
 
@@ -126,7 +125,7 @@ npx supabase db push --include-seed
 
 1. Open [`supabase/setup-all.sql`](supabase/setup-all.sql) on GitHub and click the **Copy raw file** button (two overlapping squares, top right of the file).
 2. In Supabase, click **SQL Editor** in the left sidebar → **New query**.
-3. Paste, then click **Run**. After a few seconds the result should say **School Store database is ready!**
+3. Paste, then click **Run**. After a few seconds the result should say **Firebirds Nest database is ready!**
 
 For the real store, use `supabase/setup-all-no-sample.sql` instead (no fake data). These two files are made from the migrations by `npm run db:bundle`. Run that again whenever you add a migration.
 
@@ -168,12 +167,58 @@ From now on, every push to the `main` branch redeploys the site automatically.
 
 ---
 
+## Rewards accounts setup
+
+Students sign in with their email and a 6-digit code, no password. Supabase sends the code. Do these four steps once.
+
+**1. Run the database update.** Apply `supabase/sql-editor/20261026000009_rewards_deals.sql` (see [Applying a database update](#applying-a-database-update)). If you skipped `20261026000008_insights.sql`, run that one first.
+
+**2. Turn sign-ups on.** Supabase → **Authentication → Sign In / Providers** → turn **Allow new users to sign up** on.
+
+**3. Make the email show a code.** Supabase → **Authentication → Emails → Templates**. Change **both** the **Confirm signup** and the **Magic link** templates (new students get the first, returning students get the second):
+
+- Subject: `Your Firebirds Nest code`
+- Message body:
+
+  ```html
+  <h2>Your Firebirds Nest code</h2>
+  <p>Type this code on the website to sign in:</p>
+  <p style="font-size:32px;font-weight:bold;letter-spacing:6px">{{ .Token }}</p>
+  <p>It works for 1 hour. If you didn't ask for it, you can ignore this email.</p>
+  ```
+
+**4. Connect an email sender.** Supabase's built-in email only sends to people on your Supabase team, 2 emails an hour, so students wouldn't get codes. The easiest free sender without a website domain is a Gmail account for the store:
+
+1. Make a Gmail account for the store (a personal-style account; school Google accounts usually block this step).
+2. In that account, turn on **2-Step Verification** (Google Account → Security).
+3. Go to <https://myaccount.google.com/apppasswords>, make an app password called "Supabase", and copy the 16 letters.
+4. Supabase → **Authentication → Emails → SMTP Settings** → turn on **Enable custom SMTP** and fill in:
+
+   | Field | Value |
+   | --- | --- |
+   | Sender email | the store Gmail address |
+   | Sender name | `Firebirds Nest` |
+   | Host | `smtp.gmail.com` |
+   | Port | `465` |
+   | Username | the store Gmail address |
+   | Password | the 16-letter app password (no spaces) |
+
+5. Supabase → **Authentication → Rate Limits**: set emails per hour to about `100`, so a busy lunch doesn't run out. (Gmail allows roughly 500 a day.)
+
+Test it: on the website, tap **Sign in**, use your own email, and check that the code arrives (look in spam too). If the school's email blocks it, students can use a personal email.
+
+Later, if the store gets its own website domain, a service like Resend or Brevo is more reliable than Gmail.
+
+---
+
 ## Everyday changes
 
 | I want to… | Do this |
 | --- | --- |
 | Use our school name, colors or logo | Edit `src/config/brand.ts` (the tab icon updates from it too) |
 | Change pickup times, cutoff, closed days, the banner, order limits, or your password | **Settings** page in the staff dashboard |
+| Put something on sale, make a "buy 2, get 1 free" deal, or a bundle | **Deals** page. Turn on **Deal of the day** to show it big at the top of the menu. |
+| Change points per $1, the rewards students can get, or someone's points | **Rewards** page |
 | Make a fresh sample InTouchPay file for testing imports | `npm run sample-csv` (writes `sample-data/intouchpay-sample.csv`) |
 | Change the database | Add a **new** file in `supabase/migrations/`. Never edit old ones; they have already run. Then run `npm run db:bundle` and `npm run db:types`, and apply it (see below). |
 | Check for mistakes before pushing | `npm run typecheck`, `npm run lint` and `npm test` |
@@ -242,7 +287,9 @@ The site never counts online orders as revenue. Revenue arrives through the InTo
 
 ### Privacy and security
 - Orders store only first name, last name, and grade.
-- Students can't read any table directly. They can only call four database functions: get the menu, get store info, look up an order (needs the number **and** last name), and place an order (through the website's server only).
+- Students can't read any table directly. They can call a few read-only database functions (the menu, store info, deals, rewards, price check, and order lookup, which needs the number **and** last name). Orders are placed only through the website's server.
+- Rewards members can see only their own account, points and orders. Their account holds their email, name and grade. They can delete it themselves on **My rewards**, which deletes their points too.
+- A member's points are only taken or given by database functions, never by the website directly, so they can't be edited from a browser.
 - Row Level Security blocks everything else unless you're the admin.
 - Orders older than 90 days are deleted automatically every night. The number is a setting.
 - Order numbers are counted up (`FN-0001`, `FN-0002`…) and contain no personal information.
@@ -270,6 +317,12 @@ Products might not be marked *available online*, or the database wasn't seeded. 
 **`db push` says a migration already ran.**
 That's expected for old files. Only new files run.
 
+**Students say the sign-in code never arrives.**
+Check [Rewards accounts setup](#rewards-accounts-setup) step 4 (email sender). Supabase → **Authentication → Logs** shows email errors. Codes can also land in spam.
+
+**"That code didn't work."**
+Codes only work once and expire after an hour. Use the newest email, or tap **Send a new code**.
+
 **Types are out of date (red squiggles after a database change).**
 Run `npm run db:types`.
 
@@ -284,4 +337,5 @@ Run `npm run db:types`.
 5. ✅ Sales import
 6. ✅ Insights dashboard
 7. ✅ Settings + polish
-8. ⬜ Nice-to-haves (QR codes, deal of the day, bundles, suggestions)
+8. ✅ Rewards accounts, deals, bundles, deal of the day, "New"/"Limited" tags
+9. ⬜ Still possible: menu QR code poster, suggestion box with voting

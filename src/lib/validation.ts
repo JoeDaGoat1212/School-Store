@@ -75,9 +75,13 @@ export const orderSchema = z.object({
   grade: z.enum(GRADES, { message: "Choose your grade" }),
   pickup_date: z.iso.date({ message: "Choose a pickup day" }),
   pickup_window_id: z.coerce.number({ message: "Choose a pickup time" }).int().positive("Choose a pickup time"),
-  items: z
-    .array(z.object({ product_id: z.uuid(), quantity: z.number().int().min(1).max(50) }))
-    .min(1, "Your cart is empty"),
+  items: z.array(z.object({ product_id: z.uuid(), quantity: z.number().int().min(1).max(50) })).max(60),
+  bundles: z.array(z.object({ bundle_id: z.guid(), quantity: z.number().int().min(1).max(20) })).max(20).default([]),
+  // A reward to spend points on (members only). Empty = none.
+  reward_id: z.union([z.guid(), z.literal("")]).optional().default(""),
+}).refine((o) => o.items.length + o.bundles.length > 0 || o.reward_id !== "", {
+  message: "Your cart is empty",
+  path: ["items"],
 });
 
 export type OrderInput = z.infer<typeof orderSchema>;

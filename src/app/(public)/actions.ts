@@ -5,6 +5,7 @@ import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { parseOrderNumber } from "@/config/brand";
 import { ipHashSalt } from "@/lib/env";
+import { getAccount } from "@/lib/member";
 import { saveOrder } from "@/lib/my-orders";
 import { createClient, createSecretClient } from "@/lib/supabase/server";
 import { fieldErrors, orderSchema } from "@/lib/validation";
@@ -35,18 +36,27 @@ async function deviceHash() {
  */
 export async function placeOrder(_prev: CheckoutState, formData: FormData): Promise<CheckoutState> {
   let items: unknown = [];
+  let bundles: unknown = [];
   try {
     items = JSON.parse(String(formData.get("items") ?? "[]"));
+    bundles = JSON.parse(String(formData.get("bundles") ?? "[]"));
   } catch {
     return { message: "Your cart couldn't be read. Please refresh the page." };
   }
 
-  const parsed = orderSchema.safeParse({ ...Object.fromEntries(formData), items });
+  const parsed = orderSchema.safeParse({ ...Object.fromEntries(formData), items, bundles });
   if (!parsed.success) {
     const errors = fieldErrors(parsed.error);
     return { errors, message: errors.items ?? "Please fix the highlighted fields." };
   }
   const o = parsed.data;
+
+  // Signed in to rewards? The login cookie is checked here on the server, so
+  // nobody can claim to be someone else's account.
+  const { data: login } = await (await createClient()).auth.getClaims();
+  const customerId = (login?.claims?.sub as string | undefined) ?? undefined;
+  const account = customerId ? await getAccount() : null;
+  const memberId = account?.profile && !account.staff ? customerId : undefined;
 
   // The secret client is needed because students aren't allowed to call
   // place_order directly — only this server code can.
@@ -58,7 +68,10 @@ export async function placeOrder(_prev: CheckoutState, formData: FormData): Prom
     p_pickup_window_id: o.pickup_window_id,
     p_pickup_date: o.pickup_date,
     p_items: o.items,
+    p_bundles: o.bundles,
     p_ip_hash: await deviceHash(),
+    p_customer_id: memberId,
+    p_reward_id: memberId && o.reward_id ? o.reward_id : undefined,
   });
 
   if (error) {
@@ -72,6 +85,43 @@ export async function placeOrder(_prev: CheckoutState, formData: FormData): Prom
   const orderNumber = (data as { order_number: number }).order_number;
   await saveOrder(orderNumber, o.last_name);
   redirect(`/order/${orderNumber}?new=1`);
+}
+
+/** What the cart costs right now, from the database (deals, bundles, rewards). */
+export type Quote = {
+  lines: {
+    product_id: string;
+    name: string;
+    quantity: number;
+    regular_price_cents: number;
+    unit_price_cents: number;
+    deal_title: string | null;
+    is_reward: boolean;
+  }[];
+  bundles: { bundle_id: string; name: string; quantity: number; unit_price_cents: number }[];
+  discounts: { label: string; amount_cents: number; kind: "buy_get" | "reward" }[];
+  subtotal_cents: number;
+  discount_cents: number;
+  total_cents: number;
+  member: boolean;
+  points_balance: number;
+  points_earned: number;
+  points_if_member: number;
+};
+
+export async function quoteCart(input: {
+  items: { product_id: string; quantity: number }[];
+  bundles: { bundle_id: string; quantity: number }[];
+  rewardId: string | null;
+}): Promise<{ quote?: Quote; message?: string; code?: string }> {
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("quote_cart", {
+    p_items: input.items,
+    p_bundles: input.bundles,
+    p_reward_id: input.rewardId ?? undefined,
+  });
+  if (error) return { code: error.message, message: error.hint || "Couldn't work out the price. Please refresh." };
+  return { quote: data as unknown as Quote };
 }
 
 export type LookupState = { message?: string; number?: string; last?: string };

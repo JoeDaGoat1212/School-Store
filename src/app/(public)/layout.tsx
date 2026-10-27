@@ -2,6 +2,7 @@ import Link from "next/link";
 import { FlameMark } from "@/components/brand-mark";
 import { SiteHeader } from "@/components/public/site-header";
 import { SkipLink } from "@/components/skip-link";
+import { ThemeToggle } from "@/components/theme-toggle";
 import { brand } from "@/config/brand";
 
 /** Wraps every student-facing page: black header on top, black footer at the bottom. */
@@ -24,13 +25,17 @@ export default function PublicLayout({ children }: { children: React.ReactNode }
               <p className="mt-1.5 text-white/65">Run by students, for students.</p>
             </div>
           </div>
-          <nav aria-label="More links" className="flex gap-6 text-sm text-white/65">
+          <nav aria-label="More links" className="flex items-center gap-6 text-sm text-white/65">
+            <Link href="/account" className="underline-offset-4 hover:text-white hover:underline">
+              Rewards
+            </Link>
             <Link href="/lookup" className="underline-offset-4 hover:text-white hover:underline">
               Find my order
             </Link>
             <Link href="/login" className="underline-offset-4 hover:text-white hover:underline">
               Staff login
             </Link>
+            <ThemeToggle className="sm:hidden" />
           </nav>
         </div>
       </footer>

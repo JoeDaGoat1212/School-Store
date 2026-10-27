@@ -15,7 +15,13 @@ export type QueueOrder = {
   staff_notes: string | null;
   created_at: string;
   pickup_window_id: number;
-  items: { product_name: string; quantity: number; unit_price_cents: number }[];
+  items: { product_name: string; quantity: number; unit_price_cents: number; order_bundle_id: string | null }[];
+  /** Signed in to a rewards account when ordering. */
+  member: boolean;
+  discount_cents: number;
+  points_spent: number;
+  bundles: { id: string; bundle_name: string; quantity: number }[];
+  discounts: { label: string; amount_cents: number; kind: string }[];
 };
 
 export type QueueWindow = { id: number; label: string; starts_at: string; sort_order: number };
@@ -31,7 +37,7 @@ export async function loadOrdersForDay(supabase: SupabaseClient<Database>, date:
     supabase
       .from("orders")
       .select(
-        "id, order_number, first_name, last_name, grade, status, total_cents, staff_notes, created_at, pickup_window_id, order_items(product_name, quantity, unit_price_cents)",
+        "id, order_number, first_name, last_name, grade, status, total_cents, staff_notes, created_at, pickup_window_id, customer_id, discount_cents, points_spent, order_items(product_name, quantity, unit_price_cents, order_bundle_id), order_bundles(id, bundle_name, quantity), order_discounts(label, amount_cents, kind)",
       )
       .eq("pickup_date", date)
       .order("order_number"),
@@ -41,7 +47,13 @@ export async function loadOrdersForDay(supabase: SupabaseClient<Database>, date:
   if (windows.error) throw new Error(windows.error.message);
 
   return {
-    orders: orders.data.map(({ order_items, ...o }) => ({ ...o, items: order_items })) as QueueOrder[],
+    orders: orders.data.map(({ order_items, order_bundles, order_discounts, customer_id, ...o }) => ({
+      ...o,
+      items: order_items,
+      member: customer_id !== null,
+      bundles: order_bundles,
+      discounts: order_discounts,
+    })) as QueueOrder[],
     windows: windows.data.map((w) => ({ ...w, starts_at: w.starts_at.slice(0, 5) })) as QueueWindow[],
   };
 }

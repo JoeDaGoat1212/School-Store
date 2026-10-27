@@ -134,6 +134,7 @@ export type Database = {
           product_name: string;
           quantity: number;
           unit_price_cents: number;
+          order_bundle_id: string | null;
         };
         ComputedFields: never;
         Insert: {
@@ -143,6 +144,7 @@ export type Database = {
           product_name: string;
           quantity: number;
           unit_price_cents: number;
+          order_bundle_id?: string | null;
         };
         Update: {
           id?: string;
@@ -151,8 +153,16 @@ export type Database = {
           product_name?: string;
           quantity?: number;
           unit_price_cents?: number;
+          order_bundle_id?: string | null;
         };
         Relationships: [
+          {
+            foreignKeyName: "order_items_order_bundle_id_fkey";
+            columns: ["order_bundle_id"];
+            isOneToOne: false;
+            referencedRelation: "order_bundles";
+            referencedColumns: ["id"];
+          },
           {
             foreignKeyName: "order_items_order_id_fkey";
             columns: ["order_id"];
@@ -185,6 +195,11 @@ export type Database = {
           status: Database["public"]["Enums"]["order_status"];
           status_changed_at: string;
           total_cents: number;
+          customer_id: string | null;
+          subtotal_cents: number;
+          discount_cents: number;
+          points_earned: number;
+          points_spent: number;
         };
         ComputedFields: never;
         Insert: {
@@ -202,6 +217,11 @@ export type Database = {
           status?: Database["public"]["Enums"]["order_status"];
           status_changed_at?: string;
           total_cents: number;
+          customer_id?: string | null;
+          subtotal_cents?: number;
+          discount_cents?: number;
+          points_earned?: number;
+          points_spent?: number;
         };
         Update: {
           created_at?: string;
@@ -218,8 +238,20 @@ export type Database = {
           status?: Database["public"]["Enums"]["order_status"];
           status_changed_at?: string;
           total_cents?: number;
+          customer_id?: string | null;
+          subtotal_cents?: number;
+          discount_cents?: number;
+          points_earned?: number;
+          points_spent?: number;
         };
         Relationships: [
+          {
+            foreignKeyName: "orders_customer_id_fkey";
+            columns: ["customer_id"];
+            isOneToOne: false;
+            referencedRelation: "customers";
+            referencedColumns: ["id"];
+          },
           {
             foreignKeyName: "orders_pickup_window_id_fkey";
             columns: ["pickup_window_id"];
@@ -534,6 +566,8 @@ export type Database = {
           store_name: string;
           timezone: string;
           updated_at: string;
+          rewards_enabled: boolean;
+          points_per_dollar: number;
         };
         ComputedFields: never;
         Insert: {
@@ -554,6 +588,8 @@ export type Database = {
           store_name?: string;
           timezone?: string;
           updated_at?: string;
+          rewards_enabled?: boolean;
+          points_per_dollar?: number;
         };
         Update: {
           banner_text?: string | null;
@@ -573,6 +609,8 @@ export type Database = {
           store_name?: string;
           timezone?: string;
           updated_at?: string;
+          rewards_enabled?: boolean;
+          points_per_dollar?: number;
         };
         Relationships: [];
       };
@@ -643,6 +681,342 @@ export type Database = {
         };
         Relationships: [];
       };
+      bundle_items: {
+        Row: {
+          bundle_id: string;
+          product_id: string;
+          quantity: number;
+        };
+        ComputedFields: never;
+        Insert: {
+          bundle_id: string;
+          product_id: string;
+          quantity?: number;
+        };
+        Update: {
+          bundle_id?: string;
+          product_id?: string;
+          quantity?: number;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "bundle_items_bundle_id_fkey";
+            columns: ["bundle_id"];
+            isOneToOne: false;
+            referencedRelation: "bundles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "bundle_items_product_id_fkey";
+            columns: ["product_id"];
+            isOneToOne: false;
+            referencedRelation: "products";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      bundles: {
+        Row: {
+          id: string;
+          name: string;
+          description: string | null;
+          emoji: string | null;
+          photo_path: string | null;
+          price_cents: number;
+          starts_on: string | null;
+          ends_on: string | null;
+          members_only: boolean;
+          active: boolean;
+          created_at: string;
+          updated_at: string;
+        };
+        ComputedFields: never;
+        Insert: {
+          id?: string;
+          name: string;
+          description?: string | null;
+          emoji?: string | null;
+          photo_path?: string | null;
+          price_cents: number;
+          starts_on?: string | null;
+          ends_on?: string | null;
+          members_only?: boolean;
+          active?: boolean;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          name?: string;
+          description?: string | null;
+          emoji?: string | null;
+          photo_path?: string | null;
+          price_cents?: number;
+          starts_on?: string | null;
+          ends_on?: string | null;
+          members_only?: boolean;
+          active?: boolean;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+
+        ];
+      };
+      customers: {
+        Row: {
+          id: string;
+          email: string;
+          first_name: string;
+          last_name: string;
+          grade: string;
+          created_at: string;
+          updated_at: string;
+        };
+        ComputedFields: never;
+        Insert: {
+          id: string;
+          email: string;
+          first_name: string;
+          last_name: string;
+          grade: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          email?: string;
+          first_name?: string;
+          last_name?: string;
+          grade?: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+
+        ];
+      };
+      order_bundles: {
+        Row: {
+          id: string;
+          order_id: string;
+          bundle_id: string | null;
+          bundle_name: string;
+          unit_price_cents: number;
+          quantity: number;
+        };
+        ComputedFields: never;
+        Insert: {
+          id?: string;
+          order_id: string;
+          bundle_id?: string | null;
+          bundle_name: string;
+          unit_price_cents: number;
+          quantity: number;
+        };
+        Update: {
+          id?: string;
+          order_id?: string;
+          bundle_id?: string | null;
+          bundle_name?: string;
+          unit_price_cents?: number;
+          quantity?: number;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "order_bundles_order_id_fkey";
+            columns: ["order_id"];
+            isOneToOne: false;
+            referencedRelation: "orders";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "order_bundles_bundle_id_fkey";
+            columns: ["bundle_id"];
+            isOneToOne: false;
+            referencedRelation: "bundles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      order_discounts: {
+        Row: {
+          id: string;
+          order_id: string;
+          label: string;
+          amount_cents: number;
+          kind: string;
+        };
+        ComputedFields: never;
+        Insert: {
+          id?: string;
+          order_id: string;
+          label: string;
+          amount_cents: number;
+          kind: string;
+        };
+        Update: {
+          id?: string;
+          order_id?: string;
+          label?: string;
+          amount_cents?: number;
+          kind?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "order_discounts_order_id_fkey";
+            columns: ["order_id"];
+            isOneToOne: false;
+            referencedRelation: "orders";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      point_entries: {
+        Row: {
+          id: number;
+          customer_id: string;
+          change: number;
+          reason: Database["public"]["Enums"]["points_reason"];
+          order_id: string | null;
+          order_number: number | null;
+          note: string | null;
+          created_by: string | null;
+          created_at: string;
+        };
+        ComputedFields: never;
+        Insert: {
+          id?: number;
+          customer_id: string;
+          change: number;
+          reason: Database["public"]["Enums"]["points_reason"];
+          order_id?: string | null;
+          order_number?: number | null;
+          note?: string | null;
+          created_by?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: number;
+          customer_id?: string;
+          change?: number;
+          reason?: Database["public"]["Enums"]["points_reason"];
+          order_id?: string | null;
+          order_number?: number | null;
+          note?: string | null;
+          created_by?: string | null;
+          created_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "point_entries_customer_id_fkey";
+            columns: ["customer_id"];
+            isOneToOne: false;
+            referencedRelation: "customers";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "point_entries_order_id_fkey";
+            columns: ["order_id"];
+            isOneToOne: false;
+            referencedRelation: "orders";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      promotions: {
+        Row: {
+          id: string;
+          kind: string;
+          title: string;
+          product_id: string | null;
+          category: string | null;
+          sale_price_cents: number | null;
+          buy_qty: number | null;
+          get_qty: number | null;
+          starts_on: string;
+          ends_on: string;
+          members_only: boolean;
+          featured: boolean;
+          active: boolean;
+          created_at: string;
+        };
+        ComputedFields: never;
+        Insert: {
+          id?: string;
+          kind: string;
+          title: string;
+          product_id?: string | null;
+          category?: string | null;
+          sale_price_cents?: number | null;
+          buy_qty?: number | null;
+          get_qty?: number | null;
+          starts_on: string;
+          ends_on: string;
+          members_only?: boolean;
+          featured?: boolean;
+          active?: boolean;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          kind?: string;
+          title?: string;
+          product_id?: string | null;
+          category?: string | null;
+          sale_price_cents?: number | null;
+          buy_qty?: number | null;
+          get_qty?: number | null;
+          starts_on?: string;
+          ends_on?: string;
+          members_only?: boolean;
+          featured?: boolean;
+          active?: boolean;
+          created_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "promotions_product_id_fkey";
+            columns: ["product_id"];
+            isOneToOne: false;
+            referencedRelation: "products";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      rewards: {
+        Row: {
+          id: string;
+          product_id: string;
+          points_cost: number;
+          active: boolean;
+          created_at: string;
+        };
+        ComputedFields: never;
+        Insert: {
+          id?: string;
+          product_id: string;
+          points_cost: number;
+          active?: boolean;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          product_id?: string;
+          points_cost?: number;
+          active?: boolean;
+          created_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "rewards_product_id_fkey";
+            columns: ["product_id"];
+            isOneToOne: false;
+            referencedRelation: "products";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
     };
     Views: {
       product_reserved: {
@@ -663,6 +1037,27 @@ export type Database = {
       };
     };
     Functions: {
+      adjust_points: { Args: { p_change: number; p_customer_id: string; p_note: string }; Returns: undefined };
+      get_deals: { Args: Record<PropertyKey, never>; Returns: Json };
+      get_my_account: { Args: Record<PropertyKey, never>; Returns: Json };
+      get_rewards: { Args: Record<PropertyKey, never>; Returns: Json };
+      lookup_my_order: { Args: { p_order_number: number }; Returns: Json };
+      members_list: {
+        Args: Record<PropertyKey, never>;
+        Returns: {
+          balance: number;
+          created_at: string;
+          email: string;
+          first_name: string;
+          grade: string;
+          id: string;
+          last_name: string;
+          last_order_at: string | null;
+          orders: number;
+        }[];
+      };
+      quote_cart: { Args: { p_bundles?: Json; p_items: Json; p_reward_id?: string }; Returns: Json };
+      save_profile: { Args: { p_first_name: string; p_grade: string; p_last_name: string }; Returns: undefined };
       dashboard_summary: { Args: Record<PropertyKey, never>; Returns: Json };
       delete_expense: { Args: { p_expense_id: string }; Returns: string };
       delete_old_orders: { Args: Record<PropertyKey, never>; Returns: number };
@@ -693,6 +1088,8 @@ export type Database = {
       next_open_day: { Args: { d: string }; Returns: string };
       place_order: {
         Args: {
+          p_bundles?: Json;
+          p_customer_id?: string;
           p_first_name: string;
           p_grade: string;
           p_ip_hash: string;
@@ -700,6 +1097,7 @@ export type Database = {
           p_last_name: string;
           p_pickup_date: string;
           p_pickup_window_id: number;
+          p_reward_id?: string;
         };
         Returns: Json;
       };
@@ -742,6 +1140,7 @@ export type Database = {
         | "no_show"
         | "expired";
       payment_type: "cash" | "debit" | "other";
+      points_reason: "earned" | "earned_undo" | "redeemed" | "refunded" | "adjusted";
     };
     CompositeTypes: {
       [_ in never]: never;
@@ -876,6 +1275,7 @@ export const Constants = {
         "expired",
       ],
       payment_type: ["cash", "debit", "other"],
+      points_reason: ["earned", "earned_undo", "redeemed", "refunded", "adjusted"],
     },
   },
 } as const;

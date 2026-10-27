@@ -12,6 +12,8 @@
 import { useSyncExternalStore } from "react";
 
 export type CartItem = {
+  /** "bundle" for bundles; products leave it out. */
+  kind?: "product" | "bundle";
   id: string;
   name: string;
   price_cents: number;
@@ -19,6 +21,8 @@ export type CartItem = {
   photo_path: string | null;
   category: string;
   quantity: number;
+  /** For bundles: what's inside, e.g. "Doritos + Gatorade". */
+  detail?: string;
 };
 
 const STORAGE_KEY = "school-store-cart-v1";
@@ -76,6 +80,14 @@ function subscribe(listener: () => void) {
 /** The cart items. Re-renders the component whenever the cart changes. */
 export function useCart() {
   return useSyncExternalStore(subscribe, load, () => EMPTY);
+}
+
+/** Products and bundles are sent to the server separately. */
+export function splitCart(list: CartItem[]) {
+  return {
+    items: list.filter((i) => i.kind !== "bundle").map((i) => ({ product_id: i.id, quantity: i.quantity })),
+    bundles: list.filter((i) => i.kind === "bundle").map((i) => ({ bundle_id: i.id, quantity: i.quantity })),
+  };
 }
 
 export function cartTotals(list: CartItem[]) {
