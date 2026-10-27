@@ -106,8 +106,8 @@ function cameraFor(view: string, views: View[], aspect: number, fov: number) {
   const tan = Math.tan(THREE.MathUtils.degToRad(fov / 2));
   const v = views.find((x) => x.key === view);
   if (!v) {
-    // The whole room. Phones can't fit it all, so they get the middle and a slow drift (see below).
-    const d = Math.min(aspect < 1 ? 21 : 34, Math.max(7 / tan, 12.8 / (tan * aspect)));
+    // The whole room, far enough back that it all fits.
+    const d = Math.min(aspect < 1 ? 46 : 34, Math.max(7 / tan, 12.8 / (tan * aspect)));
     return { pos: OVERVIEW_LOOK.clone().addScaledVector(OVERVIEW_DIR, d), look: OVERVIEW_LOOK.clone() };
   }
   const [w, h] = v.size;
@@ -121,7 +121,7 @@ function cameraFor(view: string, views: View[], aspect: number, fov: number) {
 /**
  * Flies the camera between views: a smooth ease in and out, rising a little in
  * the middle of the move (like a camera on a crane). On first open it glides in
- * through the front of the store. Moving the mouse tilts the view a touch.
+ * through the front of the store. Otherwise the view holds still.
  */
 function CameraRig({ views, view, calm }: { views: View[]; view: string; calm: boolean }) {
   const size = useThree((st) => st.size);
@@ -138,7 +138,6 @@ function CameraRig({ views, view, calm }: { views: View[]; view: string; calm: b
     start: -1,
     duration: 2.4,
     arc: 0,
-    parallax: new THREE.Vector2(),
   });
 
   useLayoutEffect(() => {
@@ -157,7 +156,7 @@ function CameraRig({ views, view, calm }: { views: View[]; view: string; calm: b
     r.start = -1;
   }, [view, views, size.width, size.height, portrait, getState, calm]);
 
-  useFrame((state, delta) => {
+  useFrame((state) => {
     const r = s.current;
     const camera = state.camera;
     const now = state.clock.elapsedTime;
@@ -168,14 +167,8 @@ function CameraRig({ views, view, calm }: { views: View[]; view: string; calm: b
     r.pos.y += Math.sin(Math.PI * t) * r.arc;
     r.look.lerpVectors(r.fromLook, r.toLook, e);
 
+    // The view holds still: only the buttons (or tapping a unit) move the camera.
     camera.position.copy(r.pos);
-    if (!calm) {
-      // A slow sideways drift over the whole store (more on phones, which only see the middle).
-      if (!views.some((v) => v.key === view)) camera.position.x += Math.sin(now * 0.16) * (portrait ? 4.5 : 0.7);
-      r.parallax.lerp(state.pointer, Math.min(1, delta * 3));
-      camera.position.x += r.parallax.x * 0.35;
-      camera.position.y += r.parallax.y * 0.2;
-    }
     camera.lookAt(r.look);
   });
   return null;

@@ -85,8 +85,13 @@ export function Menu({
 
   return (
     <>
-      {/* The way into the 3D store */}
+      {/* The 3D store (opens from the "Enter store" button at the top) */}
       <StoreEntrance priced={priced} maxPerOrder={maxPerOrder} />
+
+      <h2 id="menu" className="scroll-mt-20 font-heading text-5xl leading-none font-extrabold uppercase sm:text-6xl">
+        The menu
+      </h2>
+      <p className="mt-2 mb-5 text-muted-foreground">Tap + to add. Pay when you pick up at the window.</p>
 
       {featured && category === ALL && (
         <FeaturedDeal

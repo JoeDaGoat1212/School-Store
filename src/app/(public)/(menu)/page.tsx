@@ -2,6 +2,7 @@ import { Suspense } from "react";
 import { FlashToast } from "@/components/flash-toast";
 import { Hero, InfoTicker } from "@/components/public/hero";
 import { Menu } from "@/components/public/menu";
+import { unitFor } from "@/components/public/store/catalog";
 import { getAccount } from "@/lib/member";
 import { loadStorefront } from "@/lib/store-data";
 
@@ -9,13 +10,19 @@ import { loadStorefront } from "@/lib/store-data";
 export default async function MenuPage() {
   const [{ menu, info, deals }, account] = await Promise.all([loadStorefront(), getAccount()]);
   const isMember = Boolean(account?.profile);
+  // How many products are in each part of the 3D store (shown under the big button).
+  const counts = { drinks: 0, snacks: 0, candy: 0 };
+  for (const item of menu) {
+    const unit = unitFor(item.category);
+    if (unit) counts[unit]++;
+  }
 
   return (
     <>
       <Suspense>
         <FlashToast param="account" text="Your rewards account was deleted." />
       </Suspense>
-      <Hero info={info} />
+      <Hero info={info} counts={counts} />
       <InfoTicker info={info} />
 
       {menu.length === 0 && deals.bundles.length === 0 ? (

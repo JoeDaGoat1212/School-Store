@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
-import { ArrowLeftIcon, CandyIcon, CookieIcon, CupSodaIcon, ShoppingBagIcon, XIcon } from "lucide-react";
+import { CandyIcon, CookieIcon, CupSodaIcon, ShoppingBagIcon, XIcon } from "lucide-react";
 import { FlameMark } from "@/components/brand-mark";
 import type { ShownPrice } from "@/lib/deals";
 import { formatCents } from "@/lib/format";
@@ -12,6 +12,7 @@ import type { MenuItem } from "@/lib/store-data";
 import { cn } from "@/lib/utils";
 import { cart, cartTotals, useCart } from "../cart-store";
 import { UNITS, modelFor, sectionFor, unitFor, type UnitKey } from "./catalog";
+import { OPEN_STORE_EVENT } from "./enter-store-button";
 import { unitLayout, type StoreItem } from "./layout";
 
 // The 3D store (three.js and friends) downloads only when someone enters.
@@ -23,7 +24,7 @@ type Plus = { x: number; y: number; key: number };
 const ICONS: Record<UnitKey, typeof CupSodaIcon> = { drinks: CupSodaIcon, snacks: CookieIcon, candy: CandyIcon };
 
 /**
- * The "Enter store" banner on the menu, and the full-screen 3D store it opens.
+ * The full-screen 3D store, opened by the "Enter store" button at the top of the page.
  * In the store: buttons for Drinks, Snacks and Candy fly the camera there,
  * chips pick a section (a fridge door, a shelf bay), and tapping a product adds
  * one to the cart.
@@ -52,34 +53,18 @@ export function StoreEntrance({ priced, maxPerOrder }: { priced: Priced[]; maxPe
   // Stable, so the store doesn't think it was closed and reopened on every render.
   const close = useCallback(() => setOpen(false), []);
 
-  if (items.length === 0) return null;
 
+  // The "Enter store" button at the top of the page sends this event.
+  useEffect(() => {
+    const onOpen = () => setOpen(true);
+    window.addEventListener(OPEN_STORE_EVENT, onOpen);
+    return () => window.removeEventListener(OPEN_STORE_EVENT, onOpen);
+  }, []);
+
+  if (!open || items.length === 0) return null;
   return (
     <>
-      <section aria-label="3D store" className="relative mb-6 ml-[calc(50%-50vw)] w-screen overflow-hidden bg-black text-white">
-        {/* A still of the store behind the button */}
-        <div aria-hidden className="absolute inset-0 bg-cover bg-center opacity-70" style={{ backgroundImage: "url(/showcase/store-poster.webp)" }} />
-        <div aria-hidden className="absolute inset-0 bg-gradient-to-r from-black via-black/70 to-black/10" />
-        <div className="relative mx-auto flex min-h-[19rem] max-w-5xl flex-col justify-center px-4 py-10 sm:min-h-[24rem]">
-          <p className="text-sm font-semibold tracking-[0.2em] text-[#3ee0d6] uppercase">New</p>
-          <h2 className="mt-1 font-heading text-5xl leading-[0.9] font-extrabold uppercase sm:text-7xl">
-            Walk into
-            <br />
-            the Nest
-          </h2>
-          <p className="mt-3 max-w-sm text-white/75">Browse the fridge, the snack shelf and the candy rack in 3D. Tap anything to add it to your cart.</p>
-          <button
-            type="button"
-            onClick={() => setOpen(true)}
-            className="group mt-6 inline-flex h-14 w-fit items-center gap-3 rounded-2xl bg-primary px-7 font-heading text-2xl font-extrabold tracking-wide text-black uppercase shadow-[0_0_40px_rgb(255_90_31/0.55)] transition-transform hover:scale-[1.03] focus-visible:ring-4 focus-visible:ring-white/60 focus-visible:outline-none active:scale-95"
-          >
-            <FlameMark size={28} className="transition-transform group-hover:-rotate-6" />
-            Enter store
-          </button>
-        </div>
-      </section>
-
-      {open && <StoreOverlay items={items} layouts={layouts} byId={byId} maxPerOrder={maxPerOrder} onClose={close} />}
+      <StoreOverlay items={items} layouts={layouts} byId={byId} maxPerOrder={maxPerOrder} onClose={close} />
     </>
   );
 }
@@ -110,16 +95,12 @@ function StoreOverlay({
   const [fancy] = useState(() => typeof window !== "undefined" && window.innerWidth >= 768 && (navigator.hardwareConcurrency ?? 4) >= 4);
 
   const unit = view === "store" ? null : (view.split(":")[0] as UnitKey);
-  const bay = view.includes(":") ? view.split(":")[1] : null;
-  const layout = unit ? layouts[unit] : null;
 
-  /** Go to a unit. Phones go straight to its first section (a whole unit is too small to tap on a phone). */
+  /** Go to a unit (or, if it's the one you're at, back out to the whole store). */
   const goUnit = useCallback(
     (key: UnitKey) => {
-      const l = layouts[key];
-      if (!l) return;
-      const portrait = window.innerWidth < window.innerHeight;
-      setView(portrait && l.bays.length > 1 ? `${key}:${l.bays[0].key}` : key);
+      if (!layouts[key]) return;
+      setView((v) => (v === key ? "store" : key));
       setHovered(null);
       setHoveredUnit(null);
     },
@@ -177,7 +158,7 @@ function StoreOverlay({
   };
 
   const status = note?.text ?? (hovered ? null : hoveredUnit ? `${UNITS.find((u) => u.key === hoveredUnit)!.title}: tap to go there` : null);
-  const visibleItems = items.filter((i) => (unit ? i.unit === unit && (!bay || i.section === bay) : false));
+  const visibleItems = items.filter((i) => i.unit === unit);
 
   return (
     <div role="dialog" aria-modal="true" aria-label="3D store" className="dark fixed inset-0 z-[70] bg-[#07080a] text-white select-none">
@@ -231,7 +212,7 @@ function StoreOverlay({
         </div>
       </div>
 
-      {/* Bottom: what you're pointing at, the section chips, and the big buttons */}
+      {/* Bottom: what you're pointing at, and the three buttons */}
       <div className="pointer-events-none absolute inset-x-0 bottom-0 flex flex-col items-center gap-3 bg-gradient-to-t from-black/80 via-black/40 to-transparent px-3 pt-16 pb-[max(1rem,env(safe-area-inset-bottom))]">
         <p
           aria-live="polite"
@@ -252,39 +233,7 @@ function StoreOverlay({
           )}
         </p>
 
-        {layout && layout.bays.length > 1 && (
-          <div className="pointer-events-auto flex max-w-full gap-2 overflow-x-auto px-1 pb-1">
-            {layout.bays.map((b) => {
-              const on = bay === b.key;
-              return (
-                <button
-                  key={b.key}
-                  type="button"
-                  aria-pressed={on}
-                  onClick={() => setView(on ? unit! : `${unit}:${b.key}`)}
-                  className={cn(
-                    "h-9 shrink-0 rounded-full px-4 text-sm font-semibold transition-colors focus-visible:ring-3 focus-visible:ring-white/60 focus-visible:outline-none",
-                    on ? "bg-[#13a8a0] text-black" : "bg-white/12 backdrop-blur-md hover:bg-white/20",
-                  )}
-                >
-                  {b.title}
-                </button>
-              );
-            })}
-          </div>
-        )}
-
         <nav aria-label="Store sections" className="pointer-events-auto flex items-center justify-center gap-1.5 sm:gap-3">
-          {unit && (
-            <button
-              type="button"
-              onClick={() => setView("store")}
-              aria-label="Back to the whole store"
-              className="flex h-11 items-center gap-2 rounded-2xl bg-white/12 px-3.5 font-semibold backdrop-blur-md transition-colors hover:bg-white/20 focus-visible:ring-3 focus-visible:ring-white/60 focus-visible:outline-none sm:h-14 sm:px-4"
-            >
-              <ArrowLeftIcon className="size-4" /> <span className="hidden sm:inline">Whole store</span>
-            </button>
-          )}
           {UNITS.filter((u) => layouts[u.key]).map((u) => {
             const Icon = ICONS[u.key];
             const on = unit === u.key;
@@ -305,7 +254,7 @@ function StoreOverlay({
             );
           })}
         </nav>
-        {!unit && <p className="text-xs text-white/60">Pick a section, or tap one in the store.</p>}
+        <p className="text-xs text-white/60">{unit ? "Tap anything to add it to your cart" : "Pick a section, or tap one in the store"}</p>
       </div>
 
       {/* The products in view, as real buttons for keyboards and screen readers (they appear when tabbed to). */}

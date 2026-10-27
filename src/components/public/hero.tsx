@@ -1,69 +1,91 @@
-import { MegaphoneIcon } from "lucide-react";
-import type { CSSProperties } from "react";
+import { ArrowDownIcon, MegaphoneIcon } from "lucide-react";
 import { FLAME_PATH } from "@/components/brand-mark";
 import { brand } from "@/config/brand";
 import { formatClock, relativeDay } from "@/lib/format";
 import { pickupDays, toMinutes, type StoreInfo } from "@/lib/ordering";
-import { Embers } from "./embers";
+import { EnterStoreButton } from "./store/enter-store-button";
 
 /**
- * The black band at the top of the menu: the burning wordmark, embers, and a
- * scoreboard that tells students the one thing they need — when to order by.
+ * The top of the menu page: a full-screen look into the store (a real render
+ * of the 3D store), the big "Enter store" button, and a printed ticket that
+ * tells students the one thing they need — when to order by.
+ *
+ * `counts` is how many drinks, snacks and candy are in the 3D store
+ * (no store button if there's nothing in it).
  */
-export function Hero({ info }: { info: StoreInfo }) {
+export function Hero({ info, counts }: { info: StoreInfo; counts: { drinks: number; snacks: number; candy: number } }) {
   const board = scoreboard(info);
+  const inStore = counts.drinks + counts.snacks + counts.candy;
+  const tally = [
+    counts.drinks && `${counts.drinks} drinks`,
+    counts.snacks && `${counts.snacks} snacks`,
+    counts.candy && `${counts.candy} candy`,
+  ].filter(Boolean);
 
   return (
     // Full-bleed: break out of the page's centered column.
-    <section className="dark relative -mt-6 mb-0 ml-[calc(50%-50vw)] w-screen overflow-hidden bg-black text-white">
-      <div aria-hidden className="coal-glow absolute inset-0" />
-      <Embers className="absolute inset-0 size-full" />
+    <section className="dark relative -mt-6 ml-[calc(50%-50vw)] flex min-h-[max(34rem,calc(92svh-4rem))] w-screen overflow-hidden bg-black text-white">
+      {/* The store, slowly pushing in */}
+      <div aria-hidden className="hero-push absolute inset-0 bg-cover bg-[center_40%]" style={{ backgroundImage: "url(/showcase/store-poster.webp)" }} />
+      <div aria-hidden className="absolute inset-0 bg-gradient-to-t from-black via-black/55 to-black/10" />
+      <div aria-hidden className="absolute inset-0 bg-gradient-to-r from-black/85 via-black/35 to-transparent max-sm:bg-black/45" />
+      <div aria-hidden className="grain absolute inset-0" />
 
-      <div className="relative mx-auto grid max-w-5xl gap-6 px-4 pt-8 pb-8 sm:gap-8 sm:pt-14 sm:pb-12 lg:grid-cols-[1fr_auto] lg:items-end lg:pb-16">
-        <div>
-          <h1 aria-label={brand.name} className="font-heading leading-[0.82] font-extrabold tracking-[-0.01em] uppercase">
-            <Wordmark />
-          </h1>
-          <p className="mt-4 max-w-sm text-white/75 sm:mt-5 sm:text-lg">{brand.tagline}</p>
-        </div>
+      <div className="relative mx-auto flex w-full max-w-6xl flex-col justify-end px-4 pt-24 pb-8 sm:pb-12">
+        <div className="grid items-end gap-8 lg:grid-cols-[1fr_auto]">
+          <div>
+            {/* A price-gun sticker */}
+            <p className="mb-4 inline-flex -rotate-3 items-center gap-2 rounded-md bg-primary px-3 py-1 font-heading text-lg font-extrabold tracking-wide text-black uppercase shadow-[3px_3px_0_#000]">
+              New · 3D store
+            </p>
+            <h1 className="font-heading text-[clamp(4.2rem,16vw,10.5rem)] leading-[0.8] font-extrabold tracking-[-0.015em] uppercase">
+              <span className="sr-only">{brand.name}: </span>
+              Walk into
+              <br />
+              the <span className="text-primary">Nest</span>
+            </h1>
+            <p className="mt-5 max-w-md text-lg text-white/80 sm:text-xl">
+              Grab a drink from the fridge, snacks off the shelf, candy at the counter. Tap it, it&apos;s in your cart.
+            </p>
 
-        {/* Scoreboard */}
-        <div className="w-full rounded-2xl border border-white/15 bg-white/[0.04] px-5 py-4 backdrop-blur-sm sm:w-80 sm:py-5 lg:mb-2">
-          <p className="flex items-center gap-2 text-sm font-medium text-white/70">
-            <span
-              aria-hidden
-              className={`size-2 rounded-full ${board.state === "open" ? "animate-pulse bg-teal" : board.state === "later" ? "bg-[#ffb66e]" : "bg-white/40"}`}
-            />
-            {board.label}
-          </p>
-          <p className="mt-1 font-heading text-5xl leading-none sm:text-6xl font-extrabold text-primary tabular-nums">{board.big}</p>
-          <p className="mt-1.5 text-white/80 sm:mt-2">{board.detail}</p>
+            <div className="mt-7 flex flex-wrap items-center gap-3">
+              {inStore > 0 && <EnterStoreButton />}
+              <a
+                href="#menu"
+                className="inline-flex h-14 items-center gap-2 rounded-2xl border-2 border-white/25 px-6 font-semibold transition-colors hover:border-white hover:bg-white hover:text-black focus-visible:ring-4 focus-visible:ring-white/50 focus-visible:outline-none"
+              >
+                Just show me the menu <ArrowDownIcon className="size-4" />
+              </a>
+            </div>
+            {tally.length > 0 && <p className="mt-5 font-mono text-xs tracking-[0.18em] text-white/55 uppercase">In stock now: {tally.join(" / ")}</p>}
+          </div>
+
+          <Ticket board={board} />
         </div>
       </div>
     </section>
   );
 }
 
-/** "FIREBIRDS / NEST", one span per letter so they can rise in one after another. */
-function Wordmark() {
-  // Split the name into lines at the last space ("Firebirds Nest" → 2 lines).
-  const name = brand.name.toUpperCase();
-  const cut = name.lastIndexOf(" ");
-  const lines = cut > 0 ? [name.slice(0, cut), name.slice(cut + 1)] : [name];
-  let i = 0;
-
-  return lines.map((line) => (
-    <span key={line} aria-hidden className="block text-[clamp(4.75rem,24vw,11.5rem)] whitespace-nowrap">
-      {[...line].map((ch, j) => (
-        <span key={j} className="burn-letter" style={{ "--i": i++ } as CSSProperties}>
-          {ch === " " ? " " : ch}
+/** The "order by" time, printed on a little paper ticket with a torn top edge. */
+function Ticket({ board }: { board: ReturnType<typeof scoreboard> }) {
+  return (
+    <div className="ticket w-full max-w-xs rotate-2 bg-[#f3eee4] px-5 pt-6 pb-5 text-black shadow-[0_18px_40px_rgb(0_0_0/0.55)] sm:w-72 lg:mb-3">
+      <p className="flex items-center justify-between font-mono text-[0.7rem] tracking-[0.2em] text-black/60 uppercase">
+        <span>Pickup</span>
+        <span className="flex items-center gap-1.5">
+          <span aria-hidden className={`size-2 rounded-full ${board.state === "open" ? "animate-pulse bg-[#0a9a8e]" : board.state === "later" ? "bg-[#e08a2c]" : "bg-black/30"}`} />
+          {board.state === "open" ? "Open" : board.state === "later" ? "Next" : "Closed"}
         </span>
-      ))}
-    </span>
-  ));
+      </p>
+      <p className="mt-3 text-sm font-semibold">{board.label}</p>
+      <p className="font-heading text-6xl leading-[0.9] font-extrabold tabular-nums">{board.big}</p>
+      <p className="mt-2 border-t border-dashed border-black/30 pt-2 text-sm text-black/70">{board.detail}</p>
+    </div>
+  );
 }
 
-/** What the scoreboard says right now. */
+/** What the ticket says right now. */
 function scoreboard(info: StoreInfo) {
   const days = pickupDays(info);
   const today = days.find((d) => d.isToday);
@@ -100,8 +122,9 @@ function scoreboard(info: StoreInfo) {
 }
 
 /**
- * The teal strip under the hero with the banner, hours and pickup spot.
- * It scrolls sideways; screen readers get the same facts once, as a list.
+ * The strip under the hero with the banner, hours and pickup spot, like the
+ * scrolling LED sign over a store counter. Screen readers get the same facts
+ * once, as a list.
  */
 export function InfoTicker({ info }: { info: StoreInfo }) {
   const facts: { text: string; loud?: boolean }[] = [
@@ -116,7 +139,7 @@ export function InfoTicker({ info }: { info: StoreInfo }) {
   const row = Array.from({ length: 3 }, () => facts).flat();
 
   return (
-    <div className="ticker mb-6 ml-[calc(50%-50vw)] w-screen overflow-hidden bg-teal text-black">
+    <div className="ticker mb-10 ml-[calc(50%-50vw)] w-screen overflow-hidden border-y border-white/10 bg-black text-white">
       <ul className="sr-only">
         {facts.map((f) => (
           <li key={f.text}>{f.text}</li>
@@ -126,10 +149,13 @@ export function InfoTicker({ info }: { info: StoreInfo }) {
         {[0, 1].map((copy) => (
           <div key={copy} className="flex shrink-0 items-center">
             {row.map((f, i) => (
-              <span key={i} className="flex items-center gap-3 py-2.5 pr-3 text-sm font-semibold whitespace-nowrap sm:text-base">
+              <span
+                key={i}
+                className={`flex items-center gap-4 py-3 pr-4 font-mono text-xs tracking-[0.16em] whitespace-nowrap uppercase sm:text-sm ${f.loud ? "text-primary" : "text-white/85"}`}
+              >
                 {f.loud && <MegaphoneIcon className="size-4" />}
                 {f.text}
-                <svg viewBox="0 0 32 32" className="size-4 fill-black/80">
+                <svg viewBox="0 0 32 32" className="size-3.5 fill-primary">
                   <path fillRule="evenodd" d={FLAME_PATH} />
                 </svg>
               </span>
