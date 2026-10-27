@@ -175,12 +175,13 @@ function Drink({ item, offset, calm, onClick }: { item: SceneItem; offset: numbe
 /** The 3D drink itself (also used on the fridge shelves). */
 export function DrinkModel({ item }: { item: SceneItem }) {
   const drawn = useLabel(item);
-  const photo = usePhotoLabel(item.look.shape === "can" ? labelPhotoFor(item.name) : null);
+  const photoInfo = item.look.shape === "can" ? labelPhotoFor(item.name) : null;
+  const photo = usePhotoLabel(photoInfo?.url ?? null);
   if (photo) {
     // A real 12 oz can is wider than our slim one; the photo label needs those proportions.
     return (
       <group scale={[CLASSIC_CAN, 1, CLASSIC_CAN]}>
-        <Can label={photo} photo />
+        <Can label={photo} photo ends={photoInfo?.ends} />
       </group>
     );
   }
@@ -205,9 +206,15 @@ const lathe = (points: [number, number][], segments = 64) =>
 const silver = { color: "#d9dee4", metalness: 1, roughness: 0.22 };
 
 /** A 12 oz soda can: printed metal body, shiny rims. */
-function Can({ label, photo = false }: { label: THREE.Texture; photo?: boolean }) {
+function Can({ label, photo = false, ends }: { label: THREE.Texture; photo?: boolean; ends?: string }) {
   const top = useMemo(() => lathe([[0.36, 0.74], [0.35, 0.8], [0.31, 0.9], [0.3, 0.95], [0.27, 0.955], [0, 0.95]]), []);
   const bottom = useMemo(() => lathe([[0, -0.94], [0.22, -0.93], [0.27, -0.95], [0.33, -0.9], [0.36, -0.76]]), []);
+  // Top and bottom: silver, or painted in the label's color (same finish as the label).
+  const endMaterial = ends ? (
+    <meshPhysicalMaterial color={ends} metalness={0.05} roughness={0.42} clearcoat={0.35} clearcoatRoughness={0.25} envMapIntensity={0.35} side={THREE.DoubleSide} />
+  ) : (
+    <meshStandardMaterial {...silver} side={THREE.DoubleSide} />
+  );
   return (
     <group>
       <mesh>
@@ -221,12 +228,8 @@ function Can({ label, photo = false }: { label: THREE.Texture; photo?: boolean }
           <meshPhysicalMaterial map={label} metalness={0.45} roughness={0.3} clearcoat={1} clearcoatRoughness={0.12} />
         )}
       </mesh>
-      <mesh geometry={top}>
-        <meshStandardMaterial {...silver} side={THREE.DoubleSide} />
-      </mesh>
-      <mesh geometry={bottom}>
-        <meshStandardMaterial {...silver} side={THREE.DoubleSide} />
-      </mesh>
+      <mesh geometry={top}>{endMaterial}</mesh>
+      <mesh geometry={bottom}>{endMaterial}</mesh>
       {/* the tab */}
       <mesh position={[0, 0.96, 0.08]} rotation-x={-Math.PI / 2}>
         <torusGeometry args={[0.07, 0.018, 8, 24]} />
