@@ -51,9 +51,9 @@ export async function SiteHeader() {
           </Link>
         ) : (
           <Button variant="ghost" size="lg" asChild className="px-2.5 sm:px-3">
-            <Link href="/account" aria-label={account ? "Finish your rewards account" : "Sign in to rewards"}>
+            <Link href="/account" aria-label={account ? "Finish your rewards account" : "Sign in or sign up for rewards"}>
               <UserRoundIcon />
-              <span className="hidden sm:inline">{account ? "Rewards" : "Sign in"}</span>
+              <span className="hidden sm:inline">{account ? "Rewards" : "Sign in / Sign up"}</span>
             </Link>
           </Button>
         )}

@@ -770,6 +770,8 @@ export type Database = {
           first_name: string;
           last_name: string;
           grade: string;
+          username: string | null;
+          username_key: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -780,6 +782,7 @@ export type Database = {
           first_name: string;
           last_name: string;
           grade: string;
+          username?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -789,6 +792,7 @@ export type Database = {
           first_name?: string;
           last_name?: string;
           grade?: string;
+          username?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -1057,7 +1061,8 @@ export type Database = {
         }[];
       };
       quote_cart: { Args: { p_bundles?: Json; p_items: Json; p_reward_id?: string }; Returns: Json };
-      save_profile: { Args: { p_first_name: string; p_grade: string; p_last_name: string }; Returns: undefined };
+      save_profile: { Args: { p_first_name: string; p_grade: string; p_last_name: string; p_username?: string | null }; Returns: undefined };
+      username_available: { Args: { p_username: string }; Returns: boolean };
       dashboard_summary: { Args: Record<PropertyKey, never>; Returns: Json };
       delete_expense: { Args: { p_expense_id: string }; Returns: string };
       delete_old_orders: { Args: Record<PropertyKey, never>; Returns: number };

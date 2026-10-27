@@ -32,7 +32,7 @@ export type Account = {
   email: string;
   /** True for the staff login (it can't be a rewards account). */
   staff: boolean;
-  profile: { first_name: string; last_name: string; grade: string; created_at: string } | null;
+  profile: { first_name: string; last_name: string; grade: string; created_at: string; username?: string | null } | null;
   balance: number;
   history: PointsEntry[];
   orders: MemberOrder[];

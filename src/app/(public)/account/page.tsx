@@ -13,14 +13,18 @@ import { loadStorefront } from "@/lib/store-data";
 import { cn } from "@/lib/utils";
 import { signOut } from "./actions";
 import { DeleteAccountButton } from "./delete-account-button";
+import { PasswordForm } from "./password-form";
 import { ProfileForm } from "./profile-form";
+import { createClient } from "@/lib/supabase/server";
 import { SignInForm } from "./sign-in-form";
 
 export const metadata: Metadata = { title: "My rewards" };
 
 export default async function AccountPage(props: PageProps<"/account">) {
-  const { next } = await props.searchParams;
+  const { next, mode, password } = await props.searchParams;
   const returnTo = typeof next === "string" ? next : "/account";
+  // Just signed in with an emailed code ("forgot password"): ask for a new password first.
+  const needsPassword = password === "new";
   const [account, rewards, { info }] = await Promise.all([getAccount(), getRewards(), loadStorefront()]);
   const perDollar = info.points_per_dollar ?? 10;
 
@@ -29,14 +33,14 @@ export default async function AccountPage(props: PageProps<"/account">) {
     return (
       <div className="mx-auto grid max-w-md gap-8">
         <div>
-          <h1 className="font-heading text-5xl leading-[0.95] font-extrabold">Join {brand.name} rewards</h1>
+          <h1 className="font-heading text-5xl leading-[0.95] font-extrabold">{brand.name} rewards</h1>
           <p className="mt-3 text-muted-foreground">
             Earn {perDollar} points for every $1 you spend on online orders, then trade them for free snacks. Signing in
             also fills in your name at checkout.
           </p>
         </div>
         <div className="rounded-2xl border bg-card p-5 shadow-soft sm:p-6">
-          <SignInForm next={returnTo} />
+          <SignInForm next={returnTo} startOn={mode === "signup" ? "signup" : "signin"} />
         </div>
         {rewards.length > 0 && <RewardList rewards={rewards} balance={0} title="What you can earn" />}
       </div>
@@ -63,8 +67,12 @@ export default async function AccountPage(props: PageProps<"/account">) {
     );
   }
 
-  // ---- Signed in for the first time: name and grade ------------------------------
+  // ---- Signed in for the first time: name, grade and username ---------------------
   if (!account.profile) {
+    // The username they picked when they signed up.
+    const supabase = await createClient();
+    const { data } = await supabase.auth.getClaims();
+    const meta = (data?.claims?.user_metadata ?? {}) as { username?: string };
     return (
       <div className="mx-auto grid max-w-md gap-6">
         <div>
@@ -75,7 +83,12 @@ export default async function AccountPage(props: PageProps<"/account">) {
           </p>
         </div>
         <div className="rounded-2xl border bg-card p-5 shadow-soft sm:p-6">
-          <ProfileForm next={returnTo} />
+          {needsPassword && (
+            <div className="mb-6 border-b pb-6">
+              <PasswordForm label="Pick a password" button="Save password" />
+            </div>
+          )}
+          <ProfileForm next={returnTo} initial={{ first_name: "", last_name: "", grade: "", username: meta.username ?? "" }} />
         </div>
         <SignOutLink email={account.email} />
       </div>
@@ -86,6 +99,28 @@ export default async function AccountPage(props: PageProps<"/account">) {
   const p = account.profile;
   return (
     <div className="mx-auto grid max-w-2xl gap-10">
+      {/* Accounts from before passwords, or just back from "forgot password" */}
+      {(needsPassword || !p.username) && (
+        <section className="rounded-2xl border-2 border-primary/60 bg-card p-5 sm:p-6">
+          <h2 className="font-heading text-3xl font-extrabold">{p.username ? "Pick a new password" : "Finish your account"}</h2>
+          <p className="mt-1 text-sm text-muted-foreground">
+            {p.username
+              ? `You're signed in as ${p.username}. Set a new password so you can sign in with it next time.`
+              : "Pick a username and a password, so you can sign back in any time."}
+          </p>
+          {!p.username && (
+            <div className="mt-4">
+              <ProfileForm next="/account?password=new" initial={{ ...p, username: "" }} saveLabel="Save username" />
+            </div>
+          )}
+          {p.username && (
+            <div className="mt-4">
+              <PasswordForm />
+            </div>
+          )}
+        </section>
+      )}
+
       <div className="grid gap-4">
         <MemberCard name={`${p.first_name} ${p.last_name}`} balance={account.balance} since={p.created_at} />
         <p className="text-sm text-muted-foreground">
@@ -161,6 +196,19 @@ export default async function AccountPage(props: PageProps<"/account">) {
           </ul>
         </section>
       )}
+
+      <section aria-labelledby="login-title" className="grid gap-3">
+        <h2 id="login-title" className="font-heading text-3xl font-extrabold">
+          Sign-in details
+        </h2>
+        <p className="text-sm text-muted-foreground">
+          Username: <strong className="font-semibold text-foreground">{p.username ?? "not set yet"}</strong> · Email:{" "}
+          <strong className="font-semibold text-foreground">{account.email}</strong>
+        </p>
+        <div className="max-w-sm">
+          <PasswordForm label="Change password" button="Change password" />
+        </div>
+      </section>
 
       <section className="flex flex-wrap items-center justify-between gap-3 border-t pt-6">
         <SignOutLink email={account.email} />

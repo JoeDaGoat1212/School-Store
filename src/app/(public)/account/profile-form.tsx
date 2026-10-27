@@ -7,13 +7,13 @@ import { Button } from "@/components/ui/button";
 import { GRADES } from "@/lib/validation";
 import { saveProfile, type ProfileState } from "./actions";
 
-/** First sign-in: name and grade (filled in at checkout for them from now on). */
+/** First sign-in: name, grade and username (name and grade are filled in at checkout from now on). */
 export function ProfileForm({
   initial,
   next = "/account",
   saveLabel = "Start earning points",
 }: {
-  initial?: { first_name: string; last_name: string; grade: string };
+  initial?: { first_name: string; last_name: string; grade: string; username?: string | null };
   next?: string;
   saveLabel?: string;
 }) {
@@ -23,6 +23,7 @@ export function ProfileForm({
   const [first, setFirst] = useState(initial?.first_name ?? "");
   const [last, setLast] = useState(initial?.last_name ?? "");
   const [grade, setGrade] = useState(initial?.grade ?? "");
+  const [username, setUsername] = useState(initial?.username ?? "");
 
   return (
     <form action={action} className="grid gap-5" noValidate>
@@ -31,6 +32,15 @@ export function ProfileForm({
         <TextField id="first_name" label="First name" autoComplete="given-name" value={first} onChange={setFirst} error={errors.first_name} />
         <TextField id="last_name" label="Last name" autoComplete="family-name" value={last} onChange={setLast} error={errors.last_name} />
       </div>
+      <TextField
+        id="username"
+        label="Username"
+        autoComplete="username"
+        value={username}
+        onChange={setUsername}
+        error={errors.username}
+        hint="You sign in with this and your password."
+      />
       <ChoiceGroup label="Grade" error={errors.grade}>
         {GRADES.map((g) => (
           <Choice key={g} name="grade" value={g} checked={grade === g} onChange={() => setGrade(g)}>

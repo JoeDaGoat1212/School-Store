@@ -15,6 +15,7 @@ export function TextField({
   autoComplete,
   value,
   onChange,
+  hint,
 }: {
   id: string;
   label: string;
@@ -22,6 +23,8 @@ export function TextField({
   autoComplete: string;
   value: string;
   onChange: (value: string) => void;
+  /** A gray tip under the box (when there's no error). */
+  hint?: string;
 }) {
   return (
     <div className="grid gap-2">
@@ -35,9 +38,14 @@ export function TextField({
         required
         maxLength={40}
         aria-invalid={Boolean(error)}
-        aria-describedby={error ? `${id}-error` : undefined}
+        aria-describedby={error ? `${id}-error` : hint ? `${id}-hint` : undefined}
         className="h-12 text-base"
       />
+      {!error && hint && (
+        <p id={`${id}-hint`} className="text-sm text-muted-foreground">
+          {hint}
+        </p>
+      )}
       {error && (
         <p id={`${id}-error`} className="text-sm font-medium text-destructive">
           {error}

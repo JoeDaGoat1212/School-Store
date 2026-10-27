@@ -211,6 +211,17 @@ Later, if the store gets its own website domain, a service like Resend or Brevo 
 
 ---
 
+### Usernames and passwords (update 10)
+
+Students now **create an account** with a username, email and password, confirm it with a code from the email,
+and **sign back in** with their username (or email) and password. "Forgot password?" emails a code instead.
+
+1. Run `supabase/sql-editor/20261027000010_usernames.sql` in the Supabase **SQL Editor** (once).
+2. Supabase → **Authentication → Sign In / Providers → Email**: keep **Confirm email** on.
+3. **Authentication → Emails → Confirm signup**: the message must show `{{ .Token }}` (the code). You did this already for the code sign-in.
+
+Accounts made before this update sign in once with "Forgot password?", then pick a username and password on their account page.
+
 ## Everyday changes
 
 | I want to… | Do this |
