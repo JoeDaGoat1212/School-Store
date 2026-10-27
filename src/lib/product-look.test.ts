@@ -9,6 +9,13 @@ describe("productLook", () => {
     expect(productLook({ name: "Capri Sun", description: "Pacific Cooler pouch" }).shape).toBe("pouch");
   });
 
+  it("picks the photo backdrop for the flavor", () => {
+    expect(productLook({ name: "Strawberry Fanta" }).scene).toBe("strawberry");
+    expect(productLook({ name: "Mango Tango" }).scene).toBe("tropical");
+    expect(productLook({ name: "Jarritos Mandarin" }).scene).toBe("orange");
+    expect(productLook({ name: "Flamin' Hot Cheetos" }).scene).toBeUndefined();
+  });
+
   it("always gives something, even for unknown drinks", () => {
     const look = productLook({ name: "Mystery Drink" });
     expect(look.shape).toBe("can");

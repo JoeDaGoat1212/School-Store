@@ -13,6 +13,8 @@ import { cart } from "../cart-store";
 import { Sparks } from "../product-card";
 import { QuantityStepper } from "../quantity-stepper";
 import { FlavorParticles } from "./flavor-particles";
+import { SCENES } from "./scene-assets";
+import { SceneBackdrop, usePreloadBackdrops } from "./scene-backdrop";
 import type { SceneItem } from "./drink-scene";
 
 // The 3D code (three.js) is big, so it only downloads when this section shows up.
@@ -186,9 +188,15 @@ export function DrinkShowcase({
   const drag = useRef<{ x: number; y: number } | null>(null);
   const wheelLock = useRef(0);
 
+  // Fetch the photos of the drinks on either side ahead of time.
+  usePreloadBackdrops([entries[index - 1]?.look.scene, entries[index + 1]?.look.scene]);
+
   if (!current) return null;
   const { item, shown, look } = current;
-  const ink = readableOn(look.color);
+  // With a photo backdrop, the stage takes the photo's own color so the edges blend in.
+  const stage = look.scene ? SCENES[look.scene].edge : look.color;
+  const ink = readableOn(stage);
+  const pieces = (l: ProductLook) => (l.scene ? SCENES[l.scene].pieces : undefined);
   const quantity = inCart(item.id);
   const max = Math.min(item.available, maxPerOrder);
   const soldOut = item.available <= 0;
@@ -237,25 +245,40 @@ export function DrinkShowcase({
         {
           top: SHOWCASE_TOP,
           height: `calc(100svh - ${SHOWCASE_TOP}px)`,
-          backgroundColor: look.color,
+          backgroundColor: stage,
           color: ink,
           transition: "background-color 700ms ease, color 400ms ease",
         } as CSSProperties
       }
      >
-      {/* Light in the middle, darker edges: like a product photo studio. */}
-      <div
-        aria-hidden
-        className="absolute inset-0"
-        style={{
-          background: `radial-gradient(60% 55% at 62% 45%, ${shade(look.color, 0.28)}cc, transparent 70%), radial-gradient(120% 90% at 50% 50%, transparent 55%, ${shade(look.color, -0.45)}aa)`,
-          transition: "background 700ms ease",
-        }}
-      />
+      {/* The flavor's photo backdrop. The old one stays underneath while the new one fades in. */}
+      {previous?.look.scene && previous.look.scene !== look.scene && <SceneBackdrop key={`s-${previous.key}`} scene={previous.look.scene} />}
+      {look.scene ? (
+        <SceneBackdrop key={`s-${look.scene}`} scene={look.scene} className="animate-in fade-in duration-700" />
+      ) : (
+        // No photo for this flavor: light in the middle, darker edges, like a product photo studio.
+        <div
+          aria-hidden
+          className="absolute inset-0"
+          style={{
+            background: `radial-gradient(60% 55% at 62% 45%, ${shade(look.color, 0.28)}cc, transparent 70%), radial-gradient(120% 90% at 50% 50%, transparent 55%, ${shade(look.color, -0.45)}aa)`,
+            transition: "background 700ms ease",
+          }}
+        />
+      )}
 
       {/* Falling flavor, behind the drink */}
-      {previous && <FlavorParticles key={`b-${previous.key}`} kind={previous.look.particle} layer="back" count={14} className="animate-out fade-out duration-700 fill-mode-forwards" />}
-      <FlavorParticles key={`b-${item.id}`} kind={look.particle} layer="back" count={14} className="animate-in fade-in duration-700" />
+      {previous && (
+        <FlavorParticles
+          key={`b-${previous.key}`}
+          kind={previous.look.particle}
+          pieces={pieces(previous.look)}
+          layer="back"
+          count={look.scene ? 8 : 14}
+          className="animate-out fade-out duration-700 fill-mode-forwards"
+        />
+      )}
+      <FlavorParticles key={`b-${item.id}`} kind={look.particle} pieces={pieces(look)} layer="back" count={look.scene ? 8 : 14} className="animate-in fade-in duration-700" />
 
       {/* The 3D drinks (or a flat picture if the device can't do 3D) */}
       <div className="absolute inset-x-0 top-0 h-[62%] sm:inset-y-0 sm:right-0 sm:left-auto sm:h-full sm:w-[62%]">
@@ -277,8 +300,17 @@ export function DrinkShowcase({
       </div>
 
       {/* Falling flavor, in front of the drink (fewer, bigger, softer) */}
-      {previous && <FlavorParticles key={`f-${previous.key}`} kind={previous.look.particle} layer="front" count={4} className="animate-out fade-out duration-700 fill-mode-forwards" />}
-      <FlavorParticles key={`f-${item.id}`} kind={look.particle} layer="front" count={4} className="animate-in fade-in duration-700" />
+      {previous && (
+        <FlavorParticles
+          key={`f-${previous.key}`}
+          kind={previous.look.particle}
+          pieces={pieces(previous.look)}
+          layer="front"
+          count={look.scene ? 3 : 4}
+          className="animate-out fade-out duration-700 fill-mode-forwards"
+        />
+      )}
+      <FlavorParticles key={`f-${item.id}`} kind={look.particle} pieces={pieces(look)} layer="front" count={look.scene ? 3 : 4} className="animate-in fade-in duration-700" />
 
       {/* Name, price and Add */}
       <div className="pointer-events-none absolute inset-x-0 bottom-0 mx-auto max-w-5xl px-4 pb-6 sm:top-0 sm:flex sm:flex-col sm:justify-center sm:pb-0">

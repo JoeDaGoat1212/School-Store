@@ -3,10 +3,12 @@
 import { memo, type CSSProperties } from "react";
 import type { Particle } from "@/lib/product-look";
 import { cn } from "@/lib/utils";
+import { pieceUrl, type Piece } from "./scene-assets";
 
 /*
  * The things that fall around a drink in the showcase: strawberries, citrus
- * slices, ice, bubbles… Each is a small hand-made SVG (no image files).
+ * slices, ice, bubbles… Most flavors use cut-out photos (scene-assets.ts);
+ * the small hand-made SVGs below are the backup for everything else.
  * They fall with CSS animations, so the 3D scene doesn't have to draw them.
  */
 
@@ -133,16 +135,21 @@ const RANDOM = seeded(200);
  */
 export const FlavorParticles = memo(function FlavorParticles({
   kind,
+  pieces,
   layer,
   count,
   className,
 }: {
+  /** The drawn shape, used when there are no photo pieces. */
   kind: Particle;
+  /** Cut-out photos to drop instead (they take turns). */
+  pieces?: Piece[];
   layer: "back" | "front";
   count: number;
   className?: string;
 }) {
   const front = layer === "front";
+  const photos = pieces && pieces.length > 0 ? pieces : null;
   return (
     <div
       aria-hidden
@@ -151,7 +158,9 @@ export const FlavorParticles = memo(function FlavorParticles({
     >
       {Array.from({ length: count }, (_, i) => {
         const r = (k: number) => RANDOM[(i * 7 + k + (front ? 97 : 0)) % RANDOM.length];
-        const size = front ? 54 + r(1) * 46 : 26 + r(1) * 30;
+        const photo = photos?.[i % photos.length];
+        // Photos have empty space around them, so they're drawn a bit bigger.
+        const size = (front ? 54 + r(1) * 46 : 26 + r(1) * 30) * (photo ? 1.5 * (photo.size ?? 1) : 1);
         return (
           <span
             key={i}
@@ -170,7 +179,12 @@ export const FlavorParticles = memo(function FlavorParticles({
               } as CSSProperties
             }
           >
-            <Shape kind={kind} />
+            {photo ? (
+              // eslint-disable-next-line @next/next/no-img-element -- tiny decorative cut-outs; next/image adds nothing here
+              <img src={pieceUrl(photo.name)} alt="" draggable={false} decoding="async" className="size-full object-contain drop-shadow-lg" />
+            ) : (
+              <Shape kind={kind} />
+            )}
           </span>
         );
       })}

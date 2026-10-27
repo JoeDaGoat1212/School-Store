@@ -1,7 +1,12 @@
 # Firebirds Nest — visual assets plan (Higgsfield)
 
-Status: **waiting for approval. Nothing generated yet.**
-Credits available: 163 (Plus plan).
+Status: **done.** Made with GPT Image 2.5 (won the test round; the fridge back wall is the Nano Banana test image).
+Used about 65 credits (test round 21 + full batch 44); 98 left for snacks.
+The finished files are in `public/showcase/` and are listed in `src/components/public/showcase/scene-assets.ts`.
+To add a flavor later: make a backdrop with the style recipe below, save it as `public/showcase/bg/<name>.webp`,
+and add it to `Scene` in `src/lib/product-look.ts` and to `SCENES` in `scene-assets.ts`.
+
+Credits available at the start: 163 (Plus plan).
 
 ## Rules for every image
 
@@ -81,8 +86,9 @@ Skipped on purpose: video (35 credits per 5 seconds, heavy on school Wi-Fi) and 
 
 ## Steps
 
-1. You approve this file (prompts, colors, objects). **← we are here**
-2. Test round (~21 credits). You pick the model and any style tweaks.
-3. Full batch.
-4. We cut out the sprites, compress everything, and wire it into the site (the hand-drawn pieces stay as a backup).
-5. Screenshots for review, then push.
+1. ✅ You approve this file (prompts, colors, objects).
+2. ✅ Test round (~21 credits). Picked GPT Image 2.5.
+3. ✅ Full batch (44 credits, no redos needed).
+4. ✅ Sprites cut out, everything compressed (2.5 MB total, each file loads only when needed), wired into the site.
+   The hand-drawn pieces stay as a backup for flavors without photos.
+5. ✅ Screenshots reviewed, pushed.

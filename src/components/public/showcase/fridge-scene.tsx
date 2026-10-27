@@ -1,6 +1,6 @@
 "use client";
 
-import { useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Canvas, useFrame, useThree, type ThreeEvent } from "@react-three/fiber";
 import { Environment, Lightformer, RoundedBox } from "@react-three/drei";
 import * as THREE from "three";
@@ -113,32 +113,72 @@ function FitCamera({ width, height }: { width: number; height: number }) {
   return null;
 }
 
+/**
+ * The photo textures for the fridge (public/showcase/fridge/): the lit back
+ * panel, the brushed black metal and the frost on the glass. They load in the
+ * background; until then the fridge is drawn in plain colors.
+ */
+function useFridgeTextures() {
+  return useMemo(() => {
+    const loader = new THREE.TextureLoader();
+    const load = (name: string, repeat?: [number, number]) =>
+      loader.load(`/showcase/fridge/${name}.webp`, (t) => {
+        t.colorSpace = THREE.SRGBColorSpace;
+        if (repeat) {
+          t.wrapS = t.wrapT = THREE.RepeatWrapping;
+          t.repeat.set(...repeat);
+        }
+        t.needsUpdate = true;
+      });
+    return { wall: load("back-wall"), metal: load("metal", [4, 4]), frost: load("frost") };
+  }, []);
+}
+
 /** The fridge box: dark metal frame, glowing back wall, door handles. The light flickers on at the start. */
 function Cabinet({ plan, calm }: { plan: Layout; calm: boolean }) {
-  const glow = useRef<THREE.MeshStandardMaterial>(null);
+  const textures = useFridgeTextures();
+  // One material shared by every door's back panel, so they flicker together.
+  const glow = useMemo(
+    () =>
+      new THREE.MeshStandardMaterial({
+        color: "#dfeeee",
+        map: textures.wall,
+        emissive: "#ffffff",
+        emissiveMap: textures.wall,
+        emissiveIntensity: 0,
+        roughness: 0.9,
+      }),
+    [textures.wall],
+  );
+  const glowRef = useRef(glow);
+  useEffect(() => {
+    glowRef.current = glow;
+  });
   const strip = useRef<THREE.MeshStandardMaterial>(null);
   const born = useRef<number | null>(null);
 
   useFrame((state) => {
-    if (!glow.current || !strip.current) return;
+    const wall = glowRef.current;
+    if (!strip.current) return;
     born.current ??= state.clock.elapsedTime;
     const t = state.clock.elapsedTime - born.current;
     // Flicker... flicker... on. (Straight on with "reduce motion".)
     const on = calm || t > 1.1 ? 1 : t < 0.15 ? 0 : t < 0.25 ? 0.7 : t < 0.4 ? 0.1 : t < 0.55 ? 0.9 : t < 0.7 ? 0.35 : Math.min(1, (t - 0.7) / 0.4);
-    glow.current.emissiveIntensity = 0.9 * on;
+    wall.emissiveIntensity = 0.9 * on;
     strip.current.emissiveIntensity = 2.2 * on;
   });
 
   const { width: W, height: H } = plan;
-  const metal = <meshStandardMaterial color="#14181b" metalness={0.6} roughness={0.35} />;
+  const metal = <meshStandardMaterial color="#5a6066" map={textures.metal} metalness={0.6} roughness={0.4} />;
 
   return (
     <group>
-      {/* Glowing back wall */}
-      <mesh position={[0, 0, -DEPTH / 2]}>
-        <planeGeometry args={[W, H]} />
-        <meshStandardMaterial ref={glow} color="#dfeeee" emissive="#eaf7f6" emissiveIntensity={0} roughness={0.9} />
-      </mesh>
+      {/* Glowing back wall, one panel per door (a photo of a lit fridge panel, glowing by its own light) */}
+      {plan.doors.map((d, i) => (
+        <mesh key={`w${i}`} position={[d.x, 0, -DEPTH / 2]} material={glow}>
+          <planeGeometry args={[d.width, H]} />
+        </mesh>
+      ))}
       {/* Frame: top, bottom, sides and the posts between doors */}
       <mesh position={[0, H / 2 + FRAME / 2, 0]}>
         <boxGeometry args={[W + FRAME * 2, FRAME, DEPTH]} />
@@ -169,6 +209,13 @@ function Cabinet({ plan, calm }: { plan: Layout; calm: boolean }) {
         >
           <meshStandardMaterial color="#c8ced4" metalness={1} roughness={0.25} />
         </RoundedBox>
+      ))}
+      {/* Frost creeping up from the bottom of the glass (clicks pass straight through it) */}
+      {plan.doors.map((d, i) => (
+        <mesh key={`f${i}`} position={[d.x, 0, DEPTH / 2 + 0.001]} raycast={() => null} renderOrder={2}>
+          <planeGeometry args={[d.width, H]} />
+          <meshBasicMaterial map={textures.frost} transparent opacity={0.6} depthWrite={false} toneMapped={false} />
+        </mesh>
       ))}
       {/* A couple of faint reflections, so it reads as a glass door */}
       {plan.doors.map((d, i) => (

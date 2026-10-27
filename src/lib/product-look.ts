@@ -11,28 +11,50 @@
 export type Shape = "can" | "bottle" | "carton" | "pouch";
 export type Particle = "strawberry" | "cherry" | "grape" | "orange" | "lemon" | "lime" | "ice" | "bubble" | "leaf" | "cocoa" | "chili";
 
+/**
+ * Which photo backdrop goes behind the drink in the showcase
+ * (the files are in public/showcase/bg/). Drinks without one get a plain color.
+ */
+export type Scene =
+  | "strawberry"
+  | "cherry"
+  | "grape"
+  | "orange"
+  | "lemon"
+  | "lime"
+  | "blue"
+  | "tea"
+  | "cola"
+  | "water"
+  | "chocolate"
+  | "tropical";
+
 export type ProductLook = {
   shape: Shape;
   /** Background and label color. */
   color: string;
   /** A second color for stripes and highlights. */
   accent: string;
+  /** The drawn pieces (used when the photos can't load). */
   particle: Particle;
+  /** The photo backdrop and falling photo pieces, if there's a matching set. */
+  scene?: Scene;
 };
 
 // First match wins, so put specific words ("blue raspberry") before general ones ("blue").
 const KEYWORDS: [RegExp, Omit<ProductLook, "shape">][] = [
-  [/strawberr/i, { color: "#d81f3c", accent: "#ff8fa0", particle: "strawberry" }],
-  [/cherry|fruit punch|punch|watermelon/i, { color: "#c4122f", accent: "#ff6b7d", particle: "cherry" }],
-  [/grape/i, { color: "#5a2a91", accent: "#b48be6", particle: "grape" }],
-  [/orange|mango|tangerine/i, { color: "#f27a00", accent: "#ffc163", particle: "orange" }],
-  [/lemon|lemonade|pineapple/i, { color: "#e3c21b", accent: "#fff3a3", particle: "lemon" }],
-  [/lime|sprite|7.?up|mountain dew|green apple/i, { color: "#3f9e3a", accent: "#b9ec7c", particle: "lime" }],
-  [/blue|berry|raspberry|cool blue/i, { color: "#1c5fd6", accent: "#8fc0ff", particle: "ice" }],
-  [/tea|matcha|mint/i, { color: "#4f9a5f", accent: "#c7ecb2", particle: "leaf" }],
-  [/chocolate|cocoa|coffee|mocha/i, { color: "#6b3a22", accent: "#d9a27a", particle: "cocoa" }],
-  [/cola|coke|pepsi|root beer|dr\.? ?pepper/i, { color: "#4b1610", accent: "#d14a3a", particle: "bubble" }],
-  [/water|sparkling|seltzer/i, { color: "#2f8fd1", accent: "#bfe6ff", particle: "bubble" }],
+  [/strawberr/i, { color: "#d81f3c", accent: "#ff8fa0", particle: "strawberry", scene: "strawberry" }],
+  [/cherry|fruit punch|punch|watermelon/i, { color: "#c4122f", accent: "#ff6b7d", particle: "cherry", scene: "cherry" }],
+  [/grape/i, { color: "#5a2a91", accent: "#b48be6", particle: "grape", scene: "grape" }],
+  [/tropical|mango|pineapple|passion/i, { color: "#f2a11f", accent: "#ffe08a", particle: "orange", scene: "tropical" }],
+  [/orange|tangerine|mandarin/i, { color: "#f27a00", accent: "#ffc163", particle: "orange", scene: "orange" }],
+  [/lemon|lemonade/i, { color: "#e3c21b", accent: "#fff3a3", particle: "lemon", scene: "lemon" }],
+  [/lime|sprite|7.?up|mountain dew|green apple/i, { color: "#3f9e3a", accent: "#b9ec7c", particle: "lime", scene: "lime" }],
+  [/blue|berry|raspberry|cool blue/i, { color: "#1c5fd6", accent: "#8fc0ff", particle: "ice", scene: "blue" }],
+  [/tea|matcha|mint/i, { color: "#4f9a5f", accent: "#c7ecb2", particle: "leaf", scene: "tea" }],
+  [/chocolate|cocoa|coffee|mocha/i, { color: "#6b3a22", accent: "#d9a27a", particle: "cocoa", scene: "chocolate" }],
+  [/cola|coke|pepsi|root beer|dr\.? ?pepper/i, { color: "#4b1610", accent: "#d14a3a", particle: "bubble", scene: "cola" }],
+  [/water|sparkling|seltzer/i, { color: "#2f8fd1", accent: "#bfe6ff", particle: "bubble", scene: "water" }],
   [/hot|fuego|spicy|flamin/i, { color: "#c3281b", accent: "#ff9b4a", particle: "chili" }],
   [/energy|red bull|monster|celsius/i, { color: "#14171a", accent: "#3ad1c6", particle: "bubble" }],
 ];

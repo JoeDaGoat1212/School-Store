@@ -10,6 +10,7 @@ import type { MenuItem } from "@/lib/store-data";
 import type { SceneItem } from "./drink-scene";
 import { DrinkShowcase, SHOWCASE_TOP, sizeOf } from "./drink-showcase";
 import type { FridgeBrand, FridgePick } from "./fridge-scene";
+import { SCENES } from "./scene-assets";
 
 // The 3D fridge downloads only when the Drinks tab opens.
 const FridgeScene = dynamic(() => import("./fridge-scene"), {
@@ -68,7 +69,10 @@ export function DrinksExperience({
       setOpen({ brand: p.brand, itemId: p.itemId });
       return;
     }
-    setWipe({ x: p.x, y: p.y, color: p.color, fading: false });
+    // Wash the screen in the color of the flavor's photo backdrop, so the hand-off is seamless.
+    const picked = byId.get(p.itemId);
+    const scene = picked ? productLook(picked.item).scene : undefined;
+    setWipe({ x: p.x, y: p.y, color: scene ? SCENES[scene].edge : p.color, fading: false });
     setTimeout(() => {
       setOpen({ brand: p.brand, itemId: p.itemId });
       setWipe((w) => (w ? { ...w, fading: true } : w));
@@ -106,13 +110,14 @@ export function DrinksExperience({
           className="dark relative mb-8 ml-[calc(50%-50vw)] w-screen overflow-hidden bg-black text-white select-none"
           style={{ height: isMobile ? `max(calc(100svh - ${SHOWCASE_TOP}px), ${rows * 138 + 160}px)` : `calc(100svh - ${SHOWCASE_TOP}px)` }}
         >
-          {/* Cool light spilling out of the fridge onto the floor */}
+          {/* The dim store behind the fridge (a blurry photo), then cool light spilling out of the fridge */}
+          <div aria-hidden className="absolute inset-0 bg-cover bg-center opacity-60" style={{ backgroundImage: "url(/showcase/fridge/room.webp)" }} />
           <div
             aria-hidden
             className="absolute inset-0"
             style={{
               background:
-                "radial-gradient(55% 60% at 50% 45%, rgb(19 168 160 / 0.22), transparent 70%), radial-gradient(70% 25% at 50% 100%, rgb(234 247 246 / 0.12), transparent 70%)",
+                "radial-gradient(55% 60% at 50% 45%, rgb(19 168 160 / 0.22), transparent 70%), radial-gradient(70% 25% at 50% 100%, rgb(234 247 246 / 0.12), transparent 70%), linear-gradient(to bottom, rgb(0 0 0 / 0.55), transparent 30%)",
             }}
           />
 
