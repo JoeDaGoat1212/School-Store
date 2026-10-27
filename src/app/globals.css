@@ -257,6 +257,33 @@
   to { opacity: 1; transform: none; }
 }
 
+/* Drinks showcase: flavor pieces falling past the drink. `cqh` = the
+   showcase's height, so they fall the whole way down whatever its size. */
+.flavor-particle {
+  top: -110px;
+  animation-name: flavor-fall;
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+  will-change: transform;
+}
+.flavor-particle svg {
+  width: 100%;
+  height: 100%;
+  filter: drop-shadow(0 6px 10px rgb(0 0 0 / 0.18));
+}
+@keyframes flavor-fall {
+  0% { transform: translate3d(0, 0, 0) rotate(0deg); }
+  50% { transform: translate3d(var(--sway), calc(50cqh + 55px), 0) rotate(calc(var(--spin) / 2)); }
+  100% { transform: translate3d(0, calc(100cqh + 220px), 0) rotate(var(--spin)); }
+}
+/* With "reduce motion", the pieces stay still, scattered over the background. */
+@media (prefers-reduced-motion: reduce) {
+  .flavor-particle {
+    animation: none !important;
+    top: var(--y);
+  }
+}
+
 /* Respect "reduce motion" in the operating system. */
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {

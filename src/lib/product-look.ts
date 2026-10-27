@@ -1,0 +1,78 @@
+/**
+ * How a product looks in the 3D showcase: its shape, its color, and what
+ * falls around it ("particles").
+ *
+ * For now this is worked out from the product's name and description
+ * ("Strawberry Fanta" → red can with strawberries). If a guess is wrong,
+ * add a word to the KEYWORDS list below, or give the product a better
+ * description. (A later update will let staff pick these on the Products page.)
+ */
+
+export type Shape = "can" | "bottle" | "carton" | "pouch";
+export type Particle = "strawberry" | "cherry" | "grape" | "orange" | "lemon" | "lime" | "ice" | "bubble" | "leaf" | "cocoa" | "chili";
+
+export type ProductLook = {
+  shape: Shape;
+  /** Background and label color. */
+  color: string;
+  /** A second color for stripes and highlights. */
+  accent: string;
+  particle: Particle;
+};
+
+// First match wins, so put specific words ("blue raspberry") before general ones ("blue").
+const KEYWORDS: [RegExp, Omit<ProductLook, "shape">][] = [
+  [/strawberr/i, { color: "#d81f3c", accent: "#ff8fa0", particle: "strawberry" }],
+  [/cherry|fruit punch|punch|watermelon/i, { color: "#c4122f", accent: "#ff6b7d", particle: "cherry" }],
+  [/grape/i, { color: "#5a2a91", accent: "#b48be6", particle: "grape" }],
+  [/orange|mango|tangerine/i, { color: "#f27a00", accent: "#ffc163", particle: "orange" }],
+  [/lemon|lemonade|pineapple/i, { color: "#e3c21b", accent: "#fff3a3", particle: "lemon" }],
+  [/lime|sprite|7.?up|mountain dew|green apple/i, { color: "#3f9e3a", accent: "#b9ec7c", particle: "lime" }],
+  [/blue|berry|raspberry|cool blue/i, { color: "#1c5fd6", accent: "#8fc0ff", particle: "ice" }],
+  [/tea|matcha|mint/i, { color: "#4f9a5f", accent: "#c7ecb2", particle: "leaf" }],
+  [/chocolate|cocoa|coffee|mocha/i, { color: "#6b3a22", accent: "#d9a27a", particle: "cocoa" }],
+  [/cola|coke|pepsi|root beer|dr\.? ?pepper/i, { color: "#4b1610", accent: "#d14a3a", particle: "bubble" }],
+  [/water|sparkling|seltzer/i, { color: "#2f8fd1", accent: "#bfe6ff", particle: "bubble" }],
+  [/hot|fuego|spicy|flamin/i, { color: "#c3281b", accent: "#ff9b4a", particle: "chili" }],
+  [/energy|red bull|monster|celsius/i, { color: "#14171a", accent: "#3ad1c6", particle: "bubble" }],
+];
+
+// Products with no keyword match still get a pleasant color, picked by name.
+const FALLBACKS: Omit<ProductLook, "shape">[] = [
+  { color: "#0f8a84", accent: "#8ee3dc", particle: "bubble" },
+  { color: "#e8551c", accent: "#ffb27f", particle: "bubble" },
+  { color: "#2a4bbf", accent: "#9fb4ff", particle: "ice" },
+  { color: "#9b2f6e", accent: "#f2a3cf", particle: "bubble" },
+];
+
+function guessShape(text: string): Shape {
+  if (/milk|carton|juice box/i.test(text)) return "carton";
+  if (/capri|pouch/i.test(text)) return "pouch";
+  if (/bottle|water|gatorade|powerade|body ?armor|\b(16\.9|20|24|32) ?oz\b/i.test(text) && !/\bcan\b/i.test(text)) return "bottle";
+  return "can";
+}
+
+export function productLook(product: { name: string; description?: string | null }): ProductLook {
+  const text = `${product.name} ${product.description ?? ""}`;
+  const match = KEYWORDS.find(([re]) => re.test(text))?.[1];
+  let hash = 0;
+  for (const ch of product.name) hash = (hash * 31 + ch.charCodeAt(0)) >>> 0;
+  return { shape: guessShape(text), ...(match ?? FALLBACKS[hash % FALLBACKS.length]) };
+}
+
+/** Lighten (amount > 0) or darken (amount < 0) a hex color. */
+export function shade(hex: string, amount: number) {
+  const n = Number.parseInt(hex.slice(1), 16);
+  const f = (c: number) => Math.round(Math.min(255, Math.max(0, amount > 0 ? c + (255 - c) * amount : c * (1 + amount))));
+  const r = f(n >> 16);
+  const g = f((n >> 8) & 255);
+  const b = f(n & 255);
+  return `#${((1 << 24) | (r << 16) | (g << 8) | b).toString(16).slice(1)}`;
+}
+
+/** White text on dark colors, near-black on light ones. */
+export function readableOn(hex: string) {
+  const n = Number.parseInt(hex.slice(1), 16);
+  const lum = (0.299 * (n >> 16) + 0.587 * ((n >> 8) & 255) + 0.114 * (n & 255)) / 255;
+  return lum > 0.62 ? "#111111" : "#ffffff";
+}
