@@ -92,3 +92,18 @@ Skipped on purpose: video (35 credits per 5 seconds, heavy on school Wi-Fi) and 
 4. ✅ Sprites cut out, everything compressed (2.5 MB total, each file loads only when needed), wired into the site.
    The hand-drawn pieces stay as a backup for flavors without photos.
 5. ✅ Screenshots reviewed, pushed.
+
+## Real drinks (3D models from the product photos)
+
+Every drink on the menu has its own 3D model, built from its product photo (no AI, no credits):
+
+1. The photo's outline gives the drink's shape at every height (spun round into a 3D shape).
+2. The photo is unwrapped onto that shape, so the real label wraps all the way round
+   (the back repeats the front, blended at the sides).
+3. Files: `public/showcase/drinks/<name>.webp` (sharp, for the flavor slider) and `<name>-sm.webp`
+   (small, for the fridge). Shapes: `src/components/public/showcase/drink-models.ts`.
+
+**Adding a new drink:** upload a straight-on photo of it on a plain white background on the Products
+page, then ask for its model to be built with `scripts/build-drink-models.py` (it needs Python with
+numpy, scipy and Pillow). Until then the drink shows with a drawn label, so nothing breaks.
+A drink renamed on the Products page also falls back to the drawn label until its model is rebuilt.

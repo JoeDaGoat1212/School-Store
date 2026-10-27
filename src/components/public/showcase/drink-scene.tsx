@@ -5,7 +5,7 @@ import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { ContactShadows, Environment, Lightformer, RoundedBox } from "@react-three/drei";
 import * as THREE from "three";
 import { readableOn, shade, type ProductLook } from "@/lib/product-look";
-import { labelPhotoFor } from "./scene-assets";
+import { photoModelFor } from "./drink-models";
 
 /*
  * The 3D part of the drinks showcase (React Three Fiber = three.js in React).
@@ -172,20 +172,25 @@ function Drink({ item, offset, calm, onClick }: { item: SceneItem; offset: numbe
   );
 }
 
-/** The 3D drink itself (also used on the fridge shelves). */
-export function DrinkModel({ item }: { item: SceneItem }) {
-  const drawn = useLabel(item);
-  const photoInfo = item.look.shape === "can" ? labelPhotoFor(item.name) : null;
-  const photo = usePhotoLabel(photoInfo?.url ?? null);
-  if (photo) {
-    // A real 12 oz can is wider than our slim one; the photo label needs those proportions.
-    return (
-      <group scale={[CLASSIC_CAN, 1, CLASSIC_CAN]}>
-        <Can label={photo} photo ends={photoInfo?.ends} />
-      </group>
-    );
-  }
-  const label = drawn;
+/**
+ * The 3D drink itself (also used on the fridge shelves, with `small` labels).
+ * Drinks with a traced model (drink-models.ts) use their real shape and label
+ * photo; the rest get one of the four drawn shapes.
+ */
+export function DrinkModel({ item, small = false }: { item: SceneItem; small?: boolean }) {
+  const model = photoModelFor(item.name);
+  if (model) return <PhotoDrink model={model} color={item.look.color} small={small} />;
+  return <DrawnDrink item={item} />;
+}
+
+/** How far below its middle a drink's bottom is (so it can stand on a shelf). */
+export function modelBase(item: SceneItem) {
+  if (photoModelFor(item.name)) return 0.95;
+  return { can: 0.95, bottle: 0.98, carton: 0.75, pouch: 0.725 }[item.look.shape];
+}
+
+function DrawnDrink({ item }: { item: SceneItem }) {
+  const label = useLabel(item);
   switch (item.look.shape) {
     case "bottle":
       return <Bottle look={item.look} label={label} />;
@@ -205,31 +210,68 @@ const lathe = (points: [number, number][], segments = 64) =>
 
 const silver = { color: "#d9dee4", metalness: 1, roughness: 0.22 };
 
+/**
+ * A real drink: its traced outline spun into a 3D shape, wearing its own
+ * label photo all the way round. Until the photo has downloaded, the shape
+ * shows in the drink's color.
+ */
+function PhotoDrink({ model, color, small }: { model: NonNullable<ReturnType<typeof photoModelFor>>; color: string; small: boolean }) {
+  const geometry = useMemo(() => {
+    const points: [number, number][] = [];
+    for (let i = 0; i < model.profile.length; i += 2) points.push([model.profile[i], model.profile[i + 1]]);
+    // phiStart = π puts the middle of the label (the front of the photo) at the front.
+    const g = new THREE.LatheGeometry(
+      points.map(([r, y]) => new THREE.Vector2(r, y)),
+      small ? 48 : 96,
+      Math.PI,
+      Math.PI * 2,
+    );
+    g.computeVertexNormals();
+    return g;
+  }, [model.profile, small]);
+  useEffect(() => () => geometry.dispose(), [geometry]);
+  const label = usePhotoLabel(`/showcase/drinks/${model.slug}${small ? "-sm" : ""}.webp`);
+
+  // The photo already has its true colors, so reflections stay low (a shiny finish
+  // washes dark colors out, e.g. blue turns lavender). Bottles are glossier.
+  const finish =
+    model.kind === "bottle"
+      ? { roughness: 0.25, clearcoat: 0.8, clearcoatRoughness: 0.15, envMapIntensity: 0.45 }
+      : { roughness: 0.4, clearcoat: 0.4, clearcoatRoughness: 0.22, envMapIntensity: 0.35 };
+
+  return (
+    <mesh geometry={geometry}>
+      <meshPhysicalMaterial
+        key={label ? "photo" : "plain"}
+        map={label}
+        color={label ? "#ffffff" : color}
+        metalness={0.05}
+        {...finish}
+        transparent={Boolean(model.clear)}
+        // Clear plastic: the label photo says how see-through each spot is.
+        depthWrite={!model.clear}
+      />
+    </mesh>
+  );
+}
+
 /** A 12 oz soda can: printed metal body, shiny rims. */
-function Can({ label, photo = false, ends }: { label: THREE.Texture; photo?: boolean; ends?: string }) {
+function Can({ label }: { label: THREE.Texture }) {
   const top = useMemo(() => lathe([[0.36, 0.74], [0.35, 0.8], [0.31, 0.9], [0.3, 0.95], [0.27, 0.955], [0, 0.95]]), []);
   const bottom = useMemo(() => lathe([[0, -0.94], [0.22, -0.93], [0.27, -0.95], [0.33, -0.9], [0.36, -0.76]]), []);
-  // Top and bottom: silver, or painted in the label's color (same finish as the label).
-  const endMaterial = ends ? (
-    <meshPhysicalMaterial color={ends} metalness={0.05} roughness={0.42} clearcoat={0.35} clearcoatRoughness={0.25} envMapIntensity={0.35} side={THREE.DoubleSide} />
-  ) : (
-    <meshStandardMaterial {...silver} side={THREE.DoubleSide} />
-  );
   return (
     <group>
       <mesh>
         {/* thetaStart = π puts the middle of the label at the front. */}
         <cylinderGeometry args={[0.36, 0.36, 1.5, 96, 1, true, Math.PI, Math.PI * 2]} />
-        {photo ? (
-          // A photo already has its true colors, so keep reflections low: a shiny finish
-          // washes dark colors out (the blue turned lavender) and darkens the rest.
-          <meshPhysicalMaterial map={label} metalness={0.05} roughness={0.42} clearcoat={0.35} clearcoatRoughness={0.25} envMapIntensity={0.35} />
-        ) : (
-          <meshPhysicalMaterial map={label} metalness={0.45} roughness={0.3} clearcoat={1} clearcoatRoughness={0.12} />
-        )}
+        <meshPhysicalMaterial map={label} metalness={0.45} roughness={0.3} clearcoat={1} clearcoatRoughness={0.12} />
       </mesh>
-      <mesh geometry={top}>{endMaterial}</mesh>
-      <mesh geometry={bottom}>{endMaterial}</mesh>
+      <mesh geometry={top}>
+        <meshStandardMaterial {...silver} side={THREE.DoubleSide} />
+      </mesh>
+      <mesh geometry={bottom}>
+        <meshStandardMaterial {...silver} side={THREE.DoubleSide} />
+      </mesh>
       {/* the tab */}
       <mesh position={[0, 0.96, 0.08]} rotation-x={-Math.PI / 2}>
         <torusGeometry args={[0.07, 0.018, 8, 24]} />
@@ -320,14 +362,11 @@ function Pouch({ look, label }: { look: ProductLook; label: THREE.Texture }) {
 
 // ---- Labels ---------------------------------------------------------------------
 
-/** How much wider a photo-label can is than the slim can (body height ÷ diameter goes from 2.08 to 1.5, like the photo). */
-const CLASSIC_CAN = 1.38;
-
 const photoCache = new Map<string, THREE.Texture>();
 
 /**
- * A real label photo for the drink, if there is one (see scene-assets.ts).
- * Returns null while it downloads, so the drawn label shows until then.
+ * A drink's label photo (see drink-models.ts), downloaded once and reused.
+ * Returns null while it downloads.
  */
 function usePhotoLabel(url: string | null) {
   const [loaded, setLoaded] = useState<{ url: string; texture: THREE.Texture } | null>(null);

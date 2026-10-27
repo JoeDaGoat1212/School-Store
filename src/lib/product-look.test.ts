@@ -42,3 +42,26 @@ describe("drinkBrand", () => {
     expect(drinkBrand("Tropical Jarritos")).toBe("Jarritos");
   });
 });
+
+describe("the store's real drinks", () => {
+  it("land on the right shelf", () => {
+    expect(drinkBrand("Diet Coke")).toBe("Coca-Cola");
+    expect(drinkBrand("Dr. Pepper")).toBe("Dr Pepper");
+    expect(drinkBrand("Mountain Dew (Baja Blast)")).toBe("Mountain Dew");
+    expect(drinkBrand("Powerade pink")).toBe("Powerade");
+    expect(drinkBrand("Starbucks Coffee Vanilla")).toBe("Starbucks");
+    expect(drinkBrand("White Monster")).toBe("Monster");
+    expect(drinkBrand("Yoohoo")).toBe("Yoo-hoo");
+  });
+
+  it("get a matching flavor backdrop", () => {
+    expect(productLook({ name: "Mountain Dew Code Red" }).scene).toBe("cherry");
+    expect(productLook({ name: "Mountain Dew Voltage" }).scene).toBe("blue");
+    expect(productLook({ name: "Mountain Dew Tropical Citrus" }).scene).toBe("tropical");
+    expect(productLook({ name: "Powerade Purple" }).scene).toBe("grape");
+    expect(productLook({ name: "Powerade Red" }).scene).toBe("cherry");
+    expect(productLook({ name: "Fanta pineapple" }).scene).toBe("tropical");
+    expect(productLook({ name: "Yoohoo" }).scene).toBe("chocolate");
+    expect(productLook({ name: "Dr. Pepper" }).scene).toBe("cola");
+  });
+});

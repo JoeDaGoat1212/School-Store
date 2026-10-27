@@ -43,20 +43,21 @@ export type ProductLook = {
 
 // First match wins, so put specific words ("blue raspberry") before general ones ("blue").
 const KEYWORDS: [RegExp, Omit<ProductLook, "shape">][] = [
-  [/strawberr/i, { color: "#d81f3c", accent: "#ff8fa0", particle: "strawberry", scene: "strawberry" }],
-  [/cherry|fruit punch|punch|watermelon/i, { color: "#c4122f", accent: "#ff6b7d", particle: "cherry", scene: "cherry" }],
-  [/grape/i, { color: "#5a2a91", accent: "#b48be6", particle: "grape", scene: "grape" }],
+  [/strawberr|pink/i, { color: "#d81f3c", accent: "#ff8fa0", particle: "strawberry", scene: "strawberry" }],
+  [/cherry|fruit punch|punch|watermelon|code red|powerade red/i, { color: "#c4122f", accent: "#ff6b7d", particle: "cherry", scene: "cherry" }],
+  [/grape|purple/i, { color: "#5a2a91", accent: "#b48be6", particle: "grape", scene: "grape" }],
   [/tropical|mango|pineapple|passion/i, { color: "#f2a11f", accent: "#ffe08a", particle: "orange", scene: "tropical" }],
   [/orange|tangerine|mandarin/i, { color: "#f27a00", accent: "#ffc163", particle: "orange", scene: "orange" }],
   [/lemon|lemonade/i, { color: "#e3c21b", accent: "#fff3a3", particle: "lemon", scene: "lemon" }],
+  [/voltage/i, { color: "#1c5fd6", accent: "#8fc0ff", particle: "ice", scene: "blue" }],
   [/lime|sprite|7.?up|mountain dew|green apple/i, { color: "#3f9e3a", accent: "#b9ec7c", particle: "lime", scene: "lime" }],
   [/blue|berry|raspberry|cool blue/i, { color: "#1c5fd6", accent: "#8fc0ff", particle: "ice", scene: "blue" }],
   [/tea|matcha|mint/i, { color: "#4f9a5f", accent: "#c7ecb2", particle: "leaf", scene: "tea" }],
-  [/chocolate|cocoa|coffee|mocha/i, { color: "#6b3a22", accent: "#d9a27a", particle: "cocoa", scene: "chocolate" }],
+  [/chocolate|cocoa|coffee|mocha|yoo-?hoo|frappuccino/i, { color: "#6b3a22", accent: "#d9a27a", particle: "cocoa", scene: "chocolate" }],
   [/cola|coke|pepsi|root beer|dr\.? ?pepper/i, { color: "#4b1610", accent: "#d14a3a", particle: "bubble", scene: "cola" }],
   [/water|sparkling|seltzer/i, { color: "#2f8fd1", accent: "#bfe6ff", particle: "bubble", scene: "water" }],
   [/hot|fuego|spicy|flamin/i, { color: "#c3281b", accent: "#ff9b4a", particle: "chili" }],
-  [/energy|red bull|monster|celsius/i, { color: "#14171a", accent: "#3ad1c6", particle: "bubble" }],
+  [/energy|red bull|monster|celsius/i, { color: "#1c5fd6", accent: "#8fc0ff", particle: "ice", scene: "blue" }],
 ];
 
 // Products with no keyword match still get a pleasant color, picked by name.
@@ -119,6 +120,8 @@ const BRANDS: [RegExp, string][] = [
   [/capri ?sun/i, "Capri Sun"],
   [/minute maid/i, "Minute Maid"],
   [/kool.?aid/i, "Kool-Aid"],
+  [/starbucks|frappuccino/i, "Starbucks"],
+  [/yoo-?hoo/i, "Yoo-hoo"],
   [/red bull/i, "Red Bull"],
   [/monster/i, "Monster"],
   [/celsius/i, "Celsius"],

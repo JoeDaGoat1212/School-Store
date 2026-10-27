@@ -4,7 +4,7 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Canvas, useFrame, useThree, type ThreeEvent } from "@react-three/fiber";
 import { Environment, Lightformer, RoundedBox } from "@react-three/drei";
 import * as THREE from "three";
-import { DrinkModel, useFontsReady, type SceneItem } from "./drink-scene";
+import { DrinkModel, modelBase, useFontsReady, type SceneItem } from "./drink-scene";
 
 /*
  * The drinks fridge: every drink on lit shelves, one shelf per brand.
@@ -24,8 +24,6 @@ const SLOT = 0.44; // width per drink
 const DEPTH = 0.7;
 const FRAME = 0.12; // thickness of the fridge walls
 
-/** How far below its middle each shape's bottom is (so drinks stand on the shelf). */
-const BASE: Record<SceneItem["look"]["shape"], number> = { can: 0.95, bottle: 0.98, carton: 0.75, pouch: 0.725 };
 
 type Layout = {
   doors: { brands: FridgeBrand[]; width: number; x: number }[];
@@ -339,7 +337,7 @@ function ShelfDrink({
   const [hover, setHover] = useState(false);
   // A small random-looking turn, so the rows don't look copy-pasted.
   const turn = useMemo(() => ((item.id.charCodeAt(0) + item.id.charCodeAt(1)) % 7) * 0.08 - 0.24, [item.id]);
-  const baseY = 0.0125 + BASE[item.look.shape] * SHELF_SCALE;
+  const baseY = 0.0125 + modelBase(item) * SHELF_SCALE;
 
   useFrame((_, delta) => {
     const g = ref.current;
@@ -373,7 +371,7 @@ function ShelfDrink({
         onPick(e);
       }}
     >
-      <DrinkModel item={item} />
+      <DrinkModel item={item} small />
     </group>
   );
 }
