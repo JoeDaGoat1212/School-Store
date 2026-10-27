@@ -13,6 +13,7 @@ import {
   SidebarGroupContent,
   SidebarHeader,
   SidebarMenu,
+  SidebarMenuBadge,
   SidebarMenuButton,
   SidebarMenuItem,
   SidebarRail,
@@ -20,7 +21,7 @@ import {
 import { brand } from "@/config/brand";
 import { staffNav } from "./nav-items";
 
-export function StaffSidebar({ email }: { email: string }) {
+export function StaffSidebar({ email, openOrders }: { email: string; openOrders: number }) {
   const pathname = usePathname();
 
   // "/admin" is only active on the dashboard itself; other items also match their sub-pages.
@@ -56,6 +57,9 @@ export function StaffSidebar({ email }: { email: string }) {
                       <span>{item.title}</span>
                     </Link>
                   </SidebarMenuButton>
+                  {item.href === "/admin/orders" && openOrders > 0 && (
+                    <SidebarMenuBadge aria-label={`${openOrders} open orders today`}>{openOrders}</SidebarMenuBadge>
+                  )}
                 </SidebarMenuItem>
               ))}
             </SidebarMenu>

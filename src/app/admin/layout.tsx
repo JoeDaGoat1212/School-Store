@@ -3,7 +3,9 @@ import { cookies } from "next/headers";
 import { StaffSidebar } from "@/components/staff/staff-sidebar";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
+import { SkipLink } from "@/components/skip-link";
 import { requireAdmin } from "@/lib/auth";
+import { storeToday } from "@/lib/format";
 
 export const metadata: Metadata = {
   title: { default: "Dashboard", template: "%s · Staff" },
@@ -12,15 +14,23 @@ export const metadata: Metadata = {
 
 /** Wraps every /admin page: checks the login, then draws the sidebar. */
 export default async function AdminLayout({ children }: LayoutProps<"/admin">) {
-  const { user } = await requireAdmin();
+  const { supabase, user } = await requireAdmin();
+
+  // Number badge on "Orders": today's orders still to hand out.
+  const { count: openOrders } = await supabase
+    .from("orders")
+    .select("id", { count: "exact", head: true })
+    .eq("pickup_date", storeToday())
+    .in("status", ["received", "preparing", "ready"]);
 
   // Remember whether the sidebar was collapsed last time.
   const sidebarOpen = (await cookies()).get("sidebar_state")?.value !== "false";
 
   return (
     <SidebarProvider defaultOpen={sidebarOpen}>
-      <StaffSidebar email={user.email} />
-      <SidebarInset>
+      <SkipLink />
+      <StaffSidebar email={user.email} openOrders={openOrders ?? 0} />
+      <SidebarInset id="main">
         <header className="no-print sticky top-0 z-10 flex h-14 items-center gap-2 border-b bg-background/85 px-4 backdrop-blur">
           <SidebarTrigger className="-ml-1" />
           <div className="flex-1" />

@@ -7,7 +7,7 @@ The website for our student-run store.
 
 This site does **not** replace InTouchPay. Every sale, including online orders, is still rung up in InTouchPay at the window. The site imports InTouchPay's export so it can do the math.
 
-> **Build status:** Phases 1–6 of 8 are done: setup, database, admin login, products, the student menu, checkout, order lookup, the order queue, inventory, expenses, the sales import, and insights. See [Build phases](#build-phases).
+> **Build status:** Phases 1–7 of 8 are done: everything in the plan except the nice-to-haves (phase 8). See [Build phases](#build-phases).
 
 ---
 
@@ -172,8 +172,8 @@ From now on, every push to the `main` branch redeploys the site automatically.
 
 | I want to… | Do this |
 | --- | --- |
-| Use our school colors or logo | Edit `src/config/brand.ts` |
-| Change pickup windows, cutoff time, closed days, or banner | **Settings** page *(phase 7)*. Until then, edit the `pickup_windows` and `closed_dates` tables in Supabase. |
+| Use our school name, colors or logo | Edit `src/config/brand.ts` (the tab icon updates from it too) |
+| Change pickup times, cutoff, closed days, the banner, order limits, or your password | **Settings** page in the staff dashboard |
 | Make a fresh sample InTouchPay file for testing imports | `npm run sample-csv` (writes `sample-data/intouchpay-sample.csv`) |
 | Change the database | Add a **new** file in `supabase/migrations/`. Never edit old ones; they have already run. Then run `npm run db:bundle` and `npm run db:types`, and apply it (see below). |
 | Check for mistakes before pushing | `npm run typecheck`, `npm run lint` and `npm test` |
@@ -283,5 +283,5 @@ Run `npm run db:types`.
 4. ✅ Inventory + expenses
 5. ✅ Sales import
 6. ✅ Insights dashboard
-7. ⬜ Settings + polish
+7. ✅ Settings + polish
 8. ⬜ Nice-to-haves (QR codes, deal of the day, bundles, suggestions)
