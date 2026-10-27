@@ -169,7 +169,7 @@ From now on, every push to the `main` branch redeploys the site automatically.
 
 ## Rewards accounts setup
 
-Students sign in with their email and a 6-digit code, no password. Supabase sends the code. Do these four steps once.
+Students sign in with their email and a short code from their email (6–8 numbers), no password. Supabase sends the code. Do these four steps once.
 
 **1. Run the database update.** Apply `supabase/sql-editor/20261026000009_rewards_deals.sql` (see [Applying a database update](#applying-a-database-update)). If you skipped `20261026000008_insights.sql`, run that one first.
 

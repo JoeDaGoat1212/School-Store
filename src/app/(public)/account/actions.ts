@@ -8,7 +8,7 @@ import { GRADES } from "@/lib/validation";
 
 /*
  * Rewards account sign-in, step by step:
- *   1. sendCode    — Supabase emails a 6-digit code (and makes the account if it's new)
+ *   1. sendCode    — Supabase emails a short number code (and makes the account if it's new)
  *   2. verifyCode  — checks the code and signs the student in (sets the login cookie)
  *   3. saveProfile — the first time only: name and grade
  */
@@ -47,8 +47,9 @@ export async function verifyCode(_prev: SignInState, formData: FormData): Promis
   const email = emailSchema.safeParse(formData.get("email"));
   const code = String(formData.get("code") ?? "").replace(/\D/g, "");
   if (!email.success) return { step: "email", message: "Start again with your email address." };
-  if (code.length !== 6) {
-    return { step: "code", email: email.data, message: "The code is 6 numbers. Check your email." };
+  // Supabase's codes are 6 to 10 numbers long, depending on the project's "Email OTP length" setting.
+  if (code.length < 6 || code.length > 10) {
+    return { step: "code", email: email.data, message: "Type the whole code from the email (just the numbers)." };
   }
 
   const supabase = await createClient();

@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { sendCode, verifyCode, type SignInState } from "./actions";
 
 /**
- * Two steps on one card: type your email → type the 6-digit code from it.
+ * Two steps on one card: type your email → type the code from it.
  * No passwords to forget.
  */
 export function SignInForm({ next = "/account" }: { next?: string }) {
@@ -48,7 +48,7 @@ export function SignInForm({ next = "/account" }: { next?: string }) {
             </p>
           ) : (
             <p id="email-help" className="text-sm text-muted-foreground">
-              We&apos;ll email you a 6-digit code. No password needed.
+              We&apos;ll email you a short code. No password needed.
             </p>
           )}
         </div>
@@ -76,12 +76,12 @@ export function SignInForm({ next = "/account" }: { next?: string }) {
             inputMode="numeric"
             autoComplete="one-time-code"
             pattern="[0-9]*"
-            maxLength={6}
-            placeholder="000000"
+            maxLength={10}
+            placeholder="••••••"
             required
             aria-invalid={Boolean(error)}
             aria-describedby="code-help"
-            className="h-16 text-center font-heading text-4xl font-extrabold tracking-[0.35em] tabular-nums placeholder:text-muted-foreground/40"
+            className="h-16 text-center font-heading text-4xl font-extrabold tracking-[0.25em] tabular-nums placeholder:text-muted-foreground/40"
           />
           <p id="code-help" className={error ? "text-sm font-medium text-destructive" : "text-sm text-muted-foreground"}>
             {error ?? (
