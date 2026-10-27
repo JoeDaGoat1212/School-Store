@@ -180,7 +180,7 @@ export function DrinkModel({ item }: { item: SceneItem }) {
     // A real 12 oz can is wider than our slim one; the photo label needs those proportions.
     return (
       <group scale={[CLASSIC_CAN, 1, CLASSIC_CAN]}>
-        <Can label={photo} />
+        <Can label={photo} photo />
       </group>
     );
   }
@@ -205,7 +205,7 @@ const lathe = (points: [number, number][], segments = 64) =>
 const silver = { color: "#d9dee4", metalness: 1, roughness: 0.22 };
 
 /** A 12 oz soda can: printed metal body, shiny rims. */
-function Can({ label }: { label: THREE.Texture }) {
+function Can({ label, photo = false }: { label: THREE.Texture; photo?: boolean }) {
   const top = useMemo(() => lathe([[0.36, 0.74], [0.35, 0.8], [0.31, 0.9], [0.3, 0.95], [0.27, 0.955], [0, 0.95]]), []);
   const bottom = useMemo(() => lathe([[0, -0.94], [0.22, -0.93], [0.27, -0.95], [0.33, -0.9], [0.36, -0.76]]), []);
   return (
@@ -213,7 +213,13 @@ function Can({ label }: { label: THREE.Texture }) {
       <mesh>
         {/* thetaStart = π puts the middle of the label at the front. */}
         <cylinderGeometry args={[0.36, 0.36, 1.5, 96, 1, true, Math.PI, Math.PI * 2]} />
-        <meshPhysicalMaterial map={label} metalness={0.45} roughness={0.3} clearcoat={1} clearcoatRoughness={0.12} />
+        {photo ? (
+          // A photo already has its true colors, so keep reflections low: a shiny finish
+          // washes dark colors out (the blue turned lavender) and darkens the rest.
+          <meshPhysicalMaterial map={label} metalness={0.05} roughness={0.42} clearcoat={0.35} clearcoatRoughness={0.25} envMapIntensity={0.35} />
+        ) : (
+          <meshPhysicalMaterial map={label} metalness={0.45} roughness={0.3} clearcoat={1} clearcoatRoughness={0.12} />
+        )}
       </mesh>
       <mesh geometry={top}>
         <meshStandardMaterial {...silver} side={THREE.DoubleSide} />
