@@ -76,3 +76,45 @@ export function readableOn(hex: string) {
   const lum = (0.299 * (n >> 16) + 0.587 * ((n >> 8) & 255) + 0.114 * (n & 255)) / 255;
   return lum > 0.62 ? "#111111" : "#ffffff";
 }
+
+// ---- Brands (for the fridge shelves) ------------------------------------------
+
+// Known drink brands, written how they should show on the shelf tag.
+const BRANDS: [RegExp, string][] = [
+  [/fanta/i, "Fanta"],
+  [/coca.?cola|\bcoke\b/i, "Coca-Cola"],
+  [/sprite/i, "Sprite"],
+  [/pepsi/i, "Pepsi"],
+  [/dr\.? ?pepper/i, "Dr Pepper"],
+  [/mountain dew|mtn dew/i, "Mountain Dew"],
+  [/gatorade/i, "Gatorade"],
+  [/powerade/i, "Powerade"],
+  [/body ?armor/i, "BodyArmor"],
+  [/prime/i, "Prime"],
+  [/arizona/i, "AriZona"],
+  [/snapple/i, "Snapple"],
+  [/lipton/i, "Lipton"],
+  [/capri ?sun/i, "Capri Sun"],
+  [/minute maid/i, "Minute Maid"],
+  [/kool.?aid/i, "Kool-Aid"],
+  [/red bull/i, "Red Bull"],
+  [/monster/i, "Monster"],
+  [/celsius/i, "Celsius"],
+  [/water|smartwater|dasani|aquafina|fiji/i, "Water"],
+  [/milk/i, "Milk"],
+];
+
+// Words that describe a flavor or size, not the brand.
+const NOT_BRAND =
+  /\b(strawberry|cherry|grape|orange|lemon|lemonade|lime|blue|raspberry|berry|fruit|punch|tropical|mango|peach|pineapple|watermelon|green|apple|mixed|cool|zero|diet|sugar|free|original|classic|flavor(ed)?|\d+(\.\d+)?\s?(fl\.? )?oz|can|bottle|pack)\b/gi;
+
+/**
+ * Which shelf a drink goes on: "Strawberry Fanta" → "Fanta".
+ * Known brands are matched by name; otherwise flavor words are removed.
+ */
+export function drinkBrand(name: string) {
+  const known = BRANDS.find(([re]) => re.test(name))?.[1];
+  if (known) return known;
+  const rest = name.replace(NOT_BRAND, " ").replace(/\s+/g, " ").trim();
+  return rest || name;
+}

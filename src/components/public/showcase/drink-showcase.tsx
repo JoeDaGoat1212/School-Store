@@ -42,10 +42,19 @@ export function DrinkShowcase({
   drinks,
   maxPerOrder,
   inCart,
+  title = "Drinks",
+  startId,
+  onBack,
 }: {
   drinks: { item: MenuItem; shown: ShownPrice }[];
   maxPerOrder: number;
   inCart: (id: string) => number;
+  /** Shown above the name, e.g. "Fanta 2 / 3". */
+  title?: string;
+  /** Open on this drink instead of the first. */
+  startId?: string;
+  /** Shows an "All drinks" button (and Esc) that calls this. */
+  onBack?: () => void;
 }) {
   // In-stock drinks first, so the showcase opens on something you can buy.
   const entries: Entry[] = useMemo(
@@ -120,9 +129,21 @@ export function DrinkShowcase({
     window.scrollTo({ top, behavior: calm ? "auto" : "smooth" });
   };
   const go = (step: number) => scrollTo(indexNow() + step);
+
+  // Opened from the fridge: line the page up on the drink that was picked.
+  useEffect(() => {
+    const el = sectionRef.current;
+    if (!el) return;
+    const start = Math.max(0, entries.findIndex((e) => e.item.id === startId));
+    window.scrollTo({ top: el.getBoundingClientRect().top + window.scrollY - SHOWCASE_TOP + start * window.innerHeight * STEP, behavior: "auto" });
+    // Only when the showcase first opens.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const goRef = useRef(go);
+  const onBackRef = useRef(onBack);
   useEffect(() => {
     goRef.current = go;
+    onBackRef.current = onBack;
   });
 
   // Arrow keys (← → and ↑ ↓) move between drinks while the showcase is on screen.
@@ -130,6 +151,10 @@ export function DrinkShowcase({
     if (!visible) return;
     const onKey = (e: KeyboardEvent) => {
       const t = e.target as HTMLElement;
+      if (e.key === "Escape" && onBackRef.current) {
+        onBackRef.current();
+        return;
+      }
       if (t.closest("input, textarea, select, [contenteditable]") || e.metaKey || e.ctrlKey || e.altKey) return;
       const forward = e.key === "ArrowRight" || e.key === "ArrowDown";
       const back = e.key === "ArrowLeft" || e.key === "ArrowUp";
@@ -185,7 +210,7 @@ export function DrinkShowcase({
       ref={sectionRef}
       id="drinks-showcase"
       aria-roledescription="carousel"
-      aria-label="Drinks"
+      aria-label={title}
       className="relative mb-8 ml-[calc(50%-50vw)] w-screen select-none"
       // One screen for the stage, plus one scroll "step" for each drink after the first.
       style={{ height: `calc(100svh - ${SHOWCASE_TOP}px + ${(count - 1) * STEP * 100}svh)` }}
@@ -259,7 +284,7 @@ export function DrinkShowcase({
       <div className="pointer-events-none absolute inset-x-0 bottom-0 mx-auto max-w-5xl px-4 pb-6 sm:top-0 sm:flex sm:flex-col sm:justify-center sm:pb-0">
         <div className="pointer-events-auto max-w-sm">
           <p className="text-sm font-semibold opacity-80">
-            Drinks <span className="tabular-nums">{index + 1} / {count}</span>
+            {title} <span className="tabular-nums">{index + 1} / {count}</span>
           </p>
           <h3 key={item.id} className="mt-1 font-heading text-5xl leading-[0.9] font-extrabold uppercase animate-in fade-in slide-in-from-bottom-3 duration-500 sm:text-7xl">
             {item.name}
@@ -305,6 +330,17 @@ export function DrinkShowcase({
         </div>
       </div>
 
+      {onBack && (
+        <button
+          type="button"
+          onClick={onBack}
+          className="absolute top-4 left-4 z-20 flex h-10 items-center gap-1.5 rounded-full px-4 text-sm font-semibold shadow-lg backdrop-blur-sm transition-transform hover:scale-105 focus-visible:ring-3 focus-visible:ring-white/70 focus-visible:outline-none active:scale-95"
+          style={{ backgroundColor: ink === "#ffffff" ? "rgb(255 255 255 / 0.18)" : "rgb(0 0 0 / 0.12)" }}
+        >
+          <ChevronLeftIcon className="size-4" /> All drinks
+        </button>
+      )}
+
       {/* Arrows on both sides, so it's clear there's more to see */}
       <ArrowButton side="left" disabled={index === 0} onClick={() => go(-1)} ink={ink} />
       <ArrowButton side="right" disabled={index === count - 1} onClick={() => go(1)} ink={ink} />
@@ -334,7 +370,7 @@ export function DrinkShowcase({
 
       {/* Tell screen readers which drink is showing now */}
       <p className="sr-only" aria-live="polite">
-        {item.name}, {formatCents(shown.price)}, drink {index + 1} of {count}
+        {item.name}, {formatCents(shown.price)}, {index + 1} of {count}
       </p>
      </div>
     </section>
@@ -361,7 +397,7 @@ function ArrowButton({ side, disabled, onClick, ink }: { side: "left" | "right";
 }
 
 /** "16.9 oz bottle" → "16.9 OZ" for the label. */
-function sizeOf(description: string | null) {
+export function sizeOf(description: string | null) {
   return description?.match(/\d+(\.\d+)?\s?(fl\.? )?oz/i)?.[0] ?? "";
 }
 

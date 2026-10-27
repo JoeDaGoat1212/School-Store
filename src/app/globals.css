@@ -284,6 +284,15 @@
   }
 }
 
+/* Drinks: the color that spreads out from the drink you tapped in the fridge. */
+.drink-wipe {
+  animation: drink-wipe 560ms cubic-bezier(0.6, 0, 0.3, 1) both;
+}
+@keyframes drink-wipe {
+  from { clip-path: circle(0px at var(--x) var(--y)); }
+  to { clip-path: circle(150vmax at var(--x) var(--y)); }
+}
+
 /* Respect "reduce motion" in the operating system. */
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {

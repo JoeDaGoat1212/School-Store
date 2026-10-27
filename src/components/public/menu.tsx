@@ -9,7 +9,8 @@ import { CartBar } from "./cart-bar";
 import { useCart } from "./cart-store";
 import { FeaturedDeal } from "./featured-deal";
 import { ProductCard } from "./product-card";
-import { DrinkShowcase, SHOWCASE_TOP } from "./showcase/drink-showcase";
+import { SHOWCASE_TOP } from "./showcase/drink-showcase";
+import { DrinksExperience } from "./showcase/drinks-experience";
 
 const ALL = "All";
 const DEALS = "Deals";
@@ -137,9 +138,9 @@ export function Menu({
         </div>
       </nav>
 
-      {/* Drinks get the 3D showcase above their grid. */}
+      {/* Drinks get the 3D fridge (then the flavor slider) above their grid. */}
       {/drink/i.test(category) && visible.length > 0 && (
-        <DrinkShowcase drinks={visible} maxPerOrder={maxPerOrder} inCart={quantityInCart} />
+        <DrinksExperience drinks={visible} maxPerOrder={maxPerOrder} inCart={quantityInCart} />
       )}
 
       {/* key={category}: a new grid for each category, so the cards deal in again. */}

@@ -60,7 +60,7 @@ export default function DrinkScene({
       <FitToScreen>
         {fontsReady &&
           items.map((item, i) =>
-            Math.abs(i - index) <= 2 ? (
+            Math.abs(i - index) <= 3 ? (
               <Drink key={item.id} item={item} offset={i - index} calm={calm} onClick={() => onSelect(i)} />
             ) : null,
           )}
@@ -83,7 +83,7 @@ function FitToScreen({ children }: { children: React.ReactNode }) {
 }
 
 /** Wait for the display font, so the labels are drawn in it (not a fallback). */
-function useFontsReady() {
+export function useFontsReady() {
   const [ready, setReady] = useState(false);
   useEffect(() => {
     let alive = true;
@@ -95,34 +95,68 @@ function useFontsReady() {
   return ready;
 }
 
-/** One drink: glides to its place in the row; the middle one turns and floats. */
+/** How long a drink takes to slide to its new spot (seconds). */
+const SLIDE = 0.75;
+/** Slow start, slow finish. */
+const easeInOut = (x: number) => (x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2);
+
+/** Where a drink sits in the row, and how big, for a given offset from the middle. */
+function spot(offset: number) {
+  return {
+    x: offset * SPACING,
+    z: -Math.abs(offset) * 1.4,
+    scale: offset === 0 ? 1 : 0.72,
+    turn: offset === 0 ? 0 : offset * -0.35,
+  };
+}
+
+/**
+ * One drink. When its place in the row changes, it slides there over SLIDE
+ * seconds (a timed glide, so a slow frame can't make it jump). The middle
+ * drink turns slowly and floats.
+ */
 function Drink({ item, offset, calm, onClick }: { item: SceneItem; offset: number; calm: boolean; onClick: () => void }) {
   const group = useRef<THREE.Group>(null);
   const spin = useRef<THREE.Group>(null);
   const centered = offset === 0;
+  // The slide in progress: where it started, when, and toward which spot.
+  const slide = useRef({ fromX: spot(offset).x, fromZ: spot(offset).z, fromScale: spot(offset).scale, started: -1, offset });
 
-  useFrame((state, delta) => {
+  useFrame((state, rawDelta) => {
     const g = group.current;
     const s = spin.current;
     if (!g || !s) return;
+    const delta = Math.min(rawDelta, 1 / 30); // a slow frame shouldn't skip the animation
     const t = state.clock.elapsedTime;
-    // Ease toward the target spot (a little each frame = smooth sliding).
-    const ease = 1 - Math.pow(0.0015, delta);
-    const target = new THREE.Vector3(offset * SPACING, centered && !calm ? Math.sin(t * 1.3) * 0.05 : 0, -Math.abs(offset) * 1.4);
-    g.position.lerp(target, ease);
-    const scale = centered ? 1 : 0.72;
-    g.scale.setScalar(THREE.MathUtils.lerp(g.scale.x, scale, ease));
+    const sl = slide.current;
+    // A new place in the row: start sliding from wherever the drink is right now.
+    if (sl.offset !== offset) {
+      Object.assign(sl, { fromX: g.position.x, fromZ: g.position.z, fromScale: g.scale.x, started: t, offset });
+    }
+    if (sl.started < 0) sl.started = t;
+    const p = calm ? 1 : easeInOut(Math.min(1, (t - sl.started) / SLIDE));
+    const to = spot(offset);
+
+    g.position.x = THREE.MathUtils.lerp(sl.fromX, to.x, p);
+    g.position.z = THREE.MathUtils.lerp(sl.fromZ, to.z, p);
+    // A little hop while sliding, then a gentle float once it's in the middle.
+    const hop = Math.sin(p * Math.PI) * 0.12;
+    g.position.y = hop + (centered && !calm ? Math.sin(t * 1.3) * 0.05 : 0);
+    g.scale.setScalar(THREE.MathUtils.lerp(sl.fromScale, to.scale, p));
+
     // The middle drink turns slowly to show off its label; the others face us, slightly angled.
     if (centered && !calm) s.rotation.y += delta * 0.55;
-    else s.rotation.y = THREE.MathUtils.lerp(s.rotation.y, offset * -0.35, ease);
-    s.rotation.z = THREE.MathUtils.lerp(s.rotation.z, centered ? -0.06 : 0, ease);
+    else s.rotation.y = THREE.MathUtils.lerp(s.rotation.y, to.turn, Math.min(1, delta * 6));
+    // Lean into the slide direction while moving.
+    s.rotation.z = THREE.MathUtils.lerp(s.rotation.z, (centered ? -0.06 : 0) + (to.x - sl.fromX) * -0.05 * Math.sin(p * Math.PI), Math.min(1, delta * 8));
   });
 
+  const start = spot(offset);
   return (
     <group
       ref={group}
-      position={[offset * SPACING, 0, -Math.abs(offset) * 1.4]}
-      scale={centered ? 1 : 0.72}
+      position={[start.x, 0, start.z]}
+      scale={start.scale}
       onClick={(e) => {
         e.stopPropagation();
         if (!centered) onClick();
@@ -131,13 +165,14 @@ function Drink({ item, offset, calm, onClick }: { item: SceneItem; offset: numbe
       onPointerOut={() => (document.body.style.cursor = "")}
     >
       <group ref={spin}>
-        <Model item={item} />
+        <DrinkModel item={item} />
       </group>
     </group>
   );
 }
 
-function Model({ item }: { item: SceneItem }) {
+/** The 3D drink itself (also used on the fridge shelves). */
+export function DrinkModel({ item }: { item: SceneItem }) {
   const label = useLabel(item);
   switch (item.look.shape) {
     case "bottle":
@@ -269,8 +304,23 @@ function Pouch({ look, label }: { look: ProductLook; label: THREE.Texture }) {
  * Draws a label for the drink: its color, a sweeping stripe in the accent
  * color, and its name in the store's display font. No brand logos.
  */
+const labelCache = new Map<string, THREE.Texture>();
+
+/** The drink's label, drawn once and then reused. */
 function useLabel(item: SceneItem) {
-  const texture = useMemo(() => {
+  const key = `${item.id}|${item.name}|${item.subtitle}|${item.look.shape}|${item.look.color}|${item.look.accent}`;
+  return useMemo(() => {
+    const cached = labelCache.get(key);
+    if (cached) return cached;
+    const texture = drawLabel(item);
+    labelCache.set(key, texture);
+    return texture;
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- `key` covers everything in `item` that matters
+  }, [key]);
+}
+
+function drawLabel(item: SceneItem) {
+  {
     const wide = item.look.shape === "can" || item.look.shape === "bottle";
     const w = wide ? 1024 : 512;
     const h = wide ? 512 : 768;
@@ -338,8 +388,5 @@ function useLabel(item: SceneItem) {
     tex.colorSpace = THREE.SRGBColorSpace;
     tex.anisotropy = 8;
     return tex;
-  }, [item]);
-
-  useEffect(() => () => texture.dispose(), [texture]);
-  return texture;
+  }
 }

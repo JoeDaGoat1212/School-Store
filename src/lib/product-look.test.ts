@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { productLook, readableOn } from "./product-look";
+import { drinkBrand, productLook, readableOn } from "./product-look";
 
 describe("productLook", () => {
   it("guesses shape, color and falling pieces from the name", () => {
@@ -20,5 +20,18 @@ describe("readableOn", () => {
   it("uses dark text on light colors and white on dark ones", () => {
     expect(readableOn("#fff3a3")).toBe("#111111");
     expect(readableOn("#4b1610")).toBe("#ffffff");
+  });
+});
+
+
+describe("drinkBrand", () => {
+  it("puts flavors of the same drink on one shelf", () => {
+    expect(drinkBrand("Strawberry Fanta")).toBe("Fanta");
+    expect(drinkBrand("Fanta Orange 12 oz")).toBe("Fanta");
+    expect(drinkBrand("Gatorade Cool Blue")).toBe("Gatorade");
+    expect(drinkBrand("Bottled Water")).toBe("Water");
+    expect(drinkBrand("Chocolate Milk")).toBe("Milk");
+    expect(drinkBrand("Jarritos Mandarin")).toBe("Jarritos Mandarin");
+    expect(drinkBrand("Tropical Jarritos")).toBe("Jarritos");
   });
 });
