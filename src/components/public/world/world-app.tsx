@@ -404,7 +404,7 @@ export default function WorldApp({
     : moving
     ? null
     : driving !== null
-      ? "W / ↑ gas · S / ↓ brake & reverse · A D or ← → steer · Space handbrake · E get out"
+      ? "W / ↑ gas · S / ↓ brake & reverse · A D or ← → steer · Space + steer to drift · E get out"
       : station === "outside"
       ? "Click to enter, or drag to fly around"
       : station === "lot" || (station === "walk" && nearCar !== null)

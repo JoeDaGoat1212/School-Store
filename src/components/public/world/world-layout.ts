@@ -35,8 +35,21 @@ export const doors = { open: false };
 /** Where "Click to enter" drops you: in the parking lot, a few steps from the doors. */
 export const DROP = { x: 0, z: 12 };
 
-/** How high your eyes are when you walk around inside. */
+/** How high your eyes are when you walk around inside (the store is built big, for shopping). */
 export const EYE = 5.4;
+/**
+ * How high your eyes are outside: a person the same size as the people
+ * walking round town, next to a real-size car (eyes just above its roof).
+ */
+export const EYE_OUT = 3;
+
+/** Your eye height at (x, z): person-sized outside, shopping height inside, easing from one to the other through the doors. */
+export function eyeAt(x: number, z: number) {
+  if (Math.abs(x) > BUILDING.halfWidth + 2) return EYE_OUT;
+  // From just outside the doors (z = 2) to a few steps inside (z = -6).
+  const t = Math.min(1, Math.max(0, (2 - z) / 8));
+  return EYE_OUT + (EYE - EYE_OUT) * t * t * (3 - 2 * t);
+}
 
 export type Place = { x: number; z: number; turn: number };
 

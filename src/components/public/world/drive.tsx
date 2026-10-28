@@ -5,7 +5,8 @@ import { useFrame } from "@react-three/fiber";
 import * as THREE from "three";
 import { carBlocked, parkedSpots, player, walkBlocked, type CarSpot } from "./bump";
 import { CarModel, newLook } from "./car-model";
-import { MPH_PER_UNIT, stepCar, type Motion } from "./car-physics";
+import { MPH_PER_UNIT, SMOKE_SLIP, stepCar, type Motion } from "./car-physics";
+import { puff } from "./smoke";
 import { PARKED_CARS } from "./exterior";
 import { walkerSpots } from "./town";
 
@@ -143,6 +144,8 @@ export function Cars({
 }) {
   const groups = useRef<(THREE.Group | null)[]>([]);
   const lastBump = useRef(0);
+  /** Puffs of smoke owed (smoke comes out at a steady rate, whatever the frame rate). */
+  const smokeDue = useRef(0);
   const was = useRef<number | null>(null);
 
   useEffect(() => {
@@ -181,7 +184,7 @@ export function Cars({
     const c = parkedSpots[driving];
     const look = LOOKS[driving];
     const wheel = Number(input.strafeLeft || input.turnLeft) - Number(input.strafeRight || input.turnRight);
-    const { heading, accel, yawRate, braking, reversing } = stepCar(c, motion, { gas: input.forward, brake: input.back, handbrake: input.brake, wheel }, dt);
+    const { heading, accel, yawRate, braking, reversing, slip } = stepCar(c, motion, { gas: input.forward, brake: input.back, handbrake: input.brake, wheel }, dt);
 
     // ---- Move, unless something's in the way ----
     const people = walkerSpots;
@@ -212,13 +215,26 @@ export function Cars({
     }
     const fwdNow = motion.vx * -Math.sin(c.heading) + motion.vz * -Math.cos(c.heading);
 
+    // ---- Tyre smoke from the back wheels while they slide (drifting, or skidding on the handbrake) ----
+    const skidding = input.brake && Math.abs(fwdNow) > 6;
+    const smoky = skidding ? 1 : Math.min(1, Math.max(0, (slip - SMOKE_SLIP) / 5));
+    if (smoky > 0 && !calm) {
+      smokeDue.current += (12 + 30 * smoky) * dt;
+      const cos = Math.cos(c.heading);
+      const sin = Math.sin(c.heading);
+      while (smokeDue.current >= 1) {
+        smokeDue.current -= 1;
+        for (const lx of [-1.55, 1.55]) puff(c.x + lx * cos + 2.4 * sin, 0.4, c.z - lx * sin + 2.4 * cos, motion.vx, motion.vz);
+      }
+    }
+
     // ---- How it looks: wheels, lights, the body dipping and leaning ----
     look.spin += (fwdNow / WHEEL_R) * dt;
     look.steer = motion.steer;
     look.braking = braking;
     look.reversing = reversing && fwdNow < -0.1;
     look.pitch = calm ? 0 : THREE.MathUtils.clamp(-accel * 0.0035, -0.05, 0.06);
-    look.roll = calm ? 0 : THREE.MathUtils.clamp(yawRate * fwdNow * 0.004, -0.06, 0.06);
+    look.roll = calm ? 0 : THREE.MathUtils.clamp(yawRate * Math.hypot(motion.vx, motion.vz) * 0.004, -0.07, 0.07);
 
     const g = groups.current[driving];
     g?.position.set(c.x, 0, c.z);

@@ -18,6 +18,7 @@ import { RequestDesk } from "./request-desk";
 import { parkedSpots, player, trafficSpots } from "./bump";
 import { Cars, drive, input } from "./drive";
 import { Town } from "./town";
+import { Smoke } from "./smoke";
 import { Traffic } from "./traffic";
 import { BULLETIN, BUILDING, LANES, blockers, doors, placeUnits, stations, unitAt, type Place, type StationKey } from "./world-layout";
 
@@ -117,6 +118,7 @@ export default function WorldScene(props: WorldSceneProps) {
           {/* The neighbourhood round the store: streets, houses, trees, people walking */}
           <Town />
           <Traffic calm={calm} />
+          <Smoke />
           {/* The parked cars: walk up to one and press E (or tap it) to drive it */}
           <Cars driving={props.driving} canPick={props.driving === null && !moving ? props.nearCar : null} calm={calm} onPick={props.onPickCar} onBump={props.onBump} />
           <Building onDoors={props.onDoors} canEnter={station === "outside" && !moving} openSign={props.openSign} />

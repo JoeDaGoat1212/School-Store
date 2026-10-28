@@ -323,10 +323,15 @@ through walls, shelves, houses, trees or cars.
 
 Outside, the town has streets with sidewalks and street lights, rows of houses (just to look at), trees and bushes,
 people walking on the sidewalks and cars driving round the blocks. **Walk up to a parked car and press E** (or tap
-"Drive this car") to drive it: W / ↑ gas, S / ↓ brake (hold it to reverse), A D or ← → steer, Space handbrake (you'll
-skid), **E** or **Get out** to get out. A speedometer in the corner goes up to 100 mph; the brake lights come on when you
+"Drive this car") to drive it: W / ↑ gas, S / ↓ brake (hold it to reverse), A D or ← → steer, **E** or **Get out** to
+get out. To **drift**, pull the handbrake (Space) while you turn, or floor it and steer hard above about 57 mph: the back
+steps out, the car swings round and the back tyres smoke. Keep steering to hold the slide, let go or steer the other
+way to straighten up. A speedometer in the corner goes up to 100 mph; the brake lights come on when you
 brake, reverse lights when you back up, and traffic brakes for you (and for anyone walking in the road). Phones get
 on-screen arrows for walking and driving.
+
+You're person-sized outside (the same size as the people walking about, eyes just above a car's roof); inside, the
+camera rises to the store's bigger shopping height as you walk through the doors.
 
 Where things are: the store's size and what stands where is in `src/components/public/world/world-layout.ts`; the town
 (streets, houses, trees, people, traffic routes) is in `town-layout.ts` and drawn by `town.tsx`; the car physics

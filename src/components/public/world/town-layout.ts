@@ -236,7 +236,8 @@ export const WALKERS = (() => {
       shirt: shirts[Math.floor(rand() * shirts.length)],
       pants: pants[Math.floor(rand() * pants.length)],
       skin: skins[Math.floor(rand() * skins.length)],
-      height: 0.9 + rand() * 0.2,
+      // About as tall as you (3.1 to 3.5 units: a real-size person next to the cars).
+      height: 0.78 + rand() * 0.1,
     };
   });
 })();

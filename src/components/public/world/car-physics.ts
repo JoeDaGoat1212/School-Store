@@ -7,9 +7,12 @@
  *   - The brakes stop you much faster than the engine speeds you up.
  *   - Holding brake once you've stopped puts it in reverse.
  *   - Steering turns the front wheels. The faster you go, the less they
- *     turn, and the tyres can only grip so much, so you can't take a sharp
- *     corner at 100 mph: slow down first!
- *   - The handbrake (Space) locks the back wheels: the car skids and slides.
+ *     turn, and the tyres can only grip so much, so a normal turn at
+ *     100 mph is a wide one.
+ *   - Drifting: pull the handbrake (Space) while you turn, or floor it and
+ *     steer hard at speed, and the back steps out. The car swings round
+ *     while it slides; steer to hold the slide, steer the other way
+ *     (counter-steer) or let go to straighten up. Sliding tyres smoke.
  *
  * Distances are scene units (about a metre); speeds are units per second.
  */
@@ -22,9 +25,16 @@ export const REVERSE_TOP = 9;
 const ENGINE = 10; // how hard the engine pulls from a standstill (units/s²)
 const REVERSE_PULL = 6;
 export const BRAKES = 24; // how hard the brakes stop you (units/s²)
-const HANDBRAKE = 12;
+const HANDBRAKE = 6;
 const WHEELBASE = 4.5; // front wheels to back wheels
-const GRIP = 10; // the most sideways push the tyres take before sliding (units/s²)
+const GRIP = 15; // the most sideways push the tyres take before sliding (units/s²)
+const MAX_LOCK = 0.75; // how far the front wheels turn (radians), standing still
+/** How fast the car can swing round while it's sliding (radians a second). */
+const DRIFT_TURN = 2.4;
+/** Floor it and steer hard above this speed and the back steps out by itself. */
+const POWER_SLIDE = 26;
+/** How sideways (units/s) the tyres are sliding before they smoke. */
+export const SMOKE_SLIP = 2.5;
 
 /** Where a car is and which way it faces (its front is toward -z when heading is 0). */
 export type Pose = { x: number; z: number; heading: number };
@@ -87,12 +97,28 @@ export function stepCar(pose: Pose, motion: Motion, pedals: Pedals, dt: number) 
 
   // ---- Steering ----
   // Less lock the faster you go.
-  const maxSteer = 0.6 / (1 + Math.abs(fwd) / 12);
-  motion.steer = damp(motion.steer, clamp(pedals.wheel, -1, 1) * maxSteer, 6, dt);
+  const maxSteer = MAX_LOCK / (1 + Math.abs(fwd) / 16);
+  motion.steer = damp(motion.steer, clamp(pedals.wheel, -1, 1) * maxSteer, 8, dt);
+  /** How far the wheel is turned, -1 … 1 (smoothed). */
+  const turned = motion.steer / maxSteer;
   let yawRate = (fwd * Math.tan(motion.steer)) / WHEELBASE;
-  // The tyres can only push so hard sideways: at speed, only wide turns.
-  const most = (pedals.handbrake ? GRIP * 1.6 : GRIP) / Math.max(Math.abs(fwd), 1);
-  yawRate = clamp(yawRate, -most, most);
+
+  // Drifting? Handbrake while moving, flooring it with the wheel hard over at
+  // speed, or keeping on the gas and steering while already sideways.
+  const sideways = Math.abs(side) > 1.5;
+  const drifting =
+    (pedals.handbrake && Math.abs(fwd) > 4) ||
+    (pedals.gas && Math.abs(turned) > 0.8 && fwd > POWER_SLIDE) ||
+    (sideways && pedals.gas && pedals.wheel !== 0 && fwd > 6);
+  if (drifting) {
+    // The back is loose: the car swings round as far as you steer it
+    // (no steering = it just slides; steering the other way straightens it).
+    yawRate = turned * DRIFT_TURN * Math.min(1, Math.abs(fwd) / 8) * Math.sign(fwd);
+  } else {
+    // The tyres can only push so hard sideways: at speed, only wide turns.
+    const most = GRIP / Math.max(Math.abs(fwd), 1);
+    yawRate = clamp(yawRate, -most, most);
+  }
   const heading = pose.heading + yawRate * dt;
 
   // The car turns, but its weight wants to keep going the old way: see how
@@ -103,10 +129,11 @@ export function stepCar(pose: Pose, motion: Motion, pedals: Pedals, dt: number) 
   const nfz = -Math.cos(heading);
   fwd = vx * nfx + vz * nfz;
   side = vx * -nfz + vz * nfx;
-  // ...then the tyres pull it back in line (only weakly on the handbrake: a skid).
-  side *= Math.exp(-(pedals.handbrake && Math.abs(fwd) > 4 ? 1.1 : 12) * dt);
+  // ...then the tyres pull it back in line: hardly at all while drifting,
+  // gently while coming out of a slide, firmly the rest of the time.
+  side *= Math.exp(-(drifting ? (pedals.handbrake ? 0.8 : 1.6) : sideways ? 5 : 12) * dt);
   motion.vx = nfx * fwd + -nfz * side;
   motion.vz = nfz * fwd + nfx * side;
 
-  return { x: pose.x + motion.vx * dt, z: pose.z + motion.vz * dt, heading, accel, yawRate, braking, reversing };
+  return { x: pose.x + motion.vx * dt, z: pose.z + motion.vz * dt, heading, accel, yawRate, braking, reversing, drifting, slip: Math.abs(side) };
 }
