@@ -3904,6 +3904,151 @@ revoke execute on function public.get_teacher_prices() from public, anon;
 grant execute on function public.get_teacher_prices() to authenticated;
 grant execute on function public.fits_slot(jsonb, uuid, text) to anon, authenticated;
 
+-- >>>>>>>>>>>>>>>>>>>>>>>> 20261028000012_item_requests.sql >>>>>>>>>>>>>>>>>>>>>>>>
+-- =============================================================================
+-- Item requests (update 12)
+-- =============================================================================
+-- Students and teachers can ask the store to sell something ("Takis Blue
+-- Heat", "Gatorade Zero"…) at the request table in the 3D store or on the
+-- home page. Staff see what's asked for most on the Requests page.
+--
+--   item_requests         one row per request
+--   item_request_status   staff's answer for each item: new, planned
+--                         ("coming soon"), stocked ("now selling") or declined
+--   request_item()        saves a request (only the website server calls it,
+--                         so it can limit how many one device sends)
+--   popular_requests()    the most-asked-for items, for the "me too" list
+-- =============================================================================
+
+-- "Takis  Blue-Heat!" → "takis blue heat": requests for the same thing group together.
+create or replace function public.request_key(p_name text)
+returns text
+language sql immutable
+as $$
+  select btrim(regexp_replace(regexp_replace(lower(coalesce(p_name, '')), '[^a-z0-9]+', ' ', 'g'), '\s+', ' ', 'g'));
+$$;
+
+create table public.item_requests (
+  id           bigint generated always as identity primary key,
+  item_name    text not null check (char_length(item_name) between 2 and 60),
+  item_key     text generated always as (public.request_key(item_name)) stored,
+  category     text check (char_length(category) <= 30),
+  note         text check (char_length(note) <= 200),
+  requester    text check (char_length(requester) <= 60),  -- optional first name
+  customer_id  uuid references public.customers (id) on delete set null,
+  teacher_id   uuid references public.teachers (id) on delete set null,
+  source       text not null default 'web' check (source in ('store3d', 'web')),
+  ip_hash      text,  -- one-way hash of the device, only for limiting spam
+  created_at   timestamptz not null default now()
+);
+create index on public.item_requests (item_key, created_at desc);
+create index on public.item_requests (created_at desc);
+create index on public.item_requests (ip_hash, created_at desc);
+
+create table public.item_request_status (
+  item_key     text primary key,
+  status       text not null default 'new' check (status in ('new', 'planned', 'stocked', 'declined')),
+  staff_note   text check (char_length(staff_note) <= 200),
+  updated_at   timestamptz not null default now()
+);
+
+-- Save a request. Returns how many people have asked for that item.
+create or replace function public.request_item(
+  p_item        text,
+  p_category    text,
+  p_note        text,
+  p_requester   text,
+  p_ip_hash     text,
+  p_source      text default 'web',
+  p_customer_id uuid default null,
+  p_teacher_id  uuid default null
+)
+returns jsonb
+language plpgsql security definer
+set search_path = public
+as $$
+declare
+  v_item  text := btrim(regexp_replace(coalesce(p_item, ''), '\s+', ' ', 'g'));
+  v_key   text := public.request_key(p_item);
+  v_count int;
+  v_dupe  boolean := false;
+begin
+  if char_length(v_item) < 2 or v_key = '' then
+    raise exception 'MISSING_ITEM' using hint = 'Tell us what you''d like us to sell.';
+  end if;
+  if char_length(v_item) > 60 then
+    raise exception 'TOO_LONG' using hint = 'Keep the item name under 60 characters.';
+  end if;
+
+  if p_ip_hash is not null then
+    -- Spam limit: 8 requests an hour from one device.
+    select count(*) into v_count from public.item_requests
+     where ip_hash = p_ip_hash and created_at > now() - interval '1 hour';
+    if v_count >= 8 then
+      raise exception 'RATE_LIMIT' using hint = 'That''s a lot of requests! Try again in a little while.';
+    end if;
+    -- The same device asking for the same thing twice in a day counts once.
+    v_dupe := exists (select 1 from public.item_requests
+                      where ip_hash = p_ip_hash and item_key = v_key and created_at > now() - interval '1 day');
+  end if;
+
+  if not v_dupe then
+    insert into public.item_requests (item_name, category, note, requester, customer_id, teacher_id, source, ip_hash)
+    values (v_item,
+            nullif(left(btrim(coalesce(p_category, '')), 30), ''),
+            nullif(left(btrim(coalesce(p_note, '')), 200), ''),
+            nullif(left(btrim(coalesce(p_requester, '')), 60), ''),
+            p_customer_id, p_teacher_id,
+            case when p_source = 'store3d' then 'store3d' else 'web' end,
+            p_ip_hash);
+  end if;
+
+  select count(*) into v_count from public.item_requests where item_key = v_key;
+  return jsonb_build_object('item', v_item, 'count', v_count, 'already', v_dupe,
+                            'status', coalesce((select status from public.item_request_status where item_key = v_key), 'new'));
+end;
+$$;
+
+-- The most-asked-for items in the last 60 days (no names, just counts), for
+-- the "others asked for" list. Items staff turned down aren't shown.
+create or replace function public.popular_requests(p_limit int default 8)
+returns jsonb
+language sql stable security definer
+set search_path = public
+as $$
+  select coalesce(jsonb_agg(x order by (x->>'count')::int desc, x->>'name'), '[]'::jsonb)
+  from (
+    select jsonb_build_object(
+             'key', r.item_key,
+             -- the spelling people used most
+             'name', (select item_name from public.item_requests r2 where r2.item_key = r.item_key
+                      group by item_name order by count(*) desc, (item_name <> lower(item_name)) desc, min(created_at) limit 1),
+             'count', count(*)::int,
+             'status', coalesce(s.status, 'new')) as x
+    from public.item_requests r
+    left join public.item_request_status s on s.item_key = r.item_key
+    where r.created_at > now() - interval '60 days'
+      and coalesce(s.status, 'new') <> 'declined'
+    group by r.item_key, s.status
+    order by count(*) desc
+    limit greatest(1, least(coalesce(p_limit, 8), 20))
+  ) t;
+$$;
+
+-- Security: staff can read and answer everything; the public only through the functions above.
+alter table public.item_requests       enable row level security;
+alter table public.item_request_status enable row level security;
+create policy "admin full access" on public.item_requests for all to authenticated
+  using (public.is_admin()) with check (public.is_admin());
+create policy "admin full access" on public.item_request_status for all to authenticated
+  using (public.is_admin()) with check (public.is_admin());
+
+revoke execute on function public.request_item(text, text, text, text, text, text, uuid, uuid) from public, anon, authenticated;
+grant execute on function public.request_item(text, text, text, text, text, text, uuid, uuid) to service_role;
+revoke execute on function public.popular_requests(int) from public;
+grant execute on function public.popular_requests(int) to anon, authenticated;
+grant execute on function public.request_key(text) to anon, authenticated;
+
 -- >>>>>>>>>>>>>>>>>>>>>>>> record what was applied >>>>>>>>>>>>>>>>>>>>>>>>
 create schema if not exists supabase_migrations;
 create table if not exists supabase_migrations.schema_migrations (
@@ -3922,7 +4067,8 @@ insert into supabase_migrations.schema_migrations (version, name) values
   ('20261026000008', 'insights'),
   ('20261026000009', 'rewards_deals'),
   ('20261027000010', 'usernames'),
-  ('20261028000011', 'teachers_room_service')
+  ('20261028000011', 'teachers_room_service'),
+  ('20261028000012', 'item_requests')
 on conflict (version) do nothing;
 
 -- Tell the API about the new tables and functions right away.

@@ -4,11 +4,12 @@ import { InfoTicker } from "@/components/public/info-ticker";
 import { AisleCards, type Aisle } from "@/components/public/landing/aisle-cards";
 import { DrinksSection } from "@/components/public/landing/drinks-section";
 import { HowItWorks } from "@/components/public/landing/how-it-works";
+import { RequestSection } from "@/components/public/landing/request-section";
 import { StoreCta } from "@/components/public/landing/store-cta";
 import { StoreHero } from "@/components/public/landing/store-hero";
 import { Menu } from "@/components/public/menu";
 import { shownPrice } from "@/lib/deals";
-import { getAccount } from "@/lib/member";
+import { getAccount, getPopularRequests } from "@/lib/member";
 import { productRenderUrl } from "@/lib/product-renders";
 import { pickSeason } from "@/lib/seasons";
 import { loadStorefront, type MenuItem } from "@/lib/store-data";
@@ -21,11 +22,12 @@ import { loadStorefront, type MenuItem } from "@/lib/store-data";
  *   4. how ordering works,
  *   5. the cooler (every drink turning in 3D, one at a time),
  *   6. the shop itself: every product, with category tabs,
- *   7. one more way into the 3D store, and rewards.
+ *   7. "Can't find it? Ask for it.": the item request form,
+ *   8. one more way into the 3D store, and rewards.
  */
 export default async function HomePage(props: PageProps<"/">) {
   const { season: seasonParam } = await props.searchParams;
-  const [{ menu, info, deals }, account] = await Promise.all([loadStorefront(), getAccount()]);
+  const [{ menu, info, deals }, account, requests] = await Promise.all([loadStorefront(), getAccount(), getPopularRequests()]);
   const isMember = Boolean(account?.profile);
   const season = pickSeason(info.today, seasonParam);
   const priced = menu.map((item) => ({ item, shown: shownPrice(item, deals.promotions, isMember) }));
@@ -82,6 +84,7 @@ export default async function HomePage(props: PageProps<"/">) {
           </div>
         </>
       )}
+      <RequestSection popular={requests} />
       <StoreCta season={season} showRewards={Boolean(info.rewards_enabled) && !isMember} />
     </>
   );

@@ -27,6 +27,12 @@ export default async function AdminLayout({ children }: LayoutProps<"/admin">) {
   // Number badge on "Teachers": requests waiting for approval.
   const { count: pendingTeachers } = await supabase.from("teachers").select("id", { count: "exact", head: true }).eq("status", "pending");
 
+  // Number badge on "Requests": requests from the last 7 days.
+  const { count: newRequests } = await supabase
+    .from("item_requests")
+    .select("id", { count: "exact", head: true })
+    .gte("created_at", daysAgo(7));
+
   // Remember whether the sidebar was collapsed last time.
   const sidebarOpen = (await cookies()).get("sidebar_state")?.value !== "false";
 
@@ -34,7 +40,7 @@ export default async function AdminLayout({ children }: LayoutProps<"/admin">) {
     // "backroom": the staff pages' retro corner-store look (globals.css).
     <SidebarProvider defaultOpen={sidebarOpen} className={`backroom ${backroomFonts}`}>
       <SkipLink />
-      <StaffSidebar email={user.email} openOrders={openOrders ?? 0} pendingTeachers={pendingTeachers ?? 0} />
+      <StaffSidebar email={user.email} openOrders={openOrders ?? 0} pendingTeachers={pendingTeachers ?? 0} newRequests={newRequests ?? 0} />
       <SidebarInset id="main">
         <header className="no-print sticky top-0 z-10 flex h-14 items-center gap-3 border-b-2 border-dashed border-border bg-card/90 px-4 backdrop-blur">
           <SidebarTrigger className="-ml-1" />
@@ -46,4 +52,9 @@ export default async function AdminLayout({ children }: LayoutProps<"/admin">) {
       </SidebarInset>
     </SidebarProvider>
   );
+}
+
+/** The moment N days ago, for database filters. */
+function daysAgo(days: number) {
+  return new Date(Date.now() - days * 86400000).toISOString();
 }

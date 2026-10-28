@@ -6,6 +6,7 @@ import {
   GiftIcon,
   GraduationCapIcon,
   LayoutDashboardIcon,
+  MessageSquarePlusIcon,
   type LucideIcon,
   PackageIcon,
   ReceiptIcon,
@@ -25,5 +26,6 @@ export const staffNav: { title: string; href: string; icon: LucideIcon }[] = [
   { title: "Deals", href: "/admin/deals", icon: TagIcon },
   { title: "Rewards", href: "/admin/rewards", icon: GiftIcon },
   { title: "Teachers", href: "/admin/teachers", icon: GraduationCapIcon },
+  { title: "Requests", href: "/admin/requests", icon: MessageSquarePlusIcon },
   { title: "Settings", href: "/admin/settings", icon: SettingsIcon },
 ];

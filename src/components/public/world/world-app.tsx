@@ -7,7 +7,9 @@ import { ArrowLeftIcon, ListIcon, LockIcon, PlusIcon, ShoppingBagIcon, TagIcon, 
 import { quoteCart } from "@/app/(public)/actions";
 import { Checkout } from "@/app/(public)/cart/checkout";
 import type { CheckoutProps } from "@/app/(public)/cart/checkout-props";
+import type { PopularRequest } from "@/lib/member";
 import type { Season } from "@/lib/seasons";
+import { RequestForm } from "../request-form";
 import { FlameMark } from "@/components/brand-mark";
 import { brand, formatOrderNumber } from "@/config/brand";
 import { buyGetLabel, bundleOpenTo, comboRecipe, type Bundle, type Combo, type Deals, type ShownPrice } from "@/lib/deals";
@@ -99,6 +101,7 @@ export default function WorldApp({
   rewards,
   checkout: checkoutForm,
   season,
+  requests,
 }: {
   priced: Priced[];
   deals: Deals;
@@ -111,6 +114,8 @@ export default function WorldApp({
   checkout: CheckoutProps;
   /** Holiday decorations to put up (or null). */
   season: Season;
+  /** What others have asked us to sell (for the request table). */
+  requests: PopularRequest[];
 }) {
   const cartItems = useCart();
   const totals = cartTotals(cartItems);
@@ -122,6 +127,7 @@ export default function WorldApp({
   const [moving, setMoving] = useState(false);
   const [doorsOpen, setDoorsOpen] = useState(startInside);
   const [dealsOpen, setDealsOpen] = useState(false);
+  const [requestsOpen, setRequestsOpen] = useState(false);
   const [hovered, setHovered] = useState<StoreItem | null>(null);
   const [hoveredUnit, setHoveredUnit] = useState<UnitKey | null>(null);
   const [note, setNote] = useState<{ text: string; key: number } | null>(null);
@@ -225,7 +231,9 @@ export default function WorldApp({
     setMoving(false);
     // Got to the counter: start ringing up.
     if (key === "checkout") setTill((t) => (t && t.phase === "walking" ? { ...t, phase: "scanning" } : t));
-  }, []);
+    // Got to the request table: let Ash wave hello, then open the form.
+    if (key === "requests") setTimeout(() => setRequestsOpen(true), calm ? 0 : 900);
+  }, [calm]);
 
   // ---- Checking out -------------------------------------------------------------------------
   /** Turns the cart into things to put on the belt (a few of each product at most). */
@@ -293,7 +301,11 @@ export default function WorldApp({
 
   // Escape closes the deals list.
   useEffect(() => {
-    const onKey = (e: KeyboardEvent) => e.key === "Escape" && setDealsOpen(false);
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "Escape") return;
+      setDealsOpen(false);
+      setRequestsOpen(false);
+    };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, []);
@@ -357,6 +369,8 @@ export default function WorldApp({
           ? "Tap anything to add it to your cart · drag to look around"
           : station === "deals"
             ? "Tap the board to see every deal"
+            : station === "requests"
+              ? "Tap the table to ask us to sell something"
             : "Drag to look around · tap a floor arrow to walk";
   const status = note?.text ?? (hoveredUnit && !hovered ? `${UNITS.find((u) => u.key === hoveredUnit)!.title}: tap to walk over` : null);
   const visibleItems = unit ? items.filter((i) => i.unit === unit) : [];
@@ -395,6 +409,7 @@ export default function WorldApp({
           onGo={go}
           onArrive={onArrive}
           onOpenDeals={() => setDealsOpen(true)}
+          onOpenRequests={() => setRequestsOpen(true)}
           onTap={(item, x, y) => add(item.id, { x, y })}
           onHover={setHovered}
           onHoverUnit={setHoveredUnit}
@@ -538,6 +553,8 @@ export default function WorldApp({
           </div>
         </aside>
       )}
+
+      {requestsOpen && <RequestsPanel popular={requests} onClose={() => setRequestsOpen(false)} />}
 
       {dealsOpen && (
         <DealsPanel
@@ -764,6 +781,38 @@ function NoWebGL() {
         <Link href="/#shop" className="mt-5 inline-flex h-12 items-center rounded-full bg-primary px-6 font-heading text-xl font-extrabold uppercase">
           Shop the list
         </Link>
+      </div>
+    </div>
+  );
+}
+
+/** The request table's form: a clipboard that slides in from the right. */
+function RequestsPanel({ popular, onClose }: { popular: PopularRequest[]; onClose: () => void }) {
+  const closeRef = useRef<HTMLButtonElement>(null);
+  useEffect(() => closeRef.current?.focus(), []);
+  return (
+    <div role="dialog" aria-modal="true" aria-label="Request an item" className="fixed inset-0 z-[85] flex justify-end">
+      <button type="button" aria-label="Close" tabIndex={-1} onClick={onClose} className="absolute inset-0 bg-black/30 backdrop-blur-[2px]" />
+      <div className="relative flex h-full w-full max-w-md flex-col bg-[#fbfaf6] shadow-2xl animate-in slide-in-from-right duration-300">
+        {/* Clipboard clip */}
+        <div className="flex items-start justify-between gap-3 border-b-4 border-[#0b6b67] bg-[#0b6b67] px-5 pt-4 pb-4 text-white">
+          <div>
+            <h2 className="font-heading text-3xl leading-none font-extrabold tracking-wide uppercase">Request items</h2>
+            <p className="mt-1 text-sm text-white/80">Can&apos;t find something? Tell Ash what we should sell.</p>
+          </div>
+          <button
+            ref={closeRef}
+            type="button"
+            onClick={onClose}
+            aria-label="Close"
+            className="grid size-10 shrink-0 place-items-center rounded-full bg-white text-black transition-transform hover:scale-105 focus-visible:ring-3 focus-visible:ring-white/60 focus-visible:outline-none"
+          >
+            <XIcon className="size-5" />
+          </button>
+        </div>
+        <div className="flex-1 overflow-y-auto p-5 text-black [background-image:repeating-linear-gradient(to_bottom,transparent_0_31px,rgb(36_72_168/0.08)_31px_32px)]">
+          <RequestForm popular={popular} source="store3d" />
+        </div>
       </div>
     </div>
   );

@@ -2,7 +2,9 @@
 
 import { createHash } from "node:crypto";
 import { headers } from "next/headers";
+import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { z } from "zod";
 import { parseOrderNumber } from "@/config/brand";
 import { ipHashSalt } from "@/lib/env";
 import { getAccount, isTeacher } from "@/lib/member";
@@ -208,4 +210,50 @@ export async function findOrder(_prev: LookupState, formData: FormData): Promise
 
   await saveOrder(number, last);
   redirect(`/order/${number}`);
+}
+
+// ---- Item requests ("please sell …") -------------------------------------------------------
+
+export type RequestState = {
+  /** Set once it's saved. */
+  done?: { item: string; count: number; already: boolean; status: string };
+  errors?: Record<string, string>;
+  message?: string;
+};
+
+const requestSchema = z.object({
+  item: z.string().trim().min(2, "Tell us what you'd like us to sell").max(60, "Keep it under 60 characters"),
+  category: z.string().trim().max(30).optional().default(""),
+  note: z.string().trim().max(200, "Keep it under 200 characters").optional().default(""),
+  requester: z.string().trim().max(60, "That's too long").optional().default(""),
+  source: z.enum(["store3d", "web"]).optional().default("web"),
+});
+
+/**
+ * Asks the store to sell something. Saved by the database function
+ * request_item, which only this server code may call (so it can limit how
+ * many one device sends). Signed-in students and teachers are linked to it.
+ */
+export async function requestItem(_prev: RequestState, formData: FormData): Promise<RequestState> {
+  const parsed = requestSchema.safeParse(Object.fromEntries(formData));
+  if (!parsed.success) return { errors: fieldErrors(parsed.error), message: "Please fix the highlighted fields." };
+  const r = parsed.data;
+
+  const { data: login } = await (await createClient()).auth.getClaims();
+  const userId = (login?.claims?.sub as string | undefined) ?? undefined;
+  const account = userId ? await getAccount() : null;
+
+  const { data, error } = await createSecretClient().rpc("request_item", {
+    p_item: r.item,
+    p_category: r.category,
+    p_note: r.note,
+    p_requester: r.requester || account?.profile?.first_name || account?.teacher?.first_name || "",
+    p_ip_hash: await deviceHash(),
+    p_source: r.source,
+    p_customer_id: account?.profile && !account.staff ? userId : undefined,
+    p_teacher_id: isTeacher(account) ? userId : undefined,
+  });
+  if (error) return { message: error.hint || "Couldn't send that. Please try again." };
+  revalidatePath("/admin/requests");
+  return { done: data as RequestState["done"] };
 }

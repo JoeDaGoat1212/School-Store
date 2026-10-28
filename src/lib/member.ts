@@ -95,3 +95,12 @@ export const getTeacherPrices = cache(async (): Promise<Map<string, number>> => 
   const rows = (data ?? []) as { product_id: string; price_cents: number }[];
   return new Map(rows.map((r) => [r.product_id, r.price_cents]));
 });
+
+/** What people have asked the store to sell (most asked first), for the "me too" list. */
+export type PopularRequest = { key: string; name: string; count: number; status: "new" | "planned" | "stocked" };
+
+export const getPopularRequests = cache(async (): Promise<PopularRequest[]> => {
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("popular_requests", { p_limit: 8 });
+  return error ? [] : ((data ?? []) as unknown as PopularRequest[]);
+});

@@ -1006,6 +1006,49 @@ export type Database = {
           },
         ];
       };
+      item_requests: {
+        Row: {
+          id: number;
+          item_name: string;
+          item_key: string;
+          category: string | null;
+          note: string | null;
+          requester: string | null;
+          customer_id: string | null;
+          teacher_id: string | null;
+          source: string;
+          ip_hash: string | null;
+          created_at: string;
+        };
+        ComputedFields: never;
+        Insert: {
+          item_name: string;
+          category?: string | null;
+          note?: string | null;
+          requester?: string | null;
+          customer_id?: string | null;
+          teacher_id?: string | null;
+          source?: string;
+          ip_hash?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          item_name?: string;
+          category?: string | null;
+          note?: string | null;
+          requester?: string | null;
+          source?: string;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
+      item_request_status: {
+        Row: { item_key: string; status: string; staff_note: string | null; updated_at: string };
+        ComputedFields: never;
+        Insert: { item_key: string; status?: string; staff_note?: string | null; updated_at?: string };
+        Update: { item_key?: string; status?: string; staff_note?: string | null; updated_at?: string };
+        Relationships: [];
+      };
       teachers: {
         Row: {
           id: string;
@@ -1120,6 +1163,20 @@ export type Database = {
       };
       save_teacher_profile: { Args: { p_first_name: string; p_last_name: string; p_room: string }; Returns: undefined };
       get_teacher_prices: { Args: Record<PropertyKey, never>; Returns: Json };
+      request_item: {
+        Args: {
+          p_item: string;
+          p_category: string;
+          p_note: string;
+          p_requester: string;
+          p_ip_hash: string;
+          p_source?: string;
+          p_customer_id?: string;
+          p_teacher_id?: string;
+        };
+        Returns: Json;
+      };
+      popular_requests: { Args: { p_limit?: number }; Returns: Json };
       quote_cart: { Args: { p_bundles?: Json; p_items: Json; p_reward_id?: string }; Returns: Json };
       save_profile: { Args: { p_first_name: string; p_grade: string; p_last_name: string; p_username?: string | null }; Returns: undefined };
       username_available: { Args: { p_username: string }; Returns: boolean };

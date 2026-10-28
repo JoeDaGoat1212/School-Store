@@ -21,7 +21,18 @@ import {
 import { brand } from "@/config/brand";
 import { staffNav } from "./nav-items";
 
-export function StaffSidebar({ email, openOrders, pendingTeachers = 0 }: { email: string; openOrders: number; pendingTeachers?: number }) {
+export function StaffSidebar({
+  email,
+  openOrders,
+  pendingTeachers = 0,
+  newRequests = 0,
+}: {
+  email: string;
+  openOrders: number;
+  pendingTeachers?: number;
+  /** Requests in the last 7 days. */
+  newRequests?: number;
+}) {
   const pathname = usePathname();
 
   // "/admin" is only active on the dashboard itself; other items also match their sub-pages.
@@ -59,6 +70,9 @@ export function StaffSidebar({ email, openOrders, pendingTeachers = 0 }: { email
                   </SidebarMenuButton>
                   {item.href === "/admin/orders" && openOrders > 0 && (
                     <SidebarMenuBadge aria-label={`${openOrders} open orders today`}>{openOrders}</SidebarMenuBadge>
+                  )}
+                  {item.href === "/admin/requests" && newRequests > 0 && (
+                    <SidebarMenuBadge aria-label={`${newRequests} requests this week`}>{newRequests}</SidebarMenuBadge>
                   )}
                   {item.href === "/admin/teachers" && pendingTeachers > 0 && (
                     <SidebarMenuBadge aria-label={`${pendingTeachers} teachers waiting for approval`}>{pendingTeachers}</SidebarMenuBadge>

@@ -233,6 +233,7 @@ Accounts made before this update sign in once with "Forgot password?", then pick
 | Approve a teacher, turn one off, change the teacher price (cost + 50¢) or turn room service off | **Teachers** page |
 | Change the class hours teachers pick for room service | **Settings** page → Class hours |
 | Make a pick-your-own combo ("chips + a soda for $2.50") | **Deals** page → New combo |
+| See what students want us to sell, and answer ("Coming soon", "Now selling") | **Requests** page |
 | Make a fresh sample InTouchPay file for testing imports | `npm run sample-csv` (writes `sample-data/intouchpay-sample.csv`) |
 | Change the database | Add a **new** file in `supabase/migrations/`. Never edit old ones; they have already run. Then run `npm run db:bundle` and `npm run db:types`, and apply it (see below). |
 | Check for mistakes before pushing | `npm run typecheck`, `npm run lint` and `npm test` |
@@ -289,6 +290,19 @@ parts; a part is filled by any product from a list, or by anything in a category
 part on the **/deals** page (or the shop's Deals tab), and the cart spots the combo and takes the difference off by
 itself, as many times as it fits and only when it actually saves money. The two combos above were made by update 11;
 the "soda" part is the $2 sodas, which you can change on the Deals page.
+
+### Item requests
+
+Students and teachers can ask the store to sell something at the **request table** in the 3D store (front left, just
+inside the doors: Ash sits there at a computer with a coffee, under floating "REQUEST ITEMS" letters) or in the
+"Can't find it? Ask for it." box near the bottom of the home page. They type the item and, if they like, what kind it
+is, a flavor or size, and their first name. They also see what others have asked for and can tap **+1 me too**.
+
+The **Requests** page in the staff dashboard groups requests for the same thing (different spellings and capitals
+count together), most asked first, with how many this week, people's notes, where they came from (3D store or
+website, students or teachers) and what kinds of things people want. Give each item a status: **Coming soon** and
+**Now selling** show next to it for students; **Not doing** hides it from the "others are asking for" list. One device
+can send up to 8 requests an hour, and asking for the same thing twice in a day counts once.
 
 ### The staff dashboard look
 

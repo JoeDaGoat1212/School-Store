@@ -14,6 +14,7 @@ import type { Season } from "@/lib/seasons";
 import { Building, Interior, Lot, Sky } from "./exterior";
 import { BulletinBoard, CandyStand, CheckoutLane, FloorMarker, WorldFridge, WorldShelf, YellowLetters, type BoardCard } from "./fixtures";
 import { PriceTag, ProductCopies } from "./products";
+import { RequestDesk } from "./request-desk";
 import { BULLETIN, BUILDING, LANES, placeUnits, stations, unitAt, type Place, type StationKey } from "./world-layout";
 
 /*
@@ -38,6 +39,8 @@ export type WorldSceneProps = {
   onGo: (station: StationKey) => void;
   onArrive: (station: StationKey) => void;
   onOpenDeals: () => void;
+  /** Open the "request an item" form (at the request table). */
+  onOpenRequests: () => void;
   onTap: (item: StoreItem, x: number, y: number) => void;
   onHover: (item: StoreItem | null) => void;
   onHoverUnit: (unit: UnitKey | null) => void;
@@ -122,6 +125,14 @@ export default function WorldScene(props: WorldSceneProps) {
           {LANES.slice(1).map((lane) => (
             <CheckoutLane key={lane.number} lane={lane} />
           ))}
+
+          {/* The request table, front left: someone at a computer takes requests */}
+          <RequestDesk
+            near={station === "requests" && !moving}
+            calm={calm}
+            halloween={spooky}
+            onOpen={() => (station === "requests" ? props.onOpenRequests() : props.onGo("requests"))}
+          />
 
           <BulletinBoard cards={props.cards} near={station === "deals" && !moving} onOpen={() => (station === "deals" ? props.onOpenDeals() : props.onGo("deals"))} />
           {/* Big yellow letters over the board, with an arrow bouncing down at it */}

@@ -513,6 +513,7 @@ body:has(.backroom) {
   width: calc(100% + 0.5rem);
   box-shadow: inset 3px 0 0 var(--label);
 }
+.backroom [data-sidebar="menu-button"][data-active="true"] ~ [data-sidebar="menu-badge"] { color: var(--ink); font-weight: 700; }
 .backroom [data-collapsible="icon"] [data-sidebar="menu-button"][data-active="true"] { margin-right: 0; width: auto; border-radius: 4px; }
 
 /* Status stamps: inked rubber stamps instead of pills. */

@@ -53,6 +53,19 @@ export const BULLETIN = (() => {
   return { x, z, turn, width: 6.4, height: 4, bottom: 1.9 };
 })();
 
+/**
+ * The request table: front left, just inside the doors, angled toward the
+ * middle of the store. Someone sits behind it with a computer; students walk
+ * up and ask the store to sell something.
+ */
+export const REQUEST_DESK = (() => {
+  const x = -15.2;
+  const z = -6.2;
+  // Face a point in the middle of the store.
+  const turn = Math.atan2(0 - x, -14 - z);
+  return { x, z, turn };
+})();
+
 /** The three checkout lanes on the right: where each register is, and how long the belt runs back from it. */
 export const LANES = [6.5, 11, 15.5].map((x, i) => ({ number: i + 1, x, front: -9, length: 6.5 }));
 /** Height of the checkout counters. */
@@ -60,7 +73,7 @@ export const COUNTER = 3.1;
 
 // ---- Where you can stand ------------------------------------------------------------------
 
-export type StationKey = "outside" | "entrance" | "deals" | "center" | "drinks" | "snacks" | "candy" | "checkout";
+export type StationKey = "outside" | "entrance" | "deals" | "requests" | "center" | "drinks" | "snacks" | "candy" | "checkout";
 
 export type Station = {
   key: StationKey;
@@ -95,13 +108,17 @@ export function stations(places: Record<UnitKey, Place | null>, units: Record<Un
   const drinks = front("drinks", 8, { x: -8.5, z: -20 });
   const snacks = front("snacks", 8, { x: 4.5, z: -20 });
   const candy = front("candy", 7, { x: 9, z: -20 });
+  const desk = along(REQUEST_DESK.x, REQUEST_DESK.z, REQUEST_DESK.turn, 8.8);
+  const deskArrow = along(REQUEST_DESK.x, REQUEST_DESK.z, REQUEST_DESK.turn, 3.6);
   const lane = LANES[0];
 
   return {
     outside: { key: "outside", label: "Outside", x: 0, z: 30, look: [0, 5, -10], next: [] },
-    entrance: { key: "entrance", label: "Entrance", x: 0, z: -1, look: [-2, 2.6, -20], next: ["deals", "center"] },
-    deals: { key: "deals", label: "Deals & rewards", x: deals.x, z: deals.z, marker: dealsArrow, look: [BULLETIN.x, BULLETIN.bottom + 3.2, BULLETIN.z], next: ["center", "drinks"] },
-    center: { key: "center", label: "Shop the store", x: 0, z: -9, look: [0, 3.4, -29], next: ["drinks", "snacks", "candy", "deals"] },
+    entrance: { key: "entrance", label: "Entrance", x: 0, z: -1, look: [-2, 2.6, -20], next: ["deals", "center", "requests"] },
+    deals: { key: "deals", label: "Deals & rewards", x: deals.x, z: deals.z, marker: dealsArrow, look: [BULLETIN.x, BULLETIN.bottom + 3.2, BULLETIN.z], next: ["center", "drinks", "requests"] },
+    // In front of the request table, looking at the person behind it.
+    requests: { key: "requests", label: "Request items", x: desk.x, z: desk.z, marker: deskArrow, look: [REQUEST_DESK.x, 4.4, REQUEST_DESK.z], next: ["center", "deals", "drinks"] },
+    center: { key: "center", label: "Shop the store", x: 0, z: -9, look: [0, 3.4, -29], next: ["drinks", "snacks", "candy", "deals", "requests"] },
     drinks: { key: "drinks", label: "Drinks", x: drinks.x, z: drinks.z, look: middle("drinks", [-8.5, 4.5, -28]), next: ["snacks", "candy", "center"] },
     snacks: { key: "snacks", label: "Snacks", x: snacks.x, z: snacks.z, look: middle("snacks", [4.5, 3.5, -28]), next: ["drinks", "candy", "center"] },
     candy: { key: "candy", label: "Candy", x: candy.x, z: candy.z, look: middle("candy", [12.5, 4.4, -26]), next: ["snacks", "drinks", "center"] },
