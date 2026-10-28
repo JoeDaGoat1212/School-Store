@@ -1,8 +1,10 @@
 "use client";
 
 /**
- * The shopping cart, saved in the browser (localStorage) so it survives a
- * page refresh. Nothing about the cart is sent to the server until checkout.
+ * The shopping cart, saved in the browser for this visit only
+ * (sessionStorage): it survives a page refresh and moving between pages, but
+ * starts empty again when the site is closed and opened later. Nothing about
+ * the cart is sent to the server until checkout.
  *
  * Use it in a component:
  *   const items = useCart();
@@ -34,7 +36,13 @@ const listeners = new Set<() => void>();
 function load(): CartItem[] {
   if (items === null) {
     try {
-      items = JSON.parse(localStorage.getItem(STORAGE_KEY) ?? "[]");
+      // Carts used to be kept forever (localStorage): throw an old one away.
+      localStorage.removeItem(STORAGE_KEY);
+    } catch {
+      // Storage blocked: nothing to clear.
+    }
+    try {
+      items = JSON.parse(sessionStorage.getItem(STORAGE_KEY) ?? "[]");
     } catch {
       items = []; // storage blocked or broken data: start empty
     }
@@ -45,7 +53,7 @@ function load(): CartItem[] {
 function update(next: CartItem[]) {
   items = next;
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+    sessionStorage.setItem(STORAGE_KEY, JSON.stringify(next));
   } catch {
     // Private browsing can block storage; the cart still works until refresh.
   }
