@@ -11,7 +11,6 @@ import { FeaturedDeal } from "./featured-deal";
 import { ProductCard } from "./product-card";
 import { SHOWCASE_TOP } from "./showcase/drink-showcase";
 import { DrinksExperience } from "./showcase/drinks-experience";
-import { StoreEntrance } from "./store/store-entrance";
 
 const ALL = "All";
 const DEALS = "Deals";
@@ -85,9 +84,6 @@ export function Menu({
 
   return (
     <>
-      {/* The 3D store (opens from the "Enter store" button at the top) */}
-      <StoreEntrance priced={priced} maxPerOrder={maxPerOrder} />
-
       <h2 id="menu" className="scroll-mt-20 font-heading text-5xl leading-none font-extrabold uppercase sm:text-6xl">
         The menu
       </h2>

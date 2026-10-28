@@ -142,7 +142,7 @@ export function Checkout({
         <h1 className="font-heading text-4xl font-extrabold">Your cart is empty</h1>
         <p className="mt-2 text-muted-foreground">Add a snack or two from the menu, then come back here to order.</p>
         <Button asChild size="xl" className="mt-6">
-          <Link href="/">Browse the menu</Link>
+          <Link href="/">Back to the store</Link>
         </Button>
       </div>
     );

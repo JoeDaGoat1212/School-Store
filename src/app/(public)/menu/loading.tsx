@@ -1,11 +1,10 @@
 import { Skeleton } from "@/components/ui/skeleton";
 
-/** Shown while the menu loads: the black hero, then grey shapes where the products will be. */
+/** Shown while the list view loads: the ticker, then grey shapes where the products will be. */
 export default function Loading() {
   return (
     <div aria-busy="true" aria-label="Loading the menu">
-      <div className="-mt-6 ml-[calc(50%-50vw)] h-[26rem] w-screen bg-black sm:h-[28rem]" />
-      <div className="mb-6 ml-[calc(50%-50vw)] h-10 w-screen bg-teal sm:h-11" />
+      <div className="-mt-6 mb-10 ml-[calc(50%-50vw)] h-11 w-screen bg-black" />
       <div className="flex gap-2 py-3">
         {Array.from({ length: 4 }, (_, i) => (
           <Skeleton key={i} className="h-10 w-20 rounded-full" />

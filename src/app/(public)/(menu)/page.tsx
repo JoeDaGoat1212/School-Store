@@ -1,38 +1,39 @@
 import { Suspense } from "react";
 import { FlashToast } from "@/components/flash-toast";
-import { Hero, InfoTicker } from "@/components/public/hero";
-import { Menu } from "@/components/public/menu";
-import { unitFor } from "@/components/public/store/catalog";
+import { StoreWorld } from "@/components/public/world/store-world";
+import { shownPrice } from "@/lib/deals";
 import { getAccount } from "@/lib/member";
 import { loadStorefront } from "@/lib/store-data";
+import { openSignText } from "@/lib/store-sign";
 
-/** The menu students see after scanning the QR code. */
-export default async function MenuPage() {
+/**
+ * The home page: the 3D store. You start outside looking down at it from the
+ * sky, tap the doors to walk in, and shop. (/menu has the same things as a list.)
+ */
+export default async function HomePage() {
   const [{ menu, info, deals }, account] = await Promise.all([loadStorefront(), getAccount()]);
   const isMember = Boolean(account?.profile);
-  // How many products are in each part of the 3D store (shown under the big button).
-  const counts = { drinks: 0, snacks: 0, candy: 0 };
-  for (const item of menu) {
-    const unit = unitFor(item.category);
-    if (unit) counts[unit]++;
-  }
+  // Each product's price for this shopper (sale prices, member prices…).
+  const priced = menu.map((item) => ({ item, shown: shownPrice(item, deals.promotions, isMember) }));
 
   return (
     <>
       <Suspense>
         <FlashToast param="account" text="Your rewards account was deleted." />
       </Suspense>
-      <Hero info={info} counts={counts} />
-      <InfoTicker info={info} />
-
-      {menu.length === 0 && deals.bundles.length === 0 ? (
-        <div className="mt-10 rounded-2xl border-2 border-dashed px-6 py-14 text-center">
-          <p className="font-heading text-2xl font-bold">The shelves are empty right now</p>
-          <p className="mt-1 text-muted-foreground">Check back soon, or stop by the store window.</p>
-        </div>
-      ) : (
-        <Menu items={menu} maxPerOrder={info.max_items_per_order} deals={deals} isMember={isMember} />
-      )}
+      <h1 className="sr-only">{info.store_name}</h1>
+      <StoreWorld
+        priced={priced}
+        deals={deals}
+        isMember={isMember}
+        account={{
+          signedIn: Boolean(account && !account.staff),
+          member: account?.profile ? { initial: account.profile.first_name.charAt(0).toUpperCase(), balance: account.balance } : null,
+        }}
+        maxPerOrder={info.max_items_per_order}
+        openSign={openSignText(info)}
+        rewards={{ enabled: info.rewards_enabled ?? false, pointsPerDollar: info.points_per_dollar ?? 1 }}
+      />
     </>
   );
 }

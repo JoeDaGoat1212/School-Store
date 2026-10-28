@@ -246,10 +246,19 @@ Run updates in order (they're numbered) and only once each. The SQL Editor files
 
 ### The 3D store
 
-The **Enter store** banner on the menu opens a 3D convenience store: the drinks fridge, the snack shelf and the candy
-rack at the counter. **Drinks / Snacks / Candy** fly the camera there; the chips above them pick a section (a fridge door
-or a shelf bay); tapping a product adds one to the cart. Code: `src/components/public/store/`.
+The home page **is** the store. It opens on a drone view of a cartoon shop with a parking lot; tapping the double doors
+swings them open and the camera flies inside. White floor arrows walk you around: the **deals board** (left, by the
+doors), the **drinks fridge**, the **snack shelf** and the **candy stand**, with three checkout lanes on the right. Drag
+to look around. Tap a fridge door to open just that door, then tap a drink to add it. The **Checkout** button at the
+bottom flies you to the registers, then opens the cart. Everything is also on **/menu** as a plain list (the list
+button, top right), which is where browsers that can't show 3D go.
 
+Code: `src/components/public/world/` (the building, lot and camera) and `src/components/public/store/` (which product
+goes on which shelf, and the product models).
+
+- **Where things stand** (fridge, shelves, lanes, the board, the walking spots and their arrows) is plain numbers in
+  `world/world-layout.ts`.
+- **What's on the deals board** comes from the deals and bundles you set up in Admin → Deals.
 - **Which section a product goes in** is decided by its category and name, in `store/catalog.ts` (e.g. Powerade →
   *Sports drinks*, Twix → *Chocolate*). Hot food goes on the snack shelf. Other categories (like supplies) stay out of the store.
 - **Every shelf is always full**: a section with only a few products repeats them, and each product stands 1–3 rows deep.
@@ -257,7 +266,7 @@ or a shelf bay); tapping a product adds one to the cart. Code: `src/components/p
   drinks and cups are their traced outline spun round (`scripts/build-drink-models.py`, `scripts/build-cup-models.py`),
   bags and bars are the cut-out photo puffed out (`scripts/build-snack-models.py`). Cookies, Cosmic Brownie, Honey Bun
   and Zebra Cakes had food photos instead of packaging, so their packages were generated once with Higgsfield.
-- **Slower devices** automatically drop the shiny floor and glow, so the store stays smooth.
+- **Slower devices** automatically drop the sun's shadows, so the store stays smooth.
 
 ---
 
