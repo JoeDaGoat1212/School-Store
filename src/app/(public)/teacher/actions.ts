@@ -3,15 +3,16 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
-import { createClient } from "@/lib/supabase/server";
+import { createClient, createSecretClient } from "@/lib/supabase/server";
 import type { AuthState } from "../account/actions";
 
 /*
  * Teacher accounts.
  *
  *   Ask for an account:  teacherSignUp (name, room, email, password)
- *                        → Supabase emails a code → confirmTeacherSignUp
- *                        → the request is filed (status "pending")
+ *                        → the account is made already confirmed (no email
+ *                          code) and the request is filed (status "pending")
+ *   (confirmTeacherSignUp is only for older accounts that never typed their code.)
  *   Staff approve it in Admin → Teachers. Until then, normal prices.
  *   Sign back in:        the same email + password sign-in as students
  *                        (signInWithPassword in ../account/actions.ts).
@@ -51,9 +52,16 @@ export async function teacherSignUp(_prev: AuthState, formData: FormData): Promi
   if (!parsed.success) return { view: "signup", values, errors: errorsOf(parsed.error.issues) };
   const { email, password, ...details } = parsed.data;
 
-  const supabase = await createClient();
-  // The name and room ride along with the account, so they can be filed once the email is confirmed.
-  const { data, error } = await supabase.auth.signUp({ email, password, options: { data: { role: "teacher", ...details } } });
+  // Teachers skip the "type the code from your email" step: the account is
+  // made already confirmed (this needs the secret key, so it only happens here
+  // on the server). Staff still have to approve them before teacher prices
+  // start, and they can see the email on the Teachers page.
+  const { error } = await createSecretClient().auth.admin.createUser({
+    email,
+    password,
+    email_confirm: true,
+    user_metadata: { role: "teacher", ...details },
+  });
   if (error) {
     console.error("[teacher sign-up] Supabase couldn't make the account:", error.status, error.code, error.message);
     const m = error.message.toLowerCase();
@@ -61,16 +69,17 @@ export async function teacherSignUp(_prev: AuthState, formData: FormData): Promi
     if (m.includes("password")) return { view: "signup", values, errors: { password: "Pick a stronger password (longer, with a number or symbol)." } };
     return { view: "signup", values, message: "Something went wrong. Please try again." };
   }
-  if (data.user && data.user.identities?.length === 0) {
-    return { view: "signup", values, errors: { email: "That email already has an account. Sign in instead." } };
+
+  // Sign them in, then file the request.
+  const supabase = await createClient();
+  const { error: signInError } = await supabase.auth.signInWithPassword({ email, password });
+  if (signInError) {
+    console.error("[teacher sign-up] Sign-in after sign-up failed:", signInError.status, signInError.message);
+    return { view: "signin", values: { login: email }, message: "Your account is made. Sign in to send your request." };
   }
-  if (data.session) {
-    // Email confirmation is off in Supabase: signed in already.
-    await fileRequest(details);
-    revalidatePath("/", "layout");
-    redirect("/teacher");
-  }
-  return { view: "confirm", email, values, sentAt: Date.now() };
+  await fileRequest(details);
+  revalidatePath("/", "layout");
+  redirect("/teacher");
 }
 
 /** The code from the email: confirms the account and files the teacher request. */

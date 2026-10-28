@@ -17,6 +17,7 @@ export function TeacherSignIn() {
   const [signedIn, signInAction, signingIn] = useActionState<AuthState, FormData>(signInWithPassword, { view: "signin" });
   const [made, requestAction, requesting] = useActionState<AuthState, FormData>(teacherSignUp, { view: "signup" });
 
+  // Only older accounts that never confirmed their email land here; new teacher accounts skip the code.
   const confirmFrom = made.view === "confirm" ? made : signedIn.view === "confirm" ? signedIn : null;
   if (confirmFrom?.email && mode !== "forgot") {
     return <ConfirmStep email={confirmFrom.email} next="/teacher" note={confirmFrom.message} confirm={confirmTeacherSignUp} />;
@@ -66,7 +67,7 @@ export function TeacherSignIn() {
           <Field label="Room number" name="room" defaultValue={made.values?.room} error={made.errors?.room} help="Where room service brings your orders. You can change it later." />
           <Field label="School email" name="email" type="email" autoComplete="email" defaultValue={made.values?.email} error={made.errors?.email} help="Use your school email so staff know it's you." />
           <PasswordField autoComplete="new-password" error={made.errors?.password} help="At least 8 characters." />
-          {made.message && <p className="text-sm font-medium text-destructive">{made.message}</p>}
+          {made.message && <p className={made.view === "signin" ? "text-sm font-medium" : "text-sm font-medium text-destructive"}>{made.message}</p>}
           <Button type="submit" size="xl" disabled={requesting}>
             {requesting ? <Loader2Icon className="animate-spin" /> : <SendIcon />}
             {requesting ? "Sending…" : "Request teacher account"}

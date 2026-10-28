@@ -270,7 +270,7 @@ A link like `/#shop-Drinks` opens the shop on the home page with that tab picked
 ### Teachers and room service
 
 Teachers go to **/teacher** (there's a link in the footer) and request an account with their name, room number,
-school email and a password. Requests show up on the **Teachers** page in the staff dashboard (the sidebar shows how
+school email and a password. There's no email code to type: the request goes straight to you. Requests show up on the **Teachers** page in the staff dashboard (the sidebar shows how
 many are waiting); tap **Approve**. Approved teachers:
 
 - pay **what the item cost the store + 50¢** (never more than the normal price). Teachers never see the "+ 50¢": their page just shows the crossed-out normal price, their price, and how much % off. A product with no cost saved stays
