@@ -372,15 +372,15 @@ function useBeltTexture() {
  */
 export function CheckoutLane({
   lane,
-  beltSpeed = 0.5,
-  bag = true,
+  speed,
   divider = true,
 }: {
   lane: (typeof LANES)[number];
-  /** How fast the belt runs toward the register (scene units a second). */
-  beltSpeed?: number;
-  /** A paper bag on the bagging shelf (lane 1 has its own, which items drop into). */
-  bag?: boolean;
+  /**
+   * How fast the belt runs toward the register (scene units a second), read
+   * every frame. Leave it out and the belt stands still (lanes 2 and 3).
+   */
+  speed?: React.RefObject<number>;
   /** The bar that separates one shopper's things from the next. */
   divider?: boolean;
 }) {
@@ -392,11 +392,10 @@ export function CheckoutLane({
   // Slide the belt's stripes along toward the register, so it looks like it's running.
   // (The stripe picture repeats 6 times along the belt.)
   const beltMat = useRef<THREE.MeshStandardMaterial>(null);
-  const speedRef = useRef(beltSpeed);
   useFrame((_, delta) => {
-    speedRef.current = THREE.MathUtils.damp(speedRef.current, beltSpeed, 4, delta);
+    const now = speed?.current ?? 0;
     const map = beltMat.current?.map;
-    if (map) map.offset.y = (map.offset.y + (delta * speedRef.current * 6) / (L - 1.4)) % 1;
+    if (map && now > 0) map.offset.y = (map.offset.y + (delta * now * 6) / (L - 1.4)) % 1;
   });
 
   const white = <meshStandardMaterial color="#f3f1ec" roughness={0.45} />;
@@ -432,17 +431,12 @@ export function CheckoutLane({
           <meshStandardMaterial color="#d23b2a" roughness={0.5} />
         </mesh>
       )}
-      {/* Bagging shelf at the front, with a paper bag */}
+      {/* Bagging shelf at the front */}
       <mesh position={[0, COUNTER - 0.05, 0.6]} raycast={noRaycast}>
         <boxGeometry args={[2.2, 0.08, 1.2]} />
         <meshStandardMaterial color="#c9ced3" metalness={0.7} roughness={0.3} />
       </mesh>
-      {bag && (
-        <mesh position={[0.3, COUNTER + 0.45, 0.6]} raycast={noRaycast}>
-          <boxGeometry args={[0.8, 0.9, 0.5]} />
-          <meshStandardMaterial color="#c89b67" roughness={0.9} />
-        </mesh>
-      )}
+
 
       {/* Card reader for the customer (left side) */}
       <group position={[-0.75, COUNTER, -0.6]}>
@@ -455,17 +449,23 @@ export function CheckoutLane({
         </RoundedBox>
       </group>
 
-      {/* The register on the cashier's side (right) */}
-      <group position={[1.9, 0, -1.2]}>
+      {/* The register, on its own stand on the cashier's side, past where the
+          cashier stands: cash drawer, the cashier's screen and the receipt printer. */}
+      <group position={[1.95, 0, 1.0]}>
         <mesh position={[0, COUNTER / 2, 0]}>
-          <boxGeometry args={[1.5, COUNTER, 1.9]} />
+          <boxGeometry args={[1.0, COUNTER, 1.1]} />
           {white}
         </mesh>
-        <mesh position={[0, COUNTER + 0.18, 0.1]} raycast={noRaycast}>
-          <boxGeometry args={[1.1, 0.34, 1.2]} />
+        <mesh position={[0, COUNTER + 0.16, 0]} raycast={noRaycast}>
+          <boxGeometry args={[0.85, 0.32, 0.95]} />
           <meshStandardMaterial color="#25272b" roughness={0.5} />
         </mesh>
-        <group position={[0, COUNTER + 0.95, -0.2]} rotation-y={-Math.PI / 2 - 0.35}>
+        {/* The cashier's screen, turned toward where the cashier stands */}
+        <mesh position={[0, COUNTER + 0.55, -0.1]} raycast={noRaycast}>
+          <cylinderGeometry args={[0.05, 0.08, 0.5, 10]} />
+          <meshStandardMaterial color="#2a2c30" />
+        </mesh>
+        <group position={[0, COUNTER + 0.95, -0.1]} rotation-y={-Math.PI + 0.35}>
           <RoundedBox args={[1.05, 0.72, 0.08]} radius={0.03} raycast={noRaycast}>
             <meshStandardMaterial color="#17181b" roughness={0.4} />
           </RoundedBox>
@@ -474,11 +474,8 @@ export function CheckoutLane({
             <meshBasicMaterial map={screen.texture} toneMapped={false} />
           </mesh>
         </group>
-        <mesh position={[0, COUNTER + 0.55, -0.2]} raycast={noRaycast}>
-          <cylinderGeometry args={[0.05, 0.08, 0.5, 10]} />
-          <meshStandardMaterial color="#2a2c30" />
-        </mesh>
-        <RoundedBox args={[0.35, 0.3, 0.4]} radius={0.04} position={[0.4, COUNTER + 0.5, 0.6]} raycast={noRaycast}>
+        {/* Receipt printer */}
+        <RoundedBox args={[0.35, 0.3, 0.4]} radius={0.04} position={[-0.25, COUNTER + 0.47, -0.3]} raycast={noRaycast}>
           <meshStandardMaterial color="#e6e6e6" roughness={0.4} />
         </RoundedBox>
       </group>

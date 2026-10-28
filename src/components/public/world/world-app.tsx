@@ -128,6 +128,7 @@ export default function WorldApp({
   // Where you've walked from, for the Back button.
   const [trail, setTrail] = useState<StationKey[]>([]);
   const counter = useRef(0);
+  const sidebarScroll = useRef<HTMLDivElement>(null);
   const { progress, active } = useProgress();
   // If a picture is slow to download, don't keep people waiting on the cover forever.
   const [waitedEnough, setWaitedEnough] = useState(false);
@@ -139,7 +140,7 @@ export default function WorldApp({
   const ready = drawn && (!active || waitedEnough);
 
   // ---- The products, arranged on their shelves -----------------------------------------------
-  const { items, layouts, byId, poses } = useMemo(() => {
+  const { items, layouts, byId } = useMemo(() => {
     const items: StoreItem[] = [];
     for (const { item, shown } of priced) {
       const unit = unitFor(item.category);
@@ -156,10 +157,7 @@ export default function WorldApp({
       });
     }
     const layouts = { drinks: unitLayout("drinks", items), snacks: unitLayout("snacks", items), candy: unitLayout("candy", items) };
-    // How each product sits on its shelf, so it sits the same way on the checkout belt.
-    const poses = new Map<string, { tilt: number; turn: number }>();
-    for (const l of Object.values(layouts)) for (const p of l?.placements ?? []) if (!poses.has(p.id)) poses.set(p.id, { tilt: p.tilt, turn: p.turn });
-    return { items, layouts, byId: new Map(priced.map((p) => [p.item.id, p])), poses };
+    return { items, layouts, byId: new Map(priced.map((p) => [p.item.id, p])) };
   }, [priced]);
 
   // ---- What's pinned on the deals board -------------------------------------------------------
@@ -232,12 +230,11 @@ export default function WorldApp({
     const units: TillUnit[] = [];
     for (const line of list) {
       const item = line.kind === "bundle" ? null : (items.find((i) => i.id === line.id) ?? null);
-      const pose = poses.get(line.id) ?? { tilt: 0, turn: 0 };
       const copies = Math.min(line.quantity, perLine);
       for (let c = 0; c < copies; c++) {
         // The last copy stands for the rest (so 10 Cokes don't each need a trip down the belt).
         const stands = c === copies - 1 ? line.quantity - (copies - 1) : 1;
-        const unit = { key: `${line.id}-${c}`, name: stands > 1 ? `${line.name} x${stands}` : line.name, item, ...pose, color: line.kind === "bundle" ? "#13a8a0" : "#e0d6c6", cents: stands * line.price_cents };
+        const unit = { key: `${line.id}-${c}`, name: stands > 1 ? `${line.name} x${stands}` : line.name, item, color: line.kind === "bundle" ? "#13a8a0" : "#e0d6c6", cents: stands * line.price_cents };
         if (units.length < MAX_UNITS) units.push(unit);
         else {
           // Too many different things: add the rest onto the last one.
@@ -518,12 +515,16 @@ export default function WorldApp({
               <XIcon className="size-5" />
             </button>
           </div>
-          <div className="flex-1 overflow-y-auto px-5 pb-8">
+          <div ref={sidebarScroll} className="flex-1 overflow-y-auto px-5 pb-8">
             <Checkout
               {...checkoutForm}
               variant="sidebar"
               onClose={leaveCounter}
-              onPlaced={(orderNumber) => setTill((t) => (t ? { ...t, phase: "paid", orderNumber } : t))}
+              onPlaced={(orderNumber) => {
+                setTill((t) => (t ? { ...t, phase: "paid", orderNumber } : t));
+                // Back to the top, where the order number is.
+                sidebarScroll.current?.scrollTo({ top: 0 });
+              }}
             />
           </div>
         </aside>
