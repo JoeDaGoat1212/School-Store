@@ -9,6 +9,8 @@ import type { UnitKey } from "../store/catalog";
 import type { Placement, StoreItem, UnitLayout } from "../store/layout";
 import { CameraRig } from "./camera";
 import { CheckoutCounter, type TillDisplay, type TillUnit } from "./checkout-scene";
+import { HalloweenInside, HalloweenOutside } from "./halloween";
+import type { Season } from "@/lib/seasons";
 import { Building, Interior, Lot, Sky } from "./exterior";
 import { BulletinBoard, CandyStand, CheckoutLane, FloorMarker, WorldFridge, WorldShelf, YellowLetters, type BoardCard } from "./fixtures";
 import { PriceTag, ProductCopies } from "./products";
@@ -49,6 +51,8 @@ export type WorldSceneProps = {
   onBagged: () => void;
   /** Checking out: no floor arrows. */
   busy: boolean;
+  /** Holiday decorations to put up (or null). */
+  season: Season;
 };
 
 export default function WorldScene(props: WorldSceneProps) {
@@ -59,6 +63,7 @@ export default function WorldScene(props: WorldSceneProps) {
   const places = useMemo(() => placeUnits(layouts), [layouts]);
   const spots = useMemo(() => stations(places, layouts), [places, layouts]);
   const here = spots[station];
+  const spooky = props.season === "halloween";
 
   return (
     <Canvas
@@ -67,17 +72,17 @@ export default function WorldScene(props: WorldSceneProps) {
       camera={{ fov: 56, near: 0.2, far: 900, position: [40, 40, 60] }}
       gl={{ antialias: true, powerPreference: "high-performance" }}
     >
-      <color attach="background" args={["#a9dcfb"]} />
-      <fog attach="fog" args={["#d9effc", 140, 380]} />
+      <color attach="background" args={[spooky ? "#ffd2a4" : "#a9dcfb"]} />
+      <fog attach="fog" args={[spooky ? "#ffd8b0" : "#d9effc", 140, 380]} />
       <PerformanceMonitor onDecline={() => setShadows(false)} />
       <CameraRig stations={spots} current={station} calm={calm} onArrive={props.onArrive} />
       <FirstFrame onReady={props.onReady} />
       {process.env.NODE_ENV !== "production" && <TestHook spots={spots} places={places} layouts={layouts} station={station} moving={moving} items={props.items} />}
 
       {/* Daylight: the sun (with shadows), sky light from above, and soft fill. */}
-      <hemisphereLight args={["#e8f6ff", "#b9a98a", 1.1]} />
+      <hemisphereLight args={[spooky ? "#f1defa" : "#e8f6ff", "#b9a98a", 1.1]} />
       <ambientLight intensity={0.35} />
-      <Sun shadows={shadows} />
+      <Sun shadows={shadows} warm={spooky} />
       {/* Inside: warm ceiling light over the shop floor. */}
       <pointLight position={[-9, BUILDING.height - 1, -16]} intensity={80} distance={34} decay={1.2} color="#fff4e6" />
       <pointLight position={[9, BUILDING.height - 1, -16]} intensity={80} distance={34} decay={1.2} color="#fff4e6" />
@@ -87,12 +92,14 @@ export default function WorldScene(props: WorldSceneProps) {
         <Lightformer intensity={1} color="#c4f2ee" position={[10, 3, 6]} rotation-y={-Math.PI / 4} scale={[10, 4, 1]} />
       </Environment>
 
-      <Sky />
+      <Sky spooky={spooky} />
       {fontsReady && (
         <>
           <Lot />
           <Building doorsOpen={props.doorsOpen} onDoors={props.onDoors} canEnter={station === "outside" && !props.doorsOpen} openSign={props.openSign} />
           <Interior />
+          {spooky && <HalloweenOutside />}
+          {spooky && <HalloweenInside fridgeX={places.drinks?.x ?? -8.5} />}
 
           {(["drinks", "snacks", "candy"] as UnitKey[]).map((key) => {
             const layout = layouts[key];
@@ -107,6 +114,7 @@ export default function WorldScene(props: WorldSceneProps) {
             units={props.till.units}
             running={props.till.running}
             calm={calm}
+            halloween={spooky}
             display={props.display}
             onScanned={props.onScanned}
             onBagged={props.onBagged}
@@ -177,7 +185,7 @@ function TestHook(info: { spots: ReturnType<typeof stations>; places: ReturnType
 }
 
 /** The sun, low in the sky behind the lot, casting soft shadows over the store and cars. */
-function Sun({ shadows }: { shadows: boolean }) {
+function Sun({ shadows, warm }: { shadows: boolean; warm: boolean }) {
   const light = useRef<THREE.DirectionalLight>(null);
   const scene = useThree((s) => s.scene);
   useEffect(() => {
@@ -194,7 +202,7 @@ function Sun({ shadows }: { shadows: boolean }) {
       ref={light}
       position={[34, 60, 46]}
       intensity={2.1}
-      color="#fff3df"
+      color={warm ? "#ffd6a8" : "#fff3df"}
       castShadow={shadows}
       shadow-mapSize={[2048, 2048]}
       shadow-bias={-0.0004}

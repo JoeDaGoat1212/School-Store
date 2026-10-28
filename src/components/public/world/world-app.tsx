@@ -7,6 +7,7 @@ import { ArrowLeftIcon, ListIcon, LockIcon, PlusIcon, ShoppingBagIcon, TagIcon, 
 import { quoteCart } from "@/app/(public)/actions";
 import { Checkout } from "@/app/(public)/cart/checkout";
 import type { CheckoutProps } from "@/app/(public)/cart/checkout-props";
+import type { Season } from "@/lib/seasons";
 import { FlameMark } from "@/components/brand-mark";
 import { brand, formatOrderNumber } from "@/config/brand";
 import { buyGetLabel, bundleOpenTo, type Bundle, type Deals, type ShownPrice } from "@/lib/deals";
@@ -97,6 +98,7 @@ export default function WorldApp({
   openSign,
   rewards,
   checkout: checkoutForm,
+  season,
 }: {
   priced: Priced[];
   deals: Deals;
@@ -107,6 +109,8 @@ export default function WorldApp({
   rewards: { enabled: boolean; pointsPerDollar: number };
   /** Everything the checkout form in the sidebar needs. */
   checkout: CheckoutProps;
+  /** Holiday decorations to put up (or null). */
+  season: Season;
 }) {
   const cartItems = useCart();
   const totals = cartTotals(cartItems);
@@ -400,6 +404,7 @@ export default function WorldApp({
           onScanned={onScanned}
           onBagged={onBagged}
           busy={Boolean(till)}
+          season={season}
         />
       </div>
 

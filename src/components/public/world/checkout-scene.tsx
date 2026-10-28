@@ -7,7 +7,15 @@ import * as THREE from "three";
 import type { StoreItem } from "../store/layout";
 import { useLook } from "../store/models";
 import { CheckoutLane } from "./fixtures";
-import { ORANGE, TEAL, TEAL_DEEP, canvasTexture, noRaycast, signTexture } from "./paint";
+import { WitchHat } from "./halloween";
+import {
+  ORANGE,
+  TEAL,
+  TEAL_DEEP,
+  canvasTexture,
+  noRaycast,
+  signTexture,
+} from "./paint";
 import { COUNTER, type LANES } from "./world-layout";
 
 /*
@@ -39,7 +47,11 @@ export type TillUnit = {
 };
 
 /** What the screen on the register says (two lines). */
-export type TillDisplay = { top: [string, string]; bottom: [string, string]; big?: boolean };
+export type TillDisplay = {
+  top: [string, string];
+  bottom: [string, string];
+  big?: boolean;
+};
 
 // ---- The timeline for each item, in seconds (real-store speed) ----------------------------------
 const GAP = 1.9; // between one item and the next (the cashier needs 1.8 s for each)
@@ -77,18 +89,26 @@ const CASHIER_AT = new THREE.Vector3(1.75, 0, 0);
 
 const ease = (t: number) => (t < 0.5 ? 2 * t * t : 1 - (-2 * t + 2) ** 2 / 2);
 const clamp01 = (t: number) => Math.min(1, Math.max(0, t));
-const lerpV = (a: THREE.Vector3, b: THREE.Vector3, t: number, out: THREE.Vector3) => out.copy(a).lerp(b, t);
+const lerpV = (
+  a: THREE.Vector3,
+  b: THREE.Vector3,
+  t: number,
+  out: THREE.Vector3,
+) => out.copy(a).lerp(b, t);
 
 export function CheckoutCounter({
   lane,
   units,
   running,
   calm,
+  halloween = false,
   display,
   onScanned,
   onBagged,
 }: {
   lane: (typeof LANES)[number];
+  /** Dress the cashier up for Halloween (a witch hat instead of the cap). */
+  halloween?: boolean;
   /** The items to ring up (empty when nobody's checking out). */
   units: TillUnit[];
   /** True once you're standing at the counter: the ringing up starts. */
@@ -126,15 +146,31 @@ export function CheckoutCounter({
   }, [calm, running, units]);
 
   // Small differences so items don't sit in a perfect line.
-  const jitter = useMemo(() => units.map((_, i) => ({ x: ((((i * 37) % 7) / 7 - 0.5) * 0.5), turn: (((i * 53) % 9) / 9 - 0.5) * 0.8 })), [units]);
-  const tmp = useMemo(() => ({ a: new THREE.Vector3(), b: new THREE.Vector3() }), []);
+  const jitter = useMemo(
+    () =>
+      units.map((_, i) => ({
+        x: (((i * 37) % 7) / 7 - 0.5) * 0.5,
+        turn: (((i * 53) % 9) / 9 - 0.5) * 0.8,
+      })),
+    [units],
+  );
+  const tmp = useMemo(
+    () => ({ a: new THREE.Vector3(), b: new THREE.Vector3() }),
+    [],
+  );
 
   useFrame((state, delta) => {
     const now = state.clock.elapsedTime;
     const p = progress.current;
     const h = hands.current;
     // The scanner's red light fades back down after each beep.
-    if (flash.current) flash.current.emissiveIntensity = THREE.MathUtils.damp(flash.current.emissiveIntensity, 0.4, 6, delta);
+    if (flash.current)
+      flash.current.emissiveIntensity = THREE.MathUtils.damp(
+        flash.current.emissiveIntensity,
+        0.4,
+        6,
+        delta,
+      );
     h.reset();
     if (!running || calm || units.length === 0) {
       beltSpeed.current = 0;
@@ -144,7 +180,10 @@ export function CheckoutCounter({
     }
     if (p.start < 0) p.start = now;
     // (While developing, tests can slow the show down to take pictures of it.)
-    const slow = process.env.NODE_ENV === "production" ? 1 : ((window as unknown as { __tillSlow?: number }).__tillSlow ?? 1);
+    const slow =
+      process.env.NODE_ENV === "production"
+        ? 1
+        : ((window as unknown as { __tillSlow?: number }).__tillSlow ?? 1);
     const t = (now - p.start) / slow;
     // Wave hello while the first item comes down the belt.
     h.wave = t < PLACE + RIDE - 0.4 ? t : -1;
@@ -168,7 +207,11 @@ export function CheckoutCounter({
       if ((k = local / PLACE) < 1) {
         // 1. You put it down on the belt (your hand comes in from the left).
         const e = ease(k);
-        g.position.set(THREE.MathUtils.lerp(-1.2, x, e), BELT_Y + 1.0 * (1 - e) + Math.sin(e * Math.PI) * 0.3, BELT_START);
+        g.position.set(
+          THREE.MathUtils.lerp(-1.2, x, e),
+          BELT_Y + 1.0 * (1 - e) + Math.sin(e * Math.PI) * 0.3,
+          BELT_START,
+        );
       } else if (u < 0) {
         // 2. Riding the belt.
         riding = true;
@@ -223,7 +266,10 @@ export function CheckoutCounter({
 
     // Beep for every item that has reached the scanner by now (worked out from
     // the time, so a slow frame can't skip one).
-    while (p.scanned < units.length - 1 && t - (p.scanned + 1) * GAP > PLACE + RIDE + REACH + SCAN * 0.6) {
+    while (
+      p.scanned < units.length - 1 &&
+      t - (p.scanned + 1) * GAP > PLACE + RIDE + REACH + SCAN * 0.6
+    ) {
       p.scanned++;
       if (flash.current) flash.current.emissiveIntensity = 6;
       onScannedRef.current(p.scanned);
@@ -241,22 +287,47 @@ export function CheckoutCounter({
       </group>
 
       {/* The scanner window in the counter, with its red laser line */}
-      <mesh position={[SCANNER.x, SCANNER.y, SCANNER.z]} rotation-x={-Math.PI / 2} raycast={noRaycast}>
+      <mesh
+        position={[SCANNER.x, SCANNER.y, SCANNER.z]}
+        rotation-x={-Math.PI / 2}
+        raycast={noRaycast}
+      >
         <planeGeometry args={[0.9, 0.42]} />
         <meshStandardMaterial color="#15171a" roughness={0.1} metalness={0.6} />
       </mesh>
-      <mesh position={[SCANNER.x, SCANNER.y + 0.004, SCANNER.z]} rotation-x={-Math.PI / 2} raycast={noRaycast}>
+      <mesh
+        position={[SCANNER.x, SCANNER.y + 0.004, SCANNER.z]}
+        rotation-x={-Math.PI / 2}
+        raycast={noRaycast}
+      >
         <planeGeometry args={[0.8, 0.04]} />
-        <meshStandardMaterial ref={flash} color="#400" emissive="#ff2a2a" emissiveIntensity={0.4} toneMapped={false} />
+        <meshStandardMaterial
+          ref={flash}
+          color="#400"
+          emissive="#ff2a2a"
+          emissiveIntensity={0.4}
+          toneMapped={false}
+        />
       </mesh>
 
       <HangingBag fill={fill} />
-      <Cashier hands={hands} calm={calm} />
+      <Cashier hands={hands} calm={calm} halloween={halloween} />
       <PoleDisplay display={display} />
 
       {units.map((u, i) => (
-        <group key={u.key} name={`till-unit-${i}`} ref={(g) => void (groups.current[i] = g)} visible={false}>
-          <group scale={ITEM_SCALE}>{u.item ? <ProductOnBelt item={u.item} /> : <BundleBox color={u.color} />}</group>
+        <group
+          key={u.key}
+          name={`till-unit-${i}`}
+          ref={(g) => void (groups.current[i] = g)}
+          visible={false}
+        >
+          <group scale={ITEM_SCALE}>
+            {u.item ? (
+              <ProductOnBelt item={u.item} />
+            ) : (
+              <BundleBox color={u.color} />
+            )}
+          </group>
         </group>
       ))}
     </group>
@@ -295,7 +366,12 @@ function ProductOnBelt({ item }: { item: StoreItem }) {
   return (
     <group position-y={fit.lift}>
       <group rotation={fit.rotation}>
-        <mesh geometry={look.geometry} material={look.material} position={fit.offset} raycast={noRaycast} />
+        <mesh
+          geometry={look.geometry}
+          material={look.material}
+          position={fit.offset}
+          raycast={noRaycast}
+        />
       </group>
     </group>
   );
@@ -304,7 +380,12 @@ function ProductOnBelt({ item }: { item: StoreItem }) {
 /** A bundle (or anything without a 3D model): a little box in its colour, lying flat. */
 function BundleBox({ color }: { color: string }) {
   return (
-    <RoundedBox args={[0.7, 0.4, 0.45]} radius={0.05} position-y={0.2} raycast={noRaycast}>
+    <RoundedBox
+      args={[0.7, 0.4, 0.45]}
+      radius={0.05}
+      position-y={0.2}
+      raycast={noRaycast}
+    >
       <meshStandardMaterial color={color} roughness={0.6} />
     </RoundedBox>
   );
@@ -331,16 +412,26 @@ function bagGeometry() {
     let x = Math.sign(c) * Math.abs(c) ** 0.65 * (BAG_D / 2);
     let z = Math.sign(sn) * Math.abs(sn) ** 0.65 * (BAG_W / 2);
     // Wider in the middle, gathered in at the bottom, a little pinched at the top.
-    const shape = 0.82 + 0.2 * Math.sin(Math.min(1, v * 1.15) * Math.PI * 0.95) - (v > 0.92 ? (v - 0.92) * 0.8 : 0);
+    const shape =
+      0.82 +
+      0.2 * Math.sin(Math.min(1, v * 1.15) * Math.PI * 0.95) -
+      (v > 0.92 ? (v - 0.92) * 0.8 : 0);
     // Wrinkles: a few overlapping ripples, stronger lower down where the plastic sags.
     const w =
-      0.05 * (Math.sin(a * 7 + v * 9) + 0.6 * Math.sin(a * 13 - v * 17) + 0.4 * Math.sin(a * 23 + v * 31)) * (1.15 - v * 0.6) +
+      0.05 *
+        (Math.sin(a * 7 + v * 9) +
+          0.6 * Math.sin(a * 13 - v * 17) +
+          0.4 * Math.sin(a * 23 + v * 31)) *
+        (1.15 - v * 0.6) +
       // A few long creases running down from where the handles pull.
       0.03 * Math.sin(a * 4 + Math.sin(v * 5) * 0.6) * v;
     x *= shape * (1 + w);
     z *= shape * (1 + w);
     // The rim isn't perfectly straight.
-    const y = (v - 1) * BAG_DEPTH + (v > 0.97 ? Math.sin(a * 3) * 0.03 : 0) + (v < 0.03 ? Math.sin(a * 5) * 0.03 : 0);
+    const y =
+      (v - 1) * BAG_DEPTH +
+      (v > 0.97 ? Math.sin(a * 3) * 0.03 : 0) +
+      (v < 0.03 ? Math.sin(a * 5) * 0.03 : 0);
     pos.setXYZ(i, x, y, z);
   }
   g.computeVertexNormals();
@@ -389,9 +480,24 @@ function HangingBag({ fill }: { fill: React.RefObject<number> }) {
     g.scale.y = THREE.MathUtils.damp(g.scale.y, 1 + f * 0.06, 5, delta);
   });
 
-  const print = signTexture("Thank you!", { bg: "transparent", fg: ORANGE, height: 96, pad: 0.2, upper: false });
-  const plastic = <meshStandardMaterial color="#f5f5f2" roughness={0.42} metalness={0} side={THREE.DoubleSide} />;
-  const metal = <meshStandardMaterial color="#c9ced3" metalness={0.8} roughness={0.3} />;
+  const print = signTexture("Thank you!", {
+    bg: "transparent",
+    fg: ORANGE,
+    height: 96,
+    pad: 0.2,
+    upper: false,
+  });
+  const plastic = (
+    <meshStandardMaterial
+      color="#f5f5f2"
+      roughness={0.42}
+      metalness={0}
+      side={THREE.DoubleSide}
+    />
+  );
+  const metal = (
+    <meshStandardMaterial color="#c9ced3" metalness={0.8} roughness={0.3} />
+  );
   const hookY = 0.5;
   const postX = BAG_D / 2 + 0.2;
 
@@ -402,11 +508,19 @@ function HangingBag({ fill }: { fill: React.RefObject<number> }) {
         <cylinderGeometry args={[0.045, 0.06, BAG.y + hookY, 10]} />
         {metal}
       </mesh>
-      <mesh position={[postX / 2, hookY, 0]} rotation-z={Math.PI / 2} raycast={noRaycast}>
+      <mesh
+        position={[postX / 2, hookY, 0]}
+        rotation-z={Math.PI / 2}
+        raycast={noRaycast}
+      >
         <cylinderGeometry args={[0.035, 0.035, postX, 8]} />
         {metal}
       </mesh>
-      <mesh position={[0, hookY + 0.01, 0]} rotation-x={Math.PI / 2} raycast={noRaycast}>
+      <mesh
+        position={[0, hookY + 0.01, 0]}
+        rotation-x={Math.PI / 2}
+        raycast={noRaycast}
+      >
         <cylinderGeometry args={[0.03, 0.03, BAG_W * 0.9, 8]} />
         {metal}
       </mesh>
@@ -416,14 +530,28 @@ function HangingBag({ fill }: { fill: React.RefObject<number> }) {
           {plastic}
         </mesh>
         {/* The bottom, gathered shut */}
-        <mesh position-y={-BAG_DEPTH + 0.01} rotation-x={Math.PI / 2} scale={[BAG_D * 0.42, BAG_W * 0.42, 1]} raycast={noRaycast}>
+        <mesh
+          position-y={-BAG_DEPTH + 0.01}
+          rotation-x={Math.PI / 2}
+          scale={[BAG_D * 0.42, BAG_W * 0.42, 1]}
+          raycast={noRaycast}
+        >
           <circleGeometry args={[1, 24]} />
           {plastic}
         </mesh>
         {/* "Thank you!" printed on the side facing you */}
-        <mesh position={[-BAG_D / 2 - 0.035, -BAG_DEPTH * 0.45, 0]} rotation-y={-Math.PI / 2} raycast={noRaycast}>
+        <mesh
+          position={[-BAG_D / 2 - 0.035, -BAG_DEPTH * 0.45, 0]}
+          rotation-y={-Math.PI / 2}
+          raycast={noRaycast}
+        >
           <planeGeometry args={[0.75, 0.75 / print.aspect]} />
-          <meshBasicMaterial map={print.texture} transparent depthWrite={false} toneMapped={false} />
+          <meshBasicMaterial
+            map={print.texture}
+            transparent
+            depthWrite={false}
+            toneMapped={false}
+          />
         </mesh>
       </group>
       {handles.map((g, i) => (
@@ -460,7 +588,12 @@ const SHOULDER_HALF = 0.5;
 const ARM = 1.35; // each half of the arm
 
 /** Puts a 1-tall cylinder between two points. */
-function stretch(mesh: THREE.Object3D | null | undefined, a: THREE.Vector3, b: THREE.Vector3, dir: THREE.Vector3) {
+function stretch(
+  mesh: THREE.Object3D | null | undefined,
+  a: THREE.Vector3,
+  b: THREE.Vector3,
+  dir: THREE.Vector3,
+) {
   if (!mesh) return;
   dir.subVectors(b, a);
   const len = dir.length();
@@ -470,7 +603,13 @@ function stretch(mesh: THREE.Object3D | null | undefined, a: THREE.Vector3, b: T
 }
 
 /** Two-part arm: from the shoulder to the hand, bending the elbow when the hand is close. */
-function solveArm(shoulder: THREE.Vector3, target: THREE.Vector3, pole: THREE.Vector3, elbow: THREE.Vector3, hand: THREE.Vector3) {
+function solveArm(
+  shoulder: THREE.Vector3,
+  target: THREE.Vector3,
+  pole: THREE.Vector3,
+  elbow: THREE.Vector3,
+  hand: THREE.Vector3,
+) {
   const dir = new THREE.Vector3().subVectors(target, shoulder);
   const d = THREE.MathUtils.clamp(dir.length(), 0.4, ARM * 2 - 0.001);
   dir.normalize();
@@ -486,7 +625,15 @@ function solveArm(shoulder: THREE.Vector3, target: THREE.Vector3, pole: THREE.Ve
  * The store employee behind the counter: teal shirt, orange apron, name tag
  * and cap. Waves hello, reaches for each item, scans it and bags it.
  */
-function Cashier({ hands, calm }: { hands: React.RefObject<CashierHands>; calm: boolean }) {
+function Cashier({
+  hands,
+  calm,
+  halloween,
+}: {
+  hands: React.RefObject<CashierHands>;
+  calm: boolean;
+  halloween: boolean;
+}) {
   const body = useRef<THREE.Group>(null);
   const head = useRef<THREE.Group>(null);
   const rUpper = useRef<THREE.Mesh>(null);
@@ -495,8 +642,19 @@ function Cashier({ hands, calm }: { hands: React.RefObject<CashierHands>; calm: 
   const lUpper = useRef<THREE.Mesh>(null);
   const lLower = useRef<THREE.Mesh>(null);
   const lHandMesh = useRef<THREE.Mesh>(null);
-  const s = useRef({ yaw: -Math.PI / 2, rHand: new THREE.Vector3(), lHand: new THREE.Vector3(), started: false });
-  const tag = signTexture("Sam", { bg: "#ffffff", fg: "#111111", height: 64, pad: 0.5, upper: false });
+  const s = useRef({
+    yaw: -Math.PI / 2,
+    rHand: new THREE.Vector3(),
+    lHand: new THREE.Vector3(),
+    started: false,
+  });
+  const tag = signTexture("Sam", {
+    bg: "#ffffff",
+    fg: "#111111",
+    height: 64,
+    pad: 0.5,
+    upper: false,
+  });
   const v = useMemo(
     () => ({
       rs: new THREE.Vector3(),
@@ -521,8 +679,16 @@ function Cashier({ hands, calm }: { hands: React.RefObject<CashierHands>; calm: 
     // Turn a little toward whatever the right hand is reaching for.
     let yaw = -Math.PI / 2;
     if (h.rightPull > 0.01) {
-      const toward = Math.atan2(h.right.x - CASHIER_AT.x, h.right.z - CASHIER_AT.z);
-      yaw += THREE.MathUtils.clamp(((toward - yaw + Math.PI * 3) % (Math.PI * 2)) - Math.PI, -1.2, 1.2) * 0.75;
+      const toward = Math.atan2(
+        h.right.x - CASHIER_AT.x,
+        h.right.z - CASHIER_AT.z,
+      );
+      yaw +=
+        THREE.MathUtils.clamp(
+          ((toward - yaw + Math.PI * 3) % (Math.PI * 2)) - Math.PI,
+          -1.2,
+          1.2,
+        ) * 0.75;
     }
     st.yaw = THREE.MathUtils.damp(st.yaw, yaw, 8, delta);
     if (body.current) {
@@ -530,30 +696,55 @@ function Cashier({ hands, calm }: { hands: React.RefObject<CashierHands>; calm: 
       // Breathing.
       body.current.position.y = calm ? 0 : Math.sin(time * 1.6) * 0.02;
     }
-    if (head.current) head.current.rotation.y = calm ? 0 : Math.sin(time * 0.5) * 0.15;
+    if (head.current)
+      head.current.rotation.y = calm ? 0 : Math.sin(time * 0.5) * 0.15;
 
     // Shoulders, from where the body is facing.
     v.fwd.set(Math.sin(st.yaw), 0, Math.cos(st.yaw));
     v.right.set(-Math.cos(st.yaw), 0, Math.sin(st.yaw));
-    v.rs.copy(CASHIER_AT).addScaledVector(v.right, SHOULDER_HALF).setY(SHOULDER_Y);
-    v.ls.copy(CASHIER_AT).addScaledVector(v.right, -SHOULDER_HALF).setY(SHOULDER_Y);
+    v.rs
+      .copy(CASHIER_AT)
+      .addScaledVector(v.right, SHOULDER_HALF)
+      .setY(SHOULDER_Y);
+    v.ls
+      .copy(CASHIER_AT)
+      .addScaledVector(v.right, -SHOULDER_HALF)
+      .setY(SHOULDER_Y);
 
     // Right hand: resting by the side, or reaching where the timeline says.
-    v.t.copy(v.rs).addScaledVector(v.fwd, 0.35).addScaledVector(v.right, 0.15).setY(SHOULDER_Y - 2.1);
+    v.t
+      .copy(v.rs)
+      .addScaledVector(v.fwd, 0.35)
+      .addScaledVector(v.right, 0.15)
+      .setY(SHOULDER_Y - 2.1);
     if (h.rightPull > 0) v.t.lerp(h.right, h.rightPull);
     st.rHand.lerp(v.t, st.started ? 1 - Math.exp(-18 * delta) : 1);
-    v.pole.set(0, -1, 0).addScaledVector(v.right, 0.6).addScaledVector(v.fwd, -0.4);
+    v.pole
+      .set(0, -1, 0)
+      .addScaledVector(v.right, 0.6)
+      .addScaledVector(v.fwd, -0.4);
     solveArm(v.rs, st.rHand, v.pole, v.re, v.rh);
     h.rightHand.copy(v.rh);
 
     // Left hand: by the side, or waving hello.
     if (h.wave >= 0 && !calm) {
-      v.t.copy(v.ls).addScaledVector(v.right, -0.5 + Math.sin(h.wave * 9) * 0.35).addScaledVector(v.fwd, 0.5).setY(SHOULDER_Y + 1.7);
+      v.t
+        .copy(v.ls)
+        .addScaledVector(v.right, -0.5 + Math.sin(h.wave * 9) * 0.35)
+        .addScaledVector(v.fwd, 0.5)
+        .setY(SHOULDER_Y + 1.7);
     } else {
-      v.t.copy(v.ls).addScaledVector(v.fwd, 0.35).addScaledVector(v.right, -0.15).setY(SHOULDER_Y - 2.1);
+      v.t
+        .copy(v.ls)
+        .addScaledVector(v.fwd, 0.35)
+        .addScaledVector(v.right, -0.15)
+        .setY(SHOULDER_Y - 2.1);
     }
     st.lHand.lerp(v.t, st.started ? 1 - Math.exp(-10 * delta) : 1);
-    v.pole.set(0, -1, 0).addScaledVector(v.right, -0.6).addScaledVector(v.fwd, -0.4);
+    v.pole
+      .set(0, -1, 0)
+      .addScaledVector(v.right, -0.6)
+      .addScaledVector(v.fwd, -0.4);
     solveArm(v.ls, st.lHand, v.pole, v.le, v.lh);
     st.started = true;
 
@@ -571,7 +762,11 @@ function Cashier({ hands, calm }: { hands: React.RefObject<CashierHands>; calm: 
 
   return (
     <group>
-      <group ref={body} position={[CASHIER_AT.x, 0, CASHIER_AT.z]} rotation-y={-Math.PI / 2}>
+      <group
+        ref={body}
+        position={[CASHIER_AT.x, 0, CASHIER_AT.z]}
+        rotation-y={-Math.PI / 2}
+      >
         {/* Legs and shoes */}
         {[-0.22, 0.22].map((x) => (
           <group key={x} position-x={x}>
@@ -579,16 +774,31 @@ function Cashier({ hands, calm }: { hands: React.RefObject<CashierHands>; calm: 
               <cylinderGeometry args={[0.17, 0.15, 2.5, 12]} />
               {pants}
             </mesh>
-            <RoundedBox args={[0.3, 0.2, 0.5]} radius={0.08} position={[0, 0.1, 0.08]} raycast={noRaycast}>
+            <RoundedBox
+              args={[0.3, 0.2, 0.5]}
+              radius={0.08}
+              position={[0, 0.1, 0.08]}
+              raycast={noRaycast}
+            >
               <meshStandardMaterial color="#111" roughness={0.5} />
             </RoundedBox>
           </group>
         ))}
         {/* Body: teal shirt, orange apron, name tag */}
-        <RoundedBox args={[1.1, 2.1, 0.6]} radius={0.22} position-y={3.6} raycast={noRaycast}>
+        <RoundedBox
+          args={[1.1, 2.1, 0.6]}
+          radius={0.22}
+          position-y={3.6}
+          raycast={noRaycast}
+        >
           {shirt}
         </RoundedBox>
-        <RoundedBox args={[0.95, 1.6, 0.06]} radius={0.03} position={[0, 3.2, 0.3]} raycast={noRaycast}>
+        <RoundedBox
+          args={[0.95, 1.6, 0.06]}
+          radius={0.03}
+          position={[0, 3.2, 0.3]}
+          raycast={noRaycast}
+        >
           <meshStandardMaterial color={ORANGE} roughness={0.7} />
         </RoundedBox>
         <mesh position={[0.25, 4.15, 0.34]} raycast={noRaycast}>
@@ -619,19 +829,37 @@ function Cashier({ hands, calm }: { hands: React.RefObject<CashierHands>; calm: 
               <meshStandardMaterial color="#1a1a1a" />
             </mesh>
           ))}
-          <mesh position={[0, -0.12, 0.38]} rotation-z={Math.PI} raycast={noRaycast}>
+          <mesh
+            position={[0, -0.12, 0.38]}
+            rotation-z={Math.PI}
+            raycast={noRaycast}
+          >
             <torusGeometry args={[0.12, 0.022, 6, 16, Math.PI]} />
             <meshStandardMaterial color="#6b2a1f" />
           </mesh>
-          {/* Cap: dome and brim */}
-          <mesh position-y={0.08} raycast={noRaycast}>
-            <sphereGeometry args={[0.44, 24, 12, 0, Math.PI * 2, 0, Math.PI / 2]} />
-            <meshStandardMaterial color={TEAL_DEEP} roughness={0.6} />
-          </mesh>
-          <mesh position={[0, 0.1, 0.4]} rotation-x={0.12} raycast={noRaycast}>
-            <cylinderGeometry args={[0.3, 0.3, 0.04, 20, 1, false, -Math.PI / 2, Math.PI]} />
-            <meshStandardMaterial color={TEAL_DEEP} roughness={0.6} />
-          </mesh>
+          {/* Cap: dome and brim (a witch hat at Halloween) */}
+          {halloween ? (
+            <WitchHat />
+          ) : (
+            <>
+              <mesh position-y={0.08} raycast={noRaycast}>
+                <sphereGeometry
+                  args={[0.44, 24, 12, 0, Math.PI * 2, 0, Math.PI / 2]}
+                />
+                <meshStandardMaterial color={TEAL_DEEP} roughness={0.6} />
+              </mesh>
+              <mesh
+                position={[0, 0.1, 0.4]}
+                rotation-x={0.12}
+                raycast={noRaycast}
+              >
+                <cylinderGeometry
+                  args={[0.3, 0.3, 0.04, 20, 1, false, -Math.PI / 2, Math.PI]}
+                />
+                <meshStandardMaterial color={TEAL_DEEP} roughness={0.6} />
+              </mesh>
+            </>
+          )}
         </group>
       </group>
 
@@ -690,7 +918,12 @@ function makeLcd() {
         ctx.font = `700 ${size}px ${font}`;
         ctx.textAlign = "left";
         let left = text[0].toUpperCase();
-        while (left.length > 3 && ctx.measureText(left).width > LCD_W - 80 - ctx.measureText(text[1]).width) left = left.slice(0, -2) + "…";
+        while (
+          left.length > 3 &&
+          ctx.measureText(left).width >
+            LCD_W - 80 - ctx.measureText(text[1]).width
+        )
+          left = left.slice(0, -2) + "…";
         ctx.fillText(left, 30, y);
         ctx.textAlign = "right";
         ctx.fillText(text[1], LCD_W - 30, y);
@@ -719,13 +952,21 @@ function PoleDisplay({ display }: { display: TillDisplay }) {
   const w = 2.1;
   const h = (w * LCD_H) / LCD_W;
   return (
-    <group position={[1.75, COUNTER + 2.55, 1.45]} rotation-y={-Math.PI / 2 - 0.35}>
+    <group
+      position={[1.75, COUNTER + 2.55, 1.45]}
+      rotation-y={-Math.PI / 2 - 0.35}
+    >
       {/* The pole down to the register stand */}
       <mesh position={[0, -1.35, -0.1]} raycast={noRaycast}>
         <cylinderGeometry args={[0.05, 0.07, 2.4, 10]} />
         <meshStandardMaterial color="#2a2c30" metalness={0.5} roughness={0.4} />
       </mesh>
-      <RoundedBox args={[w + 0.22, h + 0.22, 0.2]} radius={0.05} position-z={-0.1} raycast={noRaycast}>
+      <RoundedBox
+        args={[w + 0.22, h + 0.22, 0.2]}
+        radius={0.05}
+        position-z={-0.1}
+        raycast={noRaycast}
+      >
         <meshStandardMaterial color="#17181b" roughness={0.4} />
       </RoundedBox>
       <mesh position-z={0.005} raycast={noRaycast}>

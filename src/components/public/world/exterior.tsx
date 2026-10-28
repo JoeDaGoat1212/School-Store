@@ -519,21 +519,32 @@ export function Lot() {
   );
 }
 
-/** Blue sky that fades to pale at the horizon, with a few slow cartoon clouds. */
-export function Sky() {
+/**
+ * Blue sky that fades to pale at the horizon, with a few slow cartoon clouds.
+ * At Halloween it's a late-afternoon sky instead: purple overhead, glowing
+ * orange at the horizon.
+ */
+export function Sky({ spooky = false }: { spooky?: boolean }) {
   const texture = useMemo(() => {
     const c = document.createElement("canvas");
     c.width = 4;
     c.height = 256;
     const ctx = c.getContext("2d")!;
     const g = ctx.createLinearGradient(0, 0, 0, 256);
-    g.addColorStop(0, "#5fb7f2");
-    g.addColorStop(0.55, "#a9dcfb");
-    g.addColorStop(1, "#eaf7ff");
+    if (spooky) {
+      g.addColorStop(0, "#4b4fb8");
+      g.addColorStop(0.5, "#a77fd6");
+      g.addColorStop(0.85, "#ffb27a");
+      g.addColorStop(1, "#ffd9a8");
+    } else {
+      g.addColorStop(0, "#5fb7f2");
+      g.addColorStop(0.55, "#a9dcfb");
+      g.addColorStop(1, "#eaf7ff");
+    }
     ctx.fillStyle = g;
     ctx.fillRect(0, 0, 4, 256);
     return canvasTexture(c);
-  }, []);
+  }, [spooky]);
   const clouds = useRef<THREE.Group>(null);
   useFrame((_, delta) => {
     if (clouds.current) clouds.current.rotation.y += delta * 0.004;
