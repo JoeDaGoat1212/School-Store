@@ -248,12 +248,21 @@ Run updates in order (they're numbered) and only once each. The SQL Editor files
 
 The home page opens on a blurred drone view of the 3D store with the store's name and an **Enter 3D world** button
 (the photos are `public/hero/store-drone*.webp`, taken from the 3D store). Under it: the info strip, **Shop by aisle**
-cards (each jumps to that tab of the shop), how ordering works, **The cooler** (every drink turning in 3D, one at a
-time as you scroll), the full shop with category tabs, and one more way into the 3D store plus rewards.
+cards (each jumps to that tab of the shop; the Deals card opens the deals page), how ordering works, **The cooler**
+(every drink in 3D: swipe or use the arrow keys to go through them), the full shop with category tabs, and one more way into the 3D store plus rewards.
 
 **Product pictures** come from the 3D models: `public/products/3d/<product>.webp`, every drink at the same scale so a
 can looks smaller than a bottle. A product without a model shows its uploaded photo (or its emoji). After adding a
 model, run `npm run dev` and then `node scripts/render-products.mjs` to draw the new pictures.
+
+### The deals page
+
+**/deals** (the yellow **Deals** tag in the top bar) puts every money-saver on one page: the deal of the day, bundles,
+sale prices, coupons (buy X, get Y free; they come off in the cart by themselves), member prices with a sign-up button
+for guests, and the rewards you can spend points on. Each part only shows when there is something in it. Everything on
+it is set up in **Admin → Deals** and **Admin → Rewards**. Code: `src/components/public/deals/deals-page.tsx`.
+
+A link like `/#shop-Drinks` opens the shop on the home page with that tab picked (the coupons use it).
 
 ### The 3D store
 

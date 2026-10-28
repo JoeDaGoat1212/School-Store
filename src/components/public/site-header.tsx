@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { SearchIcon, UserRoundIcon } from "lucide-react";
+import { SearchIcon, TagIcon, UserRoundIcon } from "lucide-react";
 import { BrandMark } from "@/components/brand-mark";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Button } from "@/components/ui/button";
@@ -25,6 +25,13 @@ export async function SiteHeader() {
           <BrandMark size={38} />
           <span className="font-heading text-xl leading-none font-extrabold tracking-wide whitespace-nowrap uppercase sm:text-2xl">{brand.name}</span>
         </Link>
+        {/* Deals: a yellow tag so it stands out */}
+        <Button variant="ghost" size="lg" asChild className="px-2.5 text-[#ffd21f] hover:text-[#ffd21f] sm:px-3">
+          <Link href="/deals" aria-label="Deals and bundles">
+            <TagIcon />
+            <span className="hidden sm:inline">Deals</span>
+          </Link>
+        </Button>
         <Button variant="ghost" size="lg" asChild className="hidden sm:inline-flex">
           <Link href="/lookup">
             <SearchIcon /> Find my order

@@ -51,7 +51,7 @@ export default async function HomePage(props: PageProps<"/">) {
     aisle("Candy", "Candy", "Chocolate, sour and chewy", /^candy$/i, "pink"),
     aisle("Hot food", "Hot food", "Ramen, muffins and more", /hot food/i, "gold"),
     hasDeals
-      ? ({ category: "Deals", title: "Deals", blurb: "Sales, bundles and coupons this week", count: deals.bundles.length + priced.filter((p) => p.shown.regular !== null || p.shown.buyGets.length > 0).length, picks: [], tone: "black" } satisfies Aisle)
+      ? ({ category: "Deals", title: "Deals", blurb: "Sales, bundles and coupons this week", count: deals.bundles.length + priced.filter((p) => p.shown.regular !== null || p.shown.buyGets.length > 0).length, picks: [], tone: "black", href: "/deals" } satisfies Aisle)
       : null,
   ].filter((a): a is Aisle => a !== null);
 

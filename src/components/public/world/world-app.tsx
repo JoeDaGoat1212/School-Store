@@ -695,6 +695,10 @@ function DealsPanel({
 
           {empty && <p className="rounded-2xl border-2 border-dashed border-black/30 p-6 text-center text-black/60">No deals this week. Check back soon!</p>}
 
+          <Link href="/deals" className="flex h-11 items-center justify-center rounded-full border-2 border-black font-semibold text-black transition-colors hover:bg-black hover:text-white">
+            See every deal on one page
+          </Link>
+
           <section className="rounded-2xl bg-black p-5 text-white">
             <h3 className="font-heading text-2xl leading-none font-extrabold tracking-wide text-primary uppercase">Rewards</h3>
             <p className="mt-2 text-sm text-white/80">

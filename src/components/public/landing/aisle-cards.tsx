@@ -1,5 +1,6 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { ArrowRightIcon } from "lucide-react";
 import { productRenderUrl } from "@/lib/product-renders";
 import { cn } from "@/lib/utils";
@@ -14,6 +15,8 @@ export type Aisle = {
   /** Product names to show (their 3D pictures). */
   picks: string[];
   tone: "teal" | "orange" | "pink" | "gold" | "black";
+  /** Go to this page instead of opening a tab below (the Deals card goes to /deals). */
+  href?: string;
 };
 
 /** Classes that make the last card fill out its row (2 columns on phones, 4 on big screens). */
@@ -38,7 +41,10 @@ const TONES: Record<Aisle["tone"], string> = {
  * tab open.
  */
 export function AisleCards({ aisles }: { aisles: Aisle[] }) {
-  const open = (category: string) => {
+  const router = useRouter();
+  const open = (a: Aisle) => {
+    if (a.href) return router.push(a.href);
+    const category = a.category;
     window.dispatchEvent(new CustomEvent(PICK_CATEGORY_EVENT, { detail: category }));
     document.getElementById("shop")?.scrollIntoView({ behavior: "smooth", block: "start" });
   };
@@ -55,7 +61,7 @@ export function AisleCards({ aisles }: { aisles: Aisle[] }) {
             <button
               key={a.category}
               type="button"
-              onClick={() => open(a.category)}
+              onClick={() => open(a)}
               className={cn(
                 "group relative flex min-h-64 flex-col overflow-hidden rounded-3xl p-4 text-left shadow-soft transition-transform duration-300 hover:-translate-y-1 focus-visible:ring-4 focus-visible:ring-ring/60 focus-visible:outline-none sm:min-h-72 sm:p-5",
                 TONES[a.tone],

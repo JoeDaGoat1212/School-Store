@@ -89,7 +89,18 @@ export function Menu({
       if (match) setCategory(match);
     };
     window.addEventListener(PICK_CATEGORY_EVENT, pick);
-    return () => window.removeEventListener(PICK_CATEGORY_EVENT, pick);
+    // Another page can link straight to a tab: /#shop-Drinks opens the Drinks tab.
+    const fromLink = decodeURIComponent(location.hash.match(/^#shop-(.+)$/)?.[1] ?? "");
+    const timer = fromLink
+      ? setTimeout(() => {
+          pick(new CustomEvent(PICK_CATEGORY_EVENT, { detail: fromLink }));
+          document.getElementById("shop")?.scrollIntoView({ block: "start" });
+        }, 50)
+      : undefined;
+    return () => {
+      clearTimeout(timer);
+      window.removeEventListener(PICK_CATEGORY_EVENT, pick);
+    };
   }, []);
 
   const featured = deals.promotions.find((p) => p.featured);
