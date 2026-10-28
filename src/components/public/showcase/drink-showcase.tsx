@@ -32,8 +32,6 @@ type Entry = { item: MenuItem; shown: ShownPrice; look: ProductLook };
 
 /** The black header (64px) plus the category tabs (65px): the stage sticks just under them. */
 export const SHOWCASE_TOP = 129;
-/** How far you scroll to move one drink along, as a share of the screen height. */
-const STEP = 0.7;
 
 /**
  * The drinks showcase: swipe through the drinks one at a time. The middle one
@@ -80,70 +78,22 @@ export function DrinkShowcase({
     [entries],
   );
 
-  const [index, setIndex] = useState(0);
+  // Which drink is showing. Arrows, swipes, sideways trackpad scrolls and the
+  // ← → keys change it; scrolling up or down just moves on down the page.
+  const [index, setIndex] = useState(() => Math.max(0, entries.findIndex((e) => e.item.id === startId)));
   const [burst, setBurst] = useState(0);
-  const [moved, setMoved] = useState(false); // hide the "scroll" hint after the first move
+  const [moved, setMoved] = useState(false); // hide the hint after the first move
   const sectionRef = useRef<HTMLElement>(null);
   const { visible, calm, webgl } = useEnvironment(sectionRef);
   const count = entries.length;
 
-  // ---- Scrolling picks the drink ------------------------------------------------
-  // The section is tall (one "step" of scrolling per drink) and the colorful
-  // stage sticks to the screen while you scroll through it. How far you've
-  // scrolled decides which drink is in the middle.
-  /** Which drink the scroll position points at right now. */
-  const indexNow = () => {
-    const el = sectionRef.current;
-    if (!el) return 0;
-    const scrolled = top - el.getBoundingClientRect().top;
-    return Math.min(count - 1, Math.max(0, Math.floor(scrolled / (window.innerHeight * STEP) + 0.35)));
-  };
-  const indexNowRef = useRef(indexNow);
-  useEffect(() => {
-    indexNowRef.current = indexNow;
-  });
-
-  useEffect(() => {
-    let frame = 0;
-    const onScroll = () => {
-      cancelAnimationFrame(frame);
-      frame = requestAnimationFrame(() => {
-        const next = indexNowRef.current();
-        setIndex((i) => {
-          if (i !== next) setMoved(true);
-          return next;
-        });
-      });
-    };
-    onScroll();
-    window.addEventListener("scroll", onScroll, { passive: true });
-    window.addEventListener("resize", onScroll);
-    return () => {
-      cancelAnimationFrame(frame);
-      window.removeEventListener("scroll", onScroll);
-      window.removeEventListener("resize", onScroll);
-    };
-  }, [count]);
-
-  /** Scroll the page to drink number `i` (arrows, keys and swipes use this). */
+  /** Show drink number `i` (the 3D scene calls this when a drink on the side is tapped). */
   const scrollTo = (i: number) => {
-    const el = sectionRef.current;
-    if (!el) return;
-    const target = Math.min(count - 1, Math.max(0, i));
-    const y = el.getBoundingClientRect().top + window.scrollY - top + target * window.innerHeight * STEP;
-    window.scrollTo({ top: y, behavior: calm ? "auto" : "smooth" });
+    const next = Math.min(count - 1, Math.max(0, i));
+    if (next !== index) setMoved(true);
+    setIndex(next);
   };
-  const go = (step: number) => scrollTo(indexNow() + step);
-
-  // Opened from the fridge: line the page up on the drink that was picked.
-  useEffect(() => {
-    const el = sectionRef.current;
-    if (!el || !startId) return;
-    const start = Math.max(0, entries.findIndex((e) => e.item.id === startId));
-    window.scrollTo({ top: el.getBoundingClientRect().top + window.scrollY - top + start * window.innerHeight * STEP, behavior: "auto" });
-    // Only when the showcase first opens.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  const go = (step: number) => scrollTo(index + step);
   const goRef = useRef(go);
   const onBackRef = useRef(onBack);
   useEffect(() => {
@@ -161,18 +111,16 @@ export function DrinkShowcase({
         return;
       }
       if (t.closest("input, textarea, select, [contenteditable]") || e.metaKey || e.ctrlKey || e.altKey) return;
-      const forward = e.key === "ArrowRight" || e.key === "ArrowDown";
-      const back = e.key === "ArrowLeft" || e.key === "ArrowUp";
+      // Only ← and →: ↑ and ↓ keep scrolling the page.
+      const forward = e.key === "ArrowRight";
+      const back = e.key === "ArrowLeft";
       if (!forward && !back) return;
-      // At the ends, let ↓/↑ scroll the page normally (on to the list, or back up).
-      const now = indexNowRef.current();
-      if ((forward && now >= count - 1) || (back && now <= 0)) return;
       e.preventDefault();
       goRef.current(forward ? 1 : -1);
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [visible, count]);
+  }, [visible]);
 
   // The particles of the drink we just left fade out while the new ones fade in.
   const current = entries[index];
@@ -219,12 +167,10 @@ export function DrinkShowcase({
   return (
     <section
       ref={sectionRef}
-      id="drinks-showcase"
+      id="cooler"
       aria-roledescription="carousel"
       aria-label={title}
       className="relative mb-8 ml-[calc(50%-50vw)] w-screen select-none"
-      // One screen for the stage, plus one scroll "step" for each drink after the first.
-      style={{ height: `calc(100svh - ${top}px + ${(count - 1) * STEP * 100}svh)` }}
     >
      <div
       onPointerDown={(e) => (drag.current = { x: e.clientX, y: e.clientY })}
@@ -243,11 +189,13 @@ export function DrinkShowcase({
         wheelLock.current = now;
         go(e.deltaX > 0 ? 1 : -1);
       }}
-      className="sticky overflow-hidden"
+      className="relative overflow-hidden"
       style={
         {
-          top,
-          height: `calc(100svh - ${top}px)`,
+          // About one screen tall (never taller than 760px), and you scroll straight past it.
+          height: `clamp(520px, calc(100svh - ${top}px), 760px)`,
+          // Phones: sideways swipes change the drink; up and down scroll the page.
+          touchAction: "pan-y",
           backgroundColor: stage,
           color: ink,
           transition: "background-color 700ms ease, color 400ms ease",
@@ -398,7 +346,7 @@ export function DrinkShowcase({
           className="absolute bottom-12 left-1/2 hidden -translate-x-1/2 items-center gap-2 rounded-full px-4 py-1.5 text-sm font-semibold backdrop-blur-sm sm:flex"
           style={{ backgroundColor: ink === "#ffffff" ? "rgb(255 255 255 / 0.16)" : "rgb(0 0 0 / 0.1)" }}
         >
-          Scroll or press <kbd className="rounded border border-current/40 px-1.5 font-sans text-xs">←</kbd>
+          Swipe or press <kbd className="rounded border border-current/40 px-1.5 font-sans text-xs">←</kbd>
           <kbd className="rounded border border-current/40 px-1.5 font-sans text-xs">→</kbd> for the next drink
         </p>
       )}
