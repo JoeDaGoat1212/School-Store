@@ -17,10 +17,18 @@ const ALL = "All";
 export function TeacherShop({ items, maxPerOrder }: { items: { item: MenuItem; price: number }[]; maxPerOrder: number }) {
   const cartItems = useCart();
   const [category, setCategory] = useState(ALL);
+  // How much teachers save, to say so up top.
+  const offs = items.filter((i) => i.price < i.item.price_cents).map((i) => percentOff(i.item.price_cents, i.price));
+  const bestOff = Math.max(0, ...offs);
   const categories = [ALL, ...new Set(items.map((i) => i.item.category))];
   const visible = items
     .filter((i) => category === ALL || i.item.category === category)
-    .sort((a, b) => Number(a.item.available <= 0) - Number(b.item.available <= 0));
+    // In stock first, then the biggest markdowns first.
+    .sort(
+      (a, b) =>
+        Number(a.item.available <= 0) - Number(b.item.available <= 0) ||
+        percentOff(b.item.price_cents, b.price) - percentOff(a.item.price_cents, a.price),
+    );
 
   return (
     <section id="teacher-shop" aria-labelledby="teacher-shop-title" className="scroll-mt-20">
@@ -29,8 +37,16 @@ export function TeacherShop({ items, maxPerOrder }: { items: { item: MenuItem; p
           <h2 id="teacher-shop-title" className="font-heading text-5xl leading-none font-extrabold uppercase">
             Teacher prices
           </h2>
-          <p className="mt-1.5 text-muted-foreground">What it costs the store, plus 50¢. Thanks for all you do.</p>
+          <p className="mt-1.5 text-muted-foreground">Everything&apos;s marked way down for you. Thanks for all you do.</p>
         </div>
+        {bestOff > 0 && (
+          <p className="-rotate-2 rounded-xl bg-[#14110f] px-4 py-2 text-center text-[#ffc45c] shadow-soft">
+            <span className="block font-heading text-4xl leading-none font-extrabold">Up to {bestOff}% off</span>
+            <span className="text-sm text-[#f6efe3]/75">
+              {offs.length} item{offs.length === 1 ? "" : "s"} on teacher price
+            </span>
+          </p>
+        )}
       </div>
 
       <div role="tablist" aria-label="Categories" className="sticky top-16 z-20 -mx-4 mt-5 flex gap-2 overflow-x-auto bg-background/90 px-4 py-3 backdrop-blur [scrollbar-width:none]">
@@ -56,7 +72,8 @@ export function TeacherShop({ items, maxPerOrder }: { items: { item: MenuItem; p
           const shown: ShownPrice = {
             price,
             regular: price < item.price_cents ? item.price_cents : null,
-            saleTitle: price < item.price_cents ? "Teacher price" : null,
+            // "35% off": the crossed-out price shows above it.
+            saleTitle: price < item.price_cents ? `${percentOff(item.price_cents, price)}% off` : null,
             memberPrice: null,
             buyGets: [],
           };
@@ -70,4 +87,9 @@ export function TeacherShop({ items, maxPerOrder }: { items: { item: MenuItem; p
       <CartBar />
     </section>
   );
+}
+
+/** $2.00 → $1.35 is 33% off (rounded down, so it's never overstated). */
+function percentOff(regular: number, price: number) {
+  return Math.floor(((regular - price) / regular) * 100);
 }

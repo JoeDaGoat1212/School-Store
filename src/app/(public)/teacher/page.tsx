@@ -44,7 +44,7 @@ export default async function TeacherPage(props: PageProps<"/teacher">) {
           <div>
             <h2 className="font-heading text-5xl leading-[0.95] font-extrabold uppercase">Teachers get the inside price</h2>
             <ul className="mt-5 grid gap-3 text-muted-foreground">
-              <Perk icon={ReceiptTextIcon} title="Cost + 50¢" text="Every snack and drink at what the store paid, plus 50 cents." />
+              <Perk icon={ReceiptTextIcon} title="Way-down prices" text="Every snack and drink marked down, just for teachers." />
               <Perk icon={BellRingIcon} title="Room service" text="A student brings your order to your room. No leaving class." />
               <Perk icon={ClockIcon} title="You pick the hour" text="Choose the class hour, today or the next school day." />
             </ul>

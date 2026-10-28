@@ -273,7 +273,7 @@ Teachers go to **/teacher** (there's a link in the footer) and request an accoun
 school email and a password. Requests show up on the **Teachers** page in the staff dashboard (the sidebar shows how
 many are waiting); tap **Approve**. Approved teachers:
 
-- pay **what the item cost the store + 50¢** (never more than the normal price). A product with no cost saved stays
+- pay **what the item cost the store + 50¢** (never more than the normal price). Teachers never see the "+ 50¢": their page just shows the crossed-out normal price, their price, and how much % off. A product with no cost saved stays
   at its normal price, so keep costs filled in (Products, or by logging shopping trips in Expenses). The Teachers
   page warns you when some are missing.
 - get **room service**: at checkout they pick their room and a class hour (Settings → Class hours), and a student
