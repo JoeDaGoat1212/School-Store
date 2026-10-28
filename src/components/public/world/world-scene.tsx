@@ -15,8 +15,11 @@ import { Building, Interior, Lot, Sky } from "./exterior";
 import { BulletinBoard, CandyStand, CheckoutLane, FloorMarker, WorldFridge, WorldShelf, YellowLetters, type BoardCard } from "./fixtures";
 import { PriceTag, ProductCopies } from "./products";
 import { RequestDesk } from "./request-desk";
-import { Cars } from "./drive";
-import { BULLETIN, BUILDING, LANES, blockers, placeUnits, stations, unitAt, type Place, type StationKey } from "./world-layout";
+import { parkedSpots, player, trafficSpots } from "./bump";
+import { Cars, drive, input } from "./drive";
+import { Town } from "./town";
+import { Traffic } from "./traffic";
+import { BULLETIN, BUILDING, LANES, blockers, doors, placeUnits, stations, unitAt, type Place, type StationKey } from "./world-layout";
 
 /*
  * The whole 3D world in one <Canvas>: sky, parking lot, the store building and
@@ -32,7 +35,6 @@ export type WorldSceneProps = {
   station: StationKey;
   /** True while the camera is still moving there. */
   moving: boolean;
-  doorsOpen: boolean;
   calm: boolean;
   cards: BoardCard[];
   openSign: { title: string; line: string };
@@ -61,8 +63,12 @@ export type WorldSceneProps = {
   onWalk: (station: StationKey) => void;
   /** The car being driven (its number), or null. */
   driving: number | null;
+  /** The parked car you're standing next to (you can tap it to get in), or null. */
+  nearCar: number | null;
+  onNearCar: (car: number | null) => void;
   onPickCar: (car: number) => void;
-  onBump: () => void;
+  /** Your car hit something ("Bonk!" / "Crash!"). */
+  onBump: (text: string) => void;
 };
 
 export default function WorldScene(props: WorldSceneProps) {
@@ -80,13 +86,14 @@ export default function WorldScene(props: WorldSceneProps) {
     <Canvas
       shadows={shadows ? "percentage" : false}
       dpr={[1, 1.6]}
-      camera={{ fov: 56, near: 0.2, far: 900, position: [40, 40, 60] }}
+      camera={{ fov: 56, near: 0.2, far: 2600, position: [40, 40, 60] }}
       gl={{ antialias: true, powerPreference: "high-performance" }}
     >
       <color attach="background" args={[spooky ? "#ffd2a4" : "#a9dcfb"]} />
-      <fog attach="fog" args={[spooky ? "#ffd8b0" : "#d9effc", 140, 380]} />
+      {/* Haze in the distance, so the far end of town fades softly into the sky */}
+      <fog attach="fog" args={[spooky ? "#ffd8b0" : "#d9effc", 180, 720]} />
       <PerformanceMonitor onDecline={() => setShadows(false)} />
-      <CameraRig stations={spots} current={station} calm={calm} onArrive={props.onArrive} blockers={walls} onWalk={props.onWalk} />
+      <CameraRig stations={spots} current={station} calm={calm} onArrive={props.onArrive} blockers={walls} onWalk={props.onWalk} onNearCar={props.onNearCar} />
       <FirstFrame onReady={props.onReady} />
       {process.env.NODE_ENV !== "production" && <TestHook spots={spots} places={places} layouts={layouts} station={station} moving={moving} items={props.items} />}
 
@@ -107,9 +114,12 @@ export default function WorldScene(props: WorldSceneProps) {
       {fontsReady && (
         <>
           <Lot />
-          {/* The parked cars: tap one from the drone view to drive it */}
-          <Cars driving={props.driving} canPick={station === "outside" && !moving && props.driving === null} calm={calm} onPick={props.onPickCar} onBump={props.onBump} />
-          <Building doorsOpen={props.doorsOpen} onDoors={props.onDoors} canEnter={station === "outside" && !props.doorsOpen && props.driving === null} openSign={props.openSign} />
+          {/* The neighbourhood round the store: streets, houses, trees, people walking */}
+          <Town />
+          <Traffic calm={calm} />
+          {/* The parked cars: walk up to one and press E (or tap it) to drive it */}
+          <Cars driving={props.driving} canPick={props.driving === null && !moving ? props.nearCar : null} calm={calm} onPick={props.onPickCar} onBump={props.onBump} />
+          <Building onDoors={props.onDoors} canEnter={station === "outside" && !moving} openSign={props.openSign} />
           <Interior />
           {spooky && <HalloweenOutside />}
           {spooky && <HalloweenInside fridgeX={places.drinks?.x ?? -8.5} />}
@@ -190,6 +200,8 @@ function TestHook(info: { spots: ReturnType<typeof stations>; places: ReturnType
     const w = window as unknown as { __world?: unknown };
     w.__world = {
       ...info,
+      // Live positions: you, the car you're driving, the doors, the cars.
+      live: { player, drive, doors, parkedSpots, trafficSpots, input },
       scene: get().scene,
       three: get,
       project(x: number, y: number, z: number) {
@@ -205,7 +217,13 @@ function TestHook(info: { spots: ReturnType<typeof stations>; places: ReturnType
   return null;
 }
 
-/** The sun, low in the sky behind the lot, casting soft shadows over the store and cars. */
+const sunLook = new THREE.Vector3();
+
+/**
+ * The sun, high behind the lot, casting soft shadows. Shadows only reach so
+ * far, so the sun follows you round the town (in 4-unit steps, so the
+ * shadows don't shimmer as you move).
+ */
 function Sun({ shadows, warm }: { shadows: boolean; warm: boolean }) {
   const light = useRef<THREE.DirectionalLight>(null);
   const scene = useThree((s) => s.scene);
@@ -218,6 +236,18 @@ function Sun({ shadows, warm }: { shadows: boolean; warm: boolean }) {
       scene.remove(l.target);
     };
   }, [scene]);
+  useFrame((state) => {
+    const l = light.current;
+    if (!l) return;
+    // Centre the shadows a little ahead of where you're looking.
+    const look = state.camera.getWorldDirection(sunLook);
+    const x = Math.round((state.camera.position.x + look.x * 30) / 4) * 4;
+    const z = Math.round((state.camera.position.z + look.z * 30) / 4) * 4;
+    if (l.target.position.x === x && l.target.position.z === z - 10) return;
+    l.position.set(x + 34, 60, z + 46);
+    l.target.position.set(x, 0, z - 10);
+    l.target.updateMatrixWorld();
+  });
   return (
     <directionalLight
       ref={light}

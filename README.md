@@ -312,14 +312,26 @@ hand-drawn sales sketch on the dashboard. The colors and fonts are at the end of
 
 ### The 3D store
 
-The 3D store is at **/store**. It opens on a drone view of a cartoon shop with a parking lot; tapping the double doors
-swings them open and the camera flies inside. White floor arrows walk you around: the **deals board** (left, by the
-doors), the **drinks fridge**, the **snack shelf** and the **candy stand**, with three checkout lanes on the right. Drag
-to look around (a **Back** button takes you to where you were), or walk anywhere with **WASD / the arrow keys** (A and D
-step sideways, ← → turn, Shift hurries; you can't walk through walls or shelves, and walking up to a section makes its
-products tappable). Outside, **tap a parked car to drive it**: W / ↑ gas, S / ↓ brake and reverse, A D or ← → steer,
-Space to stop, **Get out** (or Esc) when you're done; phones get on-screen pedals. The store's size and where
-everything stands are in `src/components/public/world/world-layout.ts`; driving is in `drive.tsx`. Tap a fridge door to open just that door, then tap a
+The 3D store is at **/store**. It opens on a drone view of a cartoon shop with a parking lot, in the middle of a small
+town. A big **CLICK TO ENTER** button drops you in the parking lot, right in front of the double doors. Walk with
+**WASD / the arrow keys** (A and D step sideways, ← → turn, Shift to run): the doors **open by themselves** as you walk
+up and shut again once you're far enough away. (Tapping the doors from the drone view flies you straight in.) Inside,
+white floor arrows walk you around too: the **deals board** (left, by the doors), the **request table**, the **drinks
+fridge**, the **snack shelf** and the **candy stand**, with three checkout lanes on the right. Drag to look around (a
+**Back** button takes you to where you were); walking up to a section makes its products tappable. You can't walk
+through walls, shelves, houses, trees or cars.
+
+Outside, the town has streets with sidewalks and street lights, rows of houses (just to look at), trees and bushes,
+people walking on the sidewalks and cars driving round the blocks. **Walk up to a parked car and press E** (or tap
+"Drive this car") to drive it: W / ↑ gas, S / ↓ brake (hold it to reverse), A D or ← → steer, Space handbrake (you'll
+skid), **E** or **Get out** to get out. A speedometer in the corner goes up to 100 mph; the brake lights come on when you
+brake, reverse lights when you back up, and traffic brakes for you (and for anyone walking in the road). Phones get
+on-screen arrows for walking and driving.
+
+Where things are: the store's size and what stands where is in `src/components/public/world/world-layout.ts`; the town
+(streets, houses, trees, people, traffic routes) is in `town-layout.ts` and drawn by `town.tsx`; the car physics
+(speed, brakes, steering, skids) is in `car-physics.ts` with tests next to it; driving is in `drive.tsx`, traffic in
+`traffic.tsx`, the speedometer in `speedometer.tsx`, and what you can bump into in `bump.ts`. Tap a fridge door to open just that door, then tap a
 drink to add it. The **Checkout** button at the bottom glides you to lane 1: your items go down the belt, get scanned
 (the screen on the register shows each one) and dropped in the bag, the screen shows the total, and a sidebar asks for
 the pickup info. Once the order is placed, the sidebar shows its number. (`/cart` still works the old way too.) Everything is also in the shop on the home page (the list

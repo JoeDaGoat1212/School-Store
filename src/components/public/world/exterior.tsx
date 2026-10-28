@@ -7,7 +7,7 @@ import * as THREE from "three";
 import { brand } from "@/config/brand";
 import { CREAM, ORANGE, TEAL, TEAL_DEEP, canvasTexture, seededRandom, noRaycast, signTexture, toonRamp } from "./paint";
 import { advanceOf, flameGeometry, letterGeometry } from "./text3d";
-import { BUILDING, INSIDE } from "./world-layout";
+import { BUILDING, INSIDE, doors } from "./world-layout";
 
 /*
  * Everything outside: the tan store with its sign, side windows and double
@@ -41,7 +41,7 @@ function Wall({ size, position, outside }: { size: [number, number, number]; pos
 }
 
 /** The store: walls with the window and door openings, roof, sign, windows, canopy and doors. */
-export function Building({ doorsOpen, onDoors, canEnter, openSign }: { doorsOpen: boolean; onDoors: () => void; canEnter: boolean; openSign: { title: string; line: string } }) {
+export function Building({ onDoors, canEnter, openSign }: { onDoors: () => void; canEnter: boolean; openSign: { title: string; line: string } }) {
   const { halfWidth: HW, depth: D, height: H, wall: T, doorHalf, doorHeight, windowX, windowY } = BUILDING;
   const [w0, w1] = windowX;
   const [y0, y1] = windowY;
@@ -112,7 +112,7 @@ export function Building({ doorsOpen, onDoors, canEnter, openSign }: { doorsOpen
       <StoreSign />
       <Windows />
       <Canopy />
-      <Doors open={doorsOpen} onOpen={onDoors} canEnter={canEnter} openSign={openSign} />
+      <Doors onOpen={onDoors} canEnter={canEnter} openSign={openSign} />
 
       {/* Planters with shrubs under the windows */}
       {[-1, 1].map((s) => (
@@ -254,8 +254,12 @@ function useOpenSign(title: string, line: string) {
   return texture;
 }
 
-/** The double glass doors. Tap them and they swing in; then the camera walks you through. */
-function Doors({ open, onOpen, canEnter, openSign }: { open: boolean; onOpen: () => void; canEnter: boolean; openSign: { title: string; line: string } }) {
+/**
+ * The double glass doors. They swing open by themselves when someone walks
+ * up (camera.tsx sets doors.open), and shut again once they've gone. From the
+ * drone view you can also tap them to fly straight in.
+ */
+function Doors({ onOpen, canEnter, openSign }: { onOpen: () => void; canEnter: boolean; openSign: { title: string; line: string } }) {
   const left = useRef<THREE.Group>(null);
   const right = useRef<THREE.Group>(null);
   const glow = useRef<THREE.MeshBasicMaterial>(null);
@@ -264,6 +268,7 @@ function Doors({ open, onOpen, canEnter, openSign }: { open: boolean; onOpen: ()
   const h = BUILDING.doorHeight;
 
   useFrame((state, delta) => {
+    const open = doors.open;
     const a = open ? 1.55 : 0;
     // Both swing inward, into the store.
     if (left.current) left.current.rotation.y = THREE.MathUtils.damp(left.current.rotation.y, a, 4, delta);
@@ -492,7 +497,7 @@ export function Lot() {
     <group>
       {/* Grass all around */}
       <mesh rotation-x={-Math.PI / 2} position-y={-0.05} receiveShadow raycast={noRaycast}>
-        <planeGeometry args={[400, 400]} />
+        <planeGeometry args={[2600, 2600]} />
         <Toon color="#86c45a" />
       </mesh>
       {/* Asphalt */}
@@ -559,13 +564,16 @@ export function Sky({ spooky = false }: { spooky?: boolean }) {
     return canvasTexture(c);
   }, [spooky]);
   const clouds = useRef<THREE.Group>(null);
-  useFrame((_, delta) => {
+  const dome = useRef<THREE.Group>(null);
+  useFrame((state, delta) => {
     if (clouds.current) clouds.current.rotation.y += delta * 0.004;
+    // The sky goes wherever you go (so you can never drive to the edge of it).
+    dome.current?.position.set(state.camera.position.x, 0, state.camera.position.z);
   });
   return (
-    <group>
+    <group ref={dome}>
       <mesh raycast={noRaycast}>
-        <sphereGeometry args={[420, 32, 16, 0, Math.PI * 2, 0, Math.PI / 2]} />
+        <sphereGeometry args={[1100, 32, 16, 0, Math.PI * 2, 0, Math.PI / 2]} />
         <meshBasicMaterial map={texture} side={THREE.BackSide} toneMapped={false} fog={false} />
       </mesh>
       <group ref={clouds}>
@@ -577,7 +585,7 @@ export function Sky({ spooky = false }: { spooky?: boolean }) {
           [20, 95, 160, 1],
           [120, 75, 120, 1.2],
         ].map(([x, y, z, s], i) => (
-          <group key={i} position={[x, y, z]} scale={s * 6}>
+          <group key={i} position={[x * 2.4, y * 2, z * 2.4]} scale={s * 13}>
             {[
               [0, 0, 0, 1.4],
               [1.5, -0.2, 0.3, 1.1],

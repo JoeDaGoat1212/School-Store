@@ -3,38 +3,31 @@
 import { useEffect, useLayoutEffect, useRef } from "react";
 import { useFrame, useThree } from "@react-three/fiber";
 import * as THREE from "three";
+import { inStore, parkedSpots, player, walkBlocked } from "./bump";
 import { drive, input, moving } from "./drive";
-import { EYE, INSIDE, nearestStation, type Blocker, type Station, type StationKey } from "./world-layout";
+import { doors, EYE, INSIDE, nearestStation, type Blocker, type Station, type StationKey } from "./world-layout";
 
 /*
  * The camera, like a person (or a drone) in the store.
  *
- * Outside: a drone circling the store. Drag to fly around it.
- * Going in: the camera flies down, through the doors, and stops inside.
- * Inside: you stand at a spot and drag to look around (like Street View);
- * tapping a floor arrow walks you to the next spot. Or walk anywhere with
- * the arrow keys / WASD (you can't walk through walls or shelves).
+ * Start: a drone circling the store. Drag to fly around it.
+ * "Click to enter": the camera swoops down and drops you in the parking lot,
+ * facing the doors. Walk with the arrow keys / WASD, anywhere: into the
+ * store (the doors open by themselves as you get close, and shut once you're
+ * far enough away), round the lot, and out into the town. You can't walk
+ * through walls, shelves, houses, trees or cars.
+ * Inside you can also drag to look around and tap floor arrows to walk.
  * Driving a car: the camera follows behind it.
  */
 
 const WALK_SPEED = 8;
 const RUN_SPEED = 14;
 const TURN_SPEED = 1.9;
-const BODY = 0.9; // how close you can get to things
-
-/** Would standing here bump into a wall or something on the floor? */
-function bumps(x: number, z: number, blockers: Blocker[]) {
-  if (x < INSIDE.left + BODY || x > INSIDE.right - BODY || z < INSIDE.back + BODY || z > INSIDE.front - 1.2) return true;
-  for (const b of blockers) {
-    const dx = x - b.x;
-    const dz = z - b.z;
-    // Into the box's own directions (it may be turned).
-    const lx = dx * Math.cos(b.turn) - dz * Math.sin(b.turn);
-    const lz = dx * Math.sin(b.turn) + dz * Math.cos(b.turn);
-    if (Math.abs(lx) < b.hw + BODY && Math.abs(lz) < b.hd + BODY) return true;
-  }
-  return false;
-}
+/** The doors open when someone's this close to them, and shut again past SHUT. */
+const OPEN = 8;
+const SHUT = 10;
+/** How close you need to be to a car to get in. */
+const REACH = 6.5;
 
 /** Where the drone circles: around this point, this far out. */
 const ORBIT_CENTER = new THREE.Vector3(0, 4, -14);
@@ -61,6 +54,7 @@ export function CameraRig({
   onArrive,
   blockers = [],
   onWalk,
+  onNearCar,
 }: {
   stations: Record<StationKey, Station>;
   current: StationKey;
@@ -71,17 +65,21 @@ export function CameraRig({
   blockers?: Blocker[];
   /** Walked (with the keys) up to a spot, or away from it ("walk"). */
   onWalk?: (station: StationKey) => void;
+  /** Walked up to a parked car (its number), or away from it (null). */
+  onNearCar?: (car: number | null) => void;
 }) {
   const size = useThree((s) => s.size);
   const portrait = size.width < size.height;
   const getState = useThree((s) => s.get);
   const onArriveRef = useRef(onArrive);
   const onWalkRef = useRef(onWalk);
+  const onNearCarRef = useRef(onNearCar);
   const blockersRef = useRef(blockers);
   const stationsRef = useRef(stations);
   useEffect(() => {
     onArriveRef.current = onArrive;
     onWalkRef.current = onWalk;
+    onNearCarRef.current = onNearCar;
     blockersRef.current = blockers;
     stationsRef.current = stations;
   });
@@ -113,14 +111,17 @@ export function CameraRig({
     started: false,
     /** The spot we last told the page we'd walked to (so it doesn't fly us there). */
     walkedTo: null as StationKey | null,
-    /** Just got out of a car: glide back up to the drone view. */
-    glide: 0,
+    /** The car we last said you were next to. */
+    nearCar: null as number | null,
+    /** The normal field of view (it widens a little at high speed). */
+    fov: 56,
   });
 
   // Wider view on tall phone screens.
   useLayoutEffect(() => {
     const cam = getState().camera as THREE.PerspectiveCamera;
     cam.fov = portrait ? 68 : 56;
+    r.current.fov = cam.fov;
     cam.updateProjectionMatrix();
   }, [portrait, getState]);
 
@@ -179,12 +180,16 @@ export function CameraRig({
     if (current === "walk" || current === s.walkedTo) return;
     const to = new THREE.Vector3(st.x, EYE, st.z);
     const target = new THREE.Vector3(...st.look);
-    if (portrait && current !== "entrance" && current !== "center") {
+    if (portrait && current !== "entrance" && current !== "center" && current !== "lot") {
       // Tall phone screen: step back from what you're looking at so more of it fits.
       const back = to.clone().sub(target).setY(0).normalize();
       to.addScaledVector(back, current === "checkout" ? 4 : 5);
       to.x = clamp(to.x, INSIDE.left + 1.5, INSIDE.right - 1.5);
       to.z = clamp(to.z, INSIDE.back + 1.5, INSIDE.front - 1.5);
+    }
+    if (current === "lot") {
+      // Dropped in the parking lot: stand still and look straight at the doors.
+      target.set(0, EYE - 0.3, -10);
     }
     const look = yawPitchOf(to, target);
     if (!s.started) {
@@ -198,10 +203,20 @@ export function CameraRig({
     const from = s.pos.clone();
     let curve: THREE.CatmullRomCurve3 | null = null;
     let duration = Math.min(2.4, 0.9 + from.distanceTo(to) * 0.045);
-    if (prev === "outside") {
+    const goingIn = to.z < 0 && !inStore(from.x, from.z);
+    if (prev === "outside" && current === "lot") {
+      // From the sky, swoop down into the parking lot in front of the doors.
+      curve = new THREE.CatmullRomCurve3([from, new THREE.Vector3(from.x * 0.4, 26, 52), new THREE.Vector3(0, EYE + 2, 22), to], false, "centripetal");
+      duration = 3.4;
+    } else if (prev === "outside") {
       // Down from the sky, through the doors, and in.
       curve = new THREE.CatmullRomCurve3([from, new THREE.Vector3(0, 14, 34), new THREE.Vector3(0, EYE + 0.4, 9), new THREE.Vector3(0, EYE, 1.5), to], false, "centripetal");
       duration = 4.2;
+    } else if (goingIn) {
+      // From outside: walk up to the doors, through them, and on.
+      const pts = [from, new THREE.Vector3(0, EYE, Math.max(6, Math.min(from.z, 14))), new THREE.Vector3(0, EYE, 1.5), new THREE.Vector3(0, EYE, -3), to];
+      curve = new THREE.CatmullRomCurve3(pts, false, "centripetal");
+      duration = clamp(1.6 + from.distanceTo(pts[1]) * 0.02, 2.2, 5);
     }
     if (calm) duration = 0.01;
     s.flight = { from, fromYaw: s.yaw, fromPitch: s.pitch, to, toYaw: look.yaw, toPitch: look.pitch, start: -1, duration, curve, key: current };
@@ -228,17 +243,26 @@ export function CameraRig({
       const look = yawPitchOf(s.pos, new THREE.Vector3(drive.pos.x + fx * 6, 1.6, drive.pos.z + fz * 6));
       s.yaw = look.yaw;
       s.pitch = look.pitch;
-      s.glide = 1; // when you get out, glide back up to the drone view…
-      // …from this side of the store.
-      s.orbitYaw = Math.atan2(s.pos.x - ORBIT_CENTER.x, s.pos.z - ORBIT_CENTER.z);
-      s.sway = 0;
       s.started = true;
+      s.flight = null;
+      player.onFoot = false;
+      // A wider view the faster you go (it feels faster).
+      widen(cam as THREE.PerspectiveCamera, s.fov + Math.min(Math.abs(drive.speed) * 0.3, 14), dt);
+      shutDoors(drive.pos.x, drive.pos.z, false);
       cam.position.copy(s.pos);
       cam.lookAt(dirOf(s.yaw, s.pitch).add(s.pos));
       return;
     }
+    widen(cam as THREE.PerspectiveCamera, s.fov, dt);
 
-    // ---- Walking with the keys (inside) ----
+    // ---- Just got out of a car: hop down beside it ----
+    if (player.hop) {
+      player.hop = false;
+      const to = new THREE.Vector3(player.x, EYE, player.z);
+      s.flight = { from: s.pos.clone(), fromYaw: s.yaw, fromPitch: s.pitch, to, toYaw: player.yaw, toPitch: -0.05, start: -1, duration: calm ? 0.01 : 0.9, curve: null, key: "walk" };
+    }
+
+    // ---- Walking with the keys (inside and out) ----
     if (currentRef.current !== "outside" && !s.flight && moving()) {
       s.yaw += (Number(input.turnRight) - Number(input.turnLeft)) * TURN_SPEED * dt;
       const fwd = Number(input.forward) - Number(input.back);
@@ -248,16 +272,17 @@ export function CameraRig({
       const mz = (-Math.cos(s.yaw) * fwd + Math.sin(s.yaw) * side) * speed;
       const b = blockersRef.current;
       // Slide along walls and shelves instead of stopping dead.
-      if (!bumps(s.pos.x + mx, s.pos.z + mz, b)) {
+      if (!walkBlocked(s.pos.x + mx, s.pos.z + mz, b)) {
         s.pos.x += mx;
         s.pos.z += mz;
-      } else if (!bumps(s.pos.x + mx, s.pos.z, b)) s.pos.x += mx;
-      else if (!bumps(s.pos.x, s.pos.z + mz, b)) s.pos.z += mz;
+      } else if (!walkBlocked(s.pos.x + mx, s.pos.z, b)) s.pos.x += mx;
+      else if (!walkBlocked(s.pos.x, s.pos.z + mz, b)) s.pos.z += mz;
       s.pos.y = THREE.MathUtils.damp(s.pos.y, EYE, 6, dt);
       // Level the view a little while walking.
       s.pitch = THREE.MathUtils.damp(s.pitch, Math.min(s.pitch, 0.05), 2, dt);
       // Tell the page when you've walked up to a spot (or away from one).
-      const near = nearestStation(stationsRef.current, s.pos.x, s.pos.z) ?? "walk";
+      // (Only in the store: outside you're just "walking".)
+      const near = (inStore(s.pos.x, s.pos.z) && nearestStation(stationsRef.current, s.pos.x, s.pos.z)) || "walk";
       if (near !== currentRef.current) {
         s.walkedTo = near;
         onWalkRef.current?.(near);
@@ -283,11 +308,7 @@ export function CameraRig({
         ORBIT_CENTER.y + Math.sin(p) * radius,
         ORBIT_CENTER.z + Math.cos(yaw) * Math.cos(p) * radius,
       );
-      if (s.glide > 0) {
-        // Just got out of a car: rise smoothly from behind it to the drone view.
-        s.glide = Math.max(0, s.glide - dt / 1.6);
-        s.pos.lerp(orbit, 1 - s.glide);
-      } else s.pos.copy(orbit);
+      s.pos.copy(orbit);
       const look = yawPitchOf(s.pos, ORBIT_CENTER);
       s.yaw = look.yaw;
       s.pitch = look.pitch;
@@ -317,9 +338,51 @@ export function CameraRig({
       }
     }
 
+    // ---- Where you are, for everyone else ----
+    const onFoot = currentRef.current !== "outside";
+    player.onFoot = onFoot;
+    if (onFoot) {
+      player.x = s.pos.x;
+      player.z = s.pos.z;
+      player.yaw = s.yaw;
+    }
+    // The doors: open when you're close (or flying through), shut once you're far enough away.
+    shutDoors(s.pos.x, s.pos.z, Boolean(s.flight?.curve));
+
+    // Next to a car you can drive? (Not while flying anywhere.)
+    let near: number | null = null;
+    if (onFoot && !s.flight && !inStore(s.pos.x, s.pos.z)) {
+      let best = REACH;
+      parkedSpots.forEach((c, i) => {
+        const d = Math.hypot(c.x - s.pos.x, c.z - s.pos.z);
+        if (d < best) {
+          best = d;
+          near = i;
+        }
+      });
+    }
+    if (near !== s.nearCar) {
+      s.nearCar = near;
+      onNearCarRef.current?.(near);
+    }
+
     cam.position.copy(s.pos);
     cam.lookAt(dirOf(s.yaw, s.pitch).add(s.pos));
   });
 
   return null;
+}
+
+/** Open the doors when (x, z) is close to them, shut them once it's far enough away. */
+function shutDoors(x: number, z: number, flyingThrough: boolean) {
+  const d = Math.hypot(x, z);
+  if (d < OPEN || (flyingThrough && d < 24)) doors.open = true;
+  else if (d > SHUT) doors.open = false;
+}
+
+/** Ease the camera's field of view toward `fov`. */
+function widen(cam: THREE.PerspectiveCamera, fov: number, dt: number) {
+  if (Math.abs(cam.fov - fov) < 0.02) return;
+  cam.fov = THREE.MathUtils.damp(cam.fov, fov, 3, dt);
+  cam.updateProjectionMatrix();
 }

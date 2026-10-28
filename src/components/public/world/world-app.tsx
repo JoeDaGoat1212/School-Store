@@ -22,6 +22,7 @@ import { modelFor, sectionFor, unitFor, UNITS, type UnitKey } from "../store/cat
 import { unitLayout, type StoreItem } from "../store/layout";
 import type { TillDisplay, TillUnit } from "./checkout-scene";
 import { TouchPad, useMovementKeys } from "./drive";
+import { Speedometer } from "./speedometer";
 import type { BoardCard } from "./fixtures";
 import { LoadingScreen } from "./loading-screen";
 import { unitAt, type StationKey } from "./world-layout";
@@ -34,10 +35,12 @@ import WorldScene from "./world-scene";
  *
  * How it goes:
  *   1. You start outside, looking down at the store like a drone.
- *   2. Tap the doors: they swing open and the camera flies inside.
- *   3. Floor arrows walk you around (deals board, drinks, snacks, candy).
+ *   2. "Click to enter" drops you in the parking lot in front of the doors.
+ *      Walk with WASD / the arrow keys: the doors open as you walk up.
+ *      Or wander off into the town, and press E by a parked car to drive it.
+ *   3. Inside, floor arrows walk you around (deals board, drinks, snacks, candy).
  *   4. Tap a product to add it to your cart.
- *   5. "Checkout" flies you to the registers, then opens the cart page.
+ *   5. "Checkout" takes you to the registers and rings you up.
  */
 
 export type Priced = { item: MenuItem; shown: ShownPrice };
@@ -126,7 +129,6 @@ export default function WorldApp({
 
   const [station, setStation] = useState<StationKey>(startInside ? "center" : "outside");
   const [moving, setMoving] = useState(false);
-  const [doorsOpen, setDoorsOpen] = useState(startInside);
   const [dealsOpen, setDealsOpen] = useState(false);
   const [requestsOpen, setRequestsOpen] = useState(false);
   const [hovered, setHovered] = useState<StoreItem | null>(null);
@@ -140,6 +142,8 @@ export default function WorldApp({
   const [trail, setTrail] = useState<StationKey[]>([]);
   /** The parked car you're driving (its number), or null. */
   const [driving, setDriving] = useState<number | null>(null);
+  /** The parked car you're standing next to (press E to get in), or null. */
+  const [nearCar, setNearCar] = useState<number | null>(null);
   const counter = useRef(0);
   const sidebarScroll = useRef<HTMLDivElement>(null);
   const { progress, active } = useProgress();
@@ -232,12 +236,17 @@ export default function WorldApp({
     moveTo(prev);
   };
 
+  /** Tapped the doors from the drone view: fly straight in (they open as you get there). */
   const openDoors = useCallback(() => {
-    setDoorsOpen(true);
     writeInside();
-    // Let the doors swing open first, then fly in.
-    setTimeout(() => go("entrance"), calm ? 0 : 650);
-  }, [go, calm]);
+    go("entrance");
+  }, [go]);
+
+  /** "Click to enter": drop down into the parking lot, right in front of the doors. */
+  const enter = useCallback(() => {
+    writeInside();
+    moveTo("lot");
+  }, [moveTo]);
 
   const onArrive = useCallback((key: StationKey) => {
     setMoving(false);
@@ -281,11 +290,11 @@ export default function WorldApp({
       .catch(() => {});
     if (station === "checkout" && !moving) {
       setTill((t) => (t ? { ...t, phase: "scanning" } : t));
-    } else if (!doorsOpen) {
-      setDoorsOpen(true);
+    } else {
+      if (driving !== null) setDriving(null);
       writeInside();
-      setTimeout(() => go("checkout"), calm ? 0 : 650);
-    } else go("checkout");
+      go("checkout");
+    }
   };
 
   const onScanned = useCallback((i: number) => setTill((t) => (t ? { ...t, scanned: Math.max(t.scanned, i + 1) } : t)), []);
@@ -325,6 +334,23 @@ export default function WorldApp({
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, []);
+
+  // E: get into the car you're next to, or get out of the one you're driving.
+  const panelOpen = dealsOpen || requestsOpen || sidebar || Boolean(till);
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.code !== "KeyE" || e.repeat || e.ctrlKey || e.metaKey || e.altKey || panelOpen) return;
+      const t = e.target as HTMLElement | null;
+      if (t && (t.isContentEditable || ["INPUT", "TEXTAREA", "SELECT"].includes(t.tagName))) return;
+      if (driving !== null) setDriving(null);
+      else if (nearCar !== null && !moving) {
+        setDriving(nearCar);
+        say("You're driving! Press E to get out.");
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [driving, nearCar, moving, panelOpen]);
 
   // ---- The cart -----------------------------------------------------------------------------
   function say(text: string) {
@@ -378,9 +404,11 @@ export default function WorldApp({
     : moving
     ? null
     : driving !== null
-      ? "W / ↑ gas · S / ↓ brake · A D or ← → steer · Space to stop"
+      ? "W / ↑ gas · S / ↓ brake & reverse · A D or ← → steer · Space handbrake · E get out"
       : station === "outside"
-      ? "Tap the doors to walk in · tap a car to drive it · drag to fly around"
+      ? "Click to enter, or drag to fly around"
+      : station === "lot" || (station === "walk" && nearCar !== null)
+      ? "Walk with WASD / arrow keys (Shift to run) · walk up to a car and press E to drive"
       : unit === "drinks"
         ? "Tap a fridge door to open it, then tap a drink"
         : unit
@@ -392,7 +420,7 @@ export default function WorldApp({
             : "Drag to look around · tap a floor arrow, or walk with WASD / arrow keys";
   const status = note?.text ?? (hoveredUnit && !hovered ? `${UNITS.find((u) => u.key === hoveredUnit)!.title}: tap to walk over` : null);
   const visibleItems = unit ? items.filter((i) => i.unit === unit) : [];
-  const canGoBack = station !== "outside" && station !== "entrance" && !till && !moving;
+  const canGoBack = station !== "outside" && station !== "lot" && station !== "entrance" && !till && !moving && driving === null;
 
   // What the screen on the register says.
   const subtotal = till ? till.units.slice(0, till.scanned).reduce((n, u) => n + u.cents, 0) : 0;
@@ -419,7 +447,6 @@ export default function WorldApp({
           layouts={layouts}
           station={station}
           moving={moving}
-          doorsOpen={doorsOpen}
           calm={calm}
           cards={cards}
           openSign={openSign}
@@ -440,15 +467,30 @@ export default function WorldApp({
           season={season}
           onWalk={onWalk}
           driving={driving}
+          nearCar={nearCar}
+          onNearCar={setNearCar}
           onPickCar={(car) => {
             setDriving(car);
-            say("You're driving! Get out when you're done.");
+            say("You're driving! Press E to get out.");
           }}
-          onBump={() => say("Bonk!")}
+          onBump={say}
         />
       </div>
 
-      {/* Driving: get out (top left), and pedals for phones */}
+      {/* Before you go in: one big button */}
+      {station === "outside" && !moving && ready && (
+        <div className="pointer-events-none absolute inset-x-0 top-[4.5rem] flex justify-center px-4 sm:top-24">
+          <button
+            type="button"
+            onClick={enter}
+            className="enter-pulse pointer-events-auto flex items-center gap-3 rounded-[1.4rem] border-4 border-black bg-primary px-7 py-4 font-heading text-3xl leading-none font-extrabold tracking-wide text-black uppercase shadow-[0_8px_0_#000] transition-transform hover:-translate-y-1 focus-visible:ring-4 focus-visible:ring-black/40 focus-visible:outline-none active:translate-y-1.5 active:shadow-[0_2px_0_#000] sm:px-10 sm:py-5 sm:text-5xl"
+          >
+            Click to enter
+          </button>
+        </div>
+      )}
+
+      {/* Driving: get out (top left), the speedometer (top right), and pedals for phones */}
       {driving !== null && (
         <>
           <div className="absolute top-18 left-3 sm:top-20 sm:left-4">
@@ -457,10 +499,35 @@ export default function WorldApp({
               onClick={() => setDriving(null)}
               className="flex h-10 items-center gap-1.5 rounded-full bg-black px-4 font-heading text-base font-extrabold tracking-wide text-white uppercase shadow-md transition-transform hover:-translate-y-0.5 focus-visible:ring-3 focus-visible:ring-primary/60 focus-visible:outline-none"
             >
-              <DoorOpenIcon className="size-4" /> Get out
+              <DoorOpenIcon className="size-4" /> Get out <kbd className="ml-1 rounded bg-white/20 px-1.5 text-xs">E</kbd>
             </button>
           </div>
+          <div className="absolute top-18 right-3 sm:top-20 sm:right-4">
+            <Speedometer />
+          </div>
           <TouchPad mode="drive" />
+        </>
+      )}
+
+      {/* Walking: next to a car? Get in. And arrows for phones. */}
+      {driving === null && station !== "outside" && !till && !sidebar && !moving && (
+        <>
+          {nearCar !== null && (
+            <div className="pointer-events-none absolute inset-x-0 top-[38%] flex justify-center px-4">
+              <button
+                type="button"
+                onClick={() => {
+                  setDriving(nearCar);
+                  say("You're driving! Press E to get out.");
+                }}
+                className="pointer-events-auto flex items-center gap-2 rounded-full bg-black/85 px-5 py-3 font-heading text-xl font-extrabold tracking-wide text-white uppercase shadow-lg backdrop-blur transition-transform hover:-translate-y-0.5 focus-visible:ring-3 focus-visible:ring-primary/60 focus-visible:outline-none animate-in fade-in zoom-in-95 duration-200"
+              >
+                <kbd className="grid size-8 place-items-center rounded-lg bg-primary font-heading text-lg text-black">E</kbd>
+                Drive this car
+              </button>
+            </div>
+          )}
+          <TouchPad mode="walk" />
         </>
       )}
 
@@ -540,7 +607,7 @@ export default function WorldApp({
       </div>
 
       {/* Inside: Back (to where you came from) and Deals, top left */}
-      {station !== "outside" && !till && (
+      {station !== "outside" && !till && driving === null && (
         <div className="absolute top-18 left-3 flex items-center gap-2 sm:top-20 sm:left-4">
           {canGoBack && (
             <button
@@ -616,7 +683,7 @@ export default function WorldApp({
         {station === "outside" && (
           <li>
             <button type="button" className="focus:not-sr-only focus:absolute focus:top-20 focus:left-4 focus:z-30 focus:rounded-md focus:bg-white focus:px-3 focus:py-1.5" onClick={openDoors}>
-              Walk into the store
+              Go straight into the store
             </button>
           </li>
         )}

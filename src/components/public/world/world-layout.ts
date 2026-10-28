@@ -29,6 +29,12 @@ export const INSIDE = {
   right: BUILDING.halfWidth - BUILDING.wall,
 };
 
+/** The front doors: open while someone is close to them (camera.tsx decides, exterior.tsx swings them). */
+export const doors = { open: false };
+
+/** Where "Click to enter" drops you: in the parking lot, a few steps from the doors. */
+export const DROP = { x: 0, z: 12 };
+
 /** How high your eyes are when you walk around inside. */
 export const EYE = 5.4;
 
@@ -73,7 +79,7 @@ export const COUNTER = 3.1;
 
 // ---- Where you can stand ------------------------------------------------------------------
 
-export type StationKey = "outside" | "entrance" | "deals" | "requests" | "center" | "drinks" | "snacks" | "candy" | "checkout" | "walk";
+export type StationKey = "outside" | "lot" | "entrance" | "deals" | "requests" | "center" | "drinks" | "snacks" | "candy" | "checkout" | "walk";
 
 export type Station = {
   key: StationKey;
@@ -114,6 +120,8 @@ export function stations(places: Record<UnitKey, Place | null>, units: Record<Un
 
   return {
     outside: { key: "outside", label: "Outside", x: 0, z: 30, look: [0, 5, -10], next: [] },
+    // Where "Click to enter" drops you: the parking lot, right in front of the doors.
+    lot: { key: "lot", label: "Parking lot", x: DROP.x, z: DROP.z, look: [0, EYE - 0.3, -10], next: [] },
     entrance: { key: "entrance", label: "Entrance", x: 0, z: -1, look: [-2, 2.6, -24], next: ["deals", "center", "requests"] },
     deals: { key: "deals", label: "Deals & rewards", x: deals.x, z: deals.z, marker: dealsArrow, look: [BULLETIN.x, BULLETIN.bottom + 3.2, BULLETIN.z], next: ["center", "drinks", "requests"] },
     // In front of the request table, looking at the person behind it.
@@ -159,7 +167,7 @@ export function nearestStation(spots: Record<StationKey, Station>, x: number, z:
   let best: StationKey | null = null;
   let bestD = radius;
   for (const s of Object.values(spots)) {
-    if (s.key === "outside" || s.key === "walk" || s.key === "entrance") continue;
+    if (s.key === "outside" || s.key === "lot" || s.key === "walk" || s.key === "entrance") continue;
     const d = Math.hypot(s.x - x, s.z - z);
     if (d < bestD) {
       bestD = d;
