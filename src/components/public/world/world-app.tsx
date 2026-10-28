@@ -410,13 +410,17 @@ export default function WorldApp({
 
       {/* Top corners: the logo, and your rewards account */}
       <div className="pointer-events-none absolute inset-x-0 top-0 flex items-start justify-between gap-3 p-3 sm:p-4">
-        <div className="pointer-events-auto flex min-w-0 items-center gap-2 rounded-full bg-white/85 py-1.5 pr-3.5 pl-2 shadow-md backdrop-blur-md sm:pr-4">
+        <Link
+          href="/"
+          aria-label={`${brand.name} home page`}
+          className="pointer-events-auto flex min-w-0 items-center gap-2 rounded-full bg-white/85 py-1.5 pr-3.5 pl-2 shadow-md backdrop-blur-md transition-colors hover:bg-white focus-visible:ring-3 focus-visible:ring-primary/60 focus-visible:outline-none sm:pr-4"
+        >
           <FlameMark size={26} />
           <span className="font-heading text-base leading-none font-extrabold tracking-wide whitespace-nowrap uppercase sm:text-xl">{brand.name}</span>
-        </div>
+        </Link>
         <div className="pointer-events-auto flex shrink-0 items-center gap-1.5 sm:gap-2">
           <Link
-            href="/menu"
+            href="/#shop"
             aria-label="Shop from a list instead"
             title="List view"
             className="grid size-10 place-items-center rounded-full bg-white/85 shadow-md backdrop-blur-md transition-colors hover:bg-white focus-visible:ring-3 focus-visible:ring-primary/60 focus-visible:outline-none"
@@ -732,7 +736,7 @@ function NoWebGL() {
         <FlameMark size={72} className="mx-auto" />
         <p className="mt-4 font-heading text-4xl font-extrabold tracking-wide uppercase">{brand.name}</p>
         <p className="mt-2 text-black/70">This browser can&apos;t show the 3D store, but you can still shop everything from the list.</p>
-        <Link href="/menu" className="mt-5 inline-flex h-12 items-center rounded-full bg-primary px-6 font-heading text-xl font-extrabold uppercase">
+        <Link href="/#shop" className="mt-5 inline-flex h-12 items-center rounded-full bg-primary px-6 font-heading text-xl font-extrabold uppercase">
           Shop the list
         </Link>
       </div>

@@ -1,5 +1,4 @@
-import { Suspense } from "react";
-import { FlashToast } from "@/components/flash-toast";
+import type { Metadata } from "next";
 import { StoreWorld } from "@/components/public/world/store-world";
 import { checkoutProps } from "@/app/(public)/cart/checkout-props";
 import { shownPrice } from "@/lib/deals";
@@ -8,11 +7,13 @@ import { loadStorefront } from "@/lib/store-data";
 import { pickSeason } from "@/lib/seasons";
 import { openSignText } from "@/lib/store-sign";
 
+export const metadata: Metadata = { title: "3D store" };
+
 /**
- * The home page: the 3D store. You start outside looking down at it from the
- * sky, tap the doors to walk in, and shop. (/menu has the same things as a list.)
+ * The 3D store. You start outside looking down at it from the sky, tap the
+ * doors to walk in, and shop. (The home page has the same things as a list.)
  */
-export default async function HomePage(props: PageProps<"/">) {
+export default async function StorePage(props: PageProps<"/store">) {
   const { season: seasonParam } = await props.searchParams;
   const [{ menu, info, deals }, account, rewardList] = await Promise.all([loadStorefront(), getAccount(), getRewards()]);
   const isMember = Boolean(account?.profile);
@@ -21,9 +22,6 @@ export default async function HomePage(props: PageProps<"/">) {
 
   return (
     <>
-      <Suspense>
-        <FlashToast param="account" text="Your rewards account was deleted." />
-      </Suspense>
       <h1 className="sr-only">{info.store_name}</h1>
       <StoreWorld
         priced={priced}

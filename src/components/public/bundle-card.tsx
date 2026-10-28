@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { LockIcon, PlusIcon } from "lucide-react";
 import { productPhotoUrl } from "@/lib/photos";
+import { productRenderUrl } from "@/lib/product-renders";
 import type { Bundle } from "@/lib/deals";
 import { formatCents, formatDay } from "@/lib/format";
 import { cn } from "@/lib/utils";
@@ -67,11 +68,20 @@ export function BundleCard({
             <span aria-hidden className="flex -space-x-3 text-5xl drop-shadow-sm select-none sm:text-6xl">
               {bundle.emoji
                 ? bundle.emoji
-                : bundle.items.slice(0, 3).map((i, n) => (
-                    <span key={i.product_id} className={cn("inline-block", n % 2 ? "translate-y-2 rotate-6" : "-rotate-6")}>
-                      {i.emoji || "🛍️"}
-                    </span>
-                  ))}
+                : bundle.items.slice(0, 3).map((i, n) => {
+                    // The 3D picture of what's inside when there is one, else its emoji.
+                    const render = productRenderUrl(i.name);
+                    return (
+                      <span key={i.product_id} className={cn("inline-block", n % 2 ? "translate-y-2 rotate-6" : "-rotate-6")}>
+                        {render ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img src={render} alt="" className="size-24 object-contain sm:size-28" />
+                        ) : (
+                          i.emoji || "🛍️"
+                        )}
+                      </span>
+                    );
+                  })}
             </span>
           </div>
         )}

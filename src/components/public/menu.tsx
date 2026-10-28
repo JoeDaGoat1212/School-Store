@@ -12,6 +12,9 @@ import { ProductCard } from "./product-card";
 import { SHOWCASE_TOP } from "./showcase/drink-showcase";
 import { DrinksExperience } from "./showcase/drinks-experience";
 
+/** Sent (with a category name) to switch the menu's tab from elsewhere on the page. */
+export const PICK_CATEGORY_EVENT = "nest:pick-category";
+
 const ALL = "All";
 const DEALS = "Deals";
 const BUNDLES = "Bundles";
@@ -74,6 +77,21 @@ export function Menu({
     return () => window.removeEventListener("resize", move);
   }, [category]);
 
+  // The aisle cards higher up the page pick a tab here (see landing/aisle-cards.tsx).
+  const categoriesRef = useRef(categories);
+  useEffect(() => {
+    categoriesRef.current = categories;
+  });
+  useEffect(() => {
+    const pick = (e: Event) => {
+      const wanted = (e as CustomEvent<string>).detail;
+      const match = categoriesRef.current.find((c) => c.toLowerCase() === wanted.toLowerCase());
+      if (match) setCategory(match);
+    };
+    window.addEventListener(PICK_CATEGORY_EVENT, pick);
+    return () => window.removeEventListener(PICK_CATEGORY_EVENT, pick);
+  }, []);
+
   const featured = deals.promotions.find((p) => p.featured);
   // The Drinks tab turns the page into the full-screen 3D showcase.
   const immersive = /drink/i.test(category);
@@ -85,7 +103,7 @@ export function Menu({
   return (
     <>
       <h2 id="menu" className="scroll-mt-20 font-heading text-5xl leading-none font-extrabold uppercase sm:text-6xl">
-        The menu
+        Shop everything
       </h2>
       <p className="mt-2 mb-5 text-muted-foreground">Tap + to add. Pay when you pick up at the window.</p>
 

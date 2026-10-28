@@ -1,3 +1,4 @@
+import { slugOf } from "@/lib/slug";
 import { photoModelFor, type PhotoModel } from "../showcase/drink-models";
 
 /*
@@ -63,11 +64,7 @@ export function sectionFor(unit: UnitKey, name: string, category: string) {
   return (match ?? sections[sections.length - 1]).key;
 }
 
-export const slugOf = (name: string) =>
-  name
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-|-$/g, "");
+export { slugOf } from "@/lib/slug";
 
 // ---- 3D models ------------------------------------------------------------------
 
@@ -77,7 +74,7 @@ export const slugOf = (name: string) =>
  * tall), puff = how far the middle bulges out on each side, aspect = height ÷ width
  * of the cut-out.
  */
-const PACKS: Record<string, { aspect: number; width: number; puff: number }> = {
+export const PACKS: Record<string, { aspect: number; width: number; puff: number }> = {
   chips: { aspect: 1.037, width: 0.74, puff: 0.12 },
   "beef-jerky": { aspect: 1.03, width: 0.74, puff: 0.06 },
   cookies: { aspect: 0.645, width: 0.8, puff: 0.06 },

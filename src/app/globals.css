@@ -322,3 +322,54 @@
   body { background: white; }
   .shadow-soft { box-shadow: none !important; }
 }
+
+/* ---- Home page hero ------------------------------------------------------------------ */
+
+/* The blurred drone view drifts slowly, so the hero feels alive. */
+.hero-drift {
+  animation: hero-drift 28s ease-in-out infinite alternate;
+}
+@keyframes hero-drift {
+  from { transform: scale(1.12) translate3d(-1.5%, 0, 0); }
+  to { transform: scale(1.2) translate3d(1.5%, -1.5%, 0); }
+}
+
+/* "Enter 3D world": a glowing button whose colours flow, with a shine that sweeps across. */
+.enter-3d {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  background: linear-gradient(110deg, #ff5a1f, #ff2d87, #13a8a0, #ffb21f, #ff5a1f);
+  background-size: 300% 100%;
+  animation: enter-flow 6s linear infinite, enter-glow 2.4s ease-in-out infinite;
+}
+.enter-3d::after {
+  content: "";
+  position: absolute;
+  inset: -20% auto -20% -40%;
+  width: 35%;
+  background: linear-gradient(100deg, transparent, rgb(255 255 255 / 0.65), transparent);
+  transform: skewX(-20deg);
+  animation: enter-shine 3.2s ease-in-out infinite;
+  z-index: -1;
+}
+@keyframes enter-flow {
+  to { background-position: 300% 0; }
+}
+@keyframes enter-glow {
+  0%, 100% { box-shadow: 0 0 0 0 rgb(255 90 31 / 0.55), 0 12px 40px -8px rgb(255 45 135 / 0.6); }
+  50% { box-shadow: 0 0 0 14px rgb(255 90 31 / 0), 0 16px 60px -6px rgb(19 168 160 / 0.7); }
+}
+@keyframes enter-shine {
+  0%, 55% { left: -40%; }
+  100% { left: 130%; }
+}
+
+/* Product pictures float gently on the aisle cards. */
+.float-a { animation: float 5s ease-in-out infinite; }
+.float-b { animation: float 5s ease-in-out -1.7s infinite; }
+.float-c { animation: float 5s ease-in-out -3.3s infinite; }
+@keyframes float {
+  0%, 100% { translate: 0 0; }
+  50% { translate: 0 -8px; }
+}

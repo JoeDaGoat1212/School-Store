@@ -235,6 +235,7 @@ export function ProductForm({
             category={category}
             className="aspect-square w-full rounded-xl"
             emojiClassName="text-7xl"
+            prefer3d={false}
           />
           <input
             ref={fileInput}

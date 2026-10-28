@@ -47,6 +47,7 @@ export function DrinkShowcase({
   title = "Drinks",
   startId,
   onBack,
+  top = SHOWCASE_TOP,
 }: {
   drinks: { item: MenuItem; shown: ShownPrice }[];
   maxPerOrder: number;
@@ -57,6 +58,8 @@ export function DrinkShowcase({
   startId?: string;
   /** Shows an "All drinks" button (and Esc) that calls this. */
   onBack?: () => void;
+  /** How far down the screen the stage sticks (whatever bars are above it). */
+  top?: number;
 }) {
   // In-stock drinks first, so the showcase opens on something you can buy.
   const entries: Entry[] = useMemo(
@@ -92,7 +95,7 @@ export function DrinkShowcase({
   const indexNow = () => {
     const el = sectionRef.current;
     if (!el) return 0;
-    const scrolled = SHOWCASE_TOP - el.getBoundingClientRect().top;
+    const scrolled = top - el.getBoundingClientRect().top;
     return Math.min(count - 1, Math.max(0, Math.floor(scrolled / (window.innerHeight * STEP) + 0.35)));
   };
   const indexNowRef = useRef(indexNow);
@@ -127,17 +130,17 @@ export function DrinkShowcase({
     const el = sectionRef.current;
     if (!el) return;
     const target = Math.min(count - 1, Math.max(0, i));
-    const top = el.getBoundingClientRect().top + window.scrollY - SHOWCASE_TOP + target * window.innerHeight * STEP;
-    window.scrollTo({ top, behavior: calm ? "auto" : "smooth" });
+    const y = el.getBoundingClientRect().top + window.scrollY - top + target * window.innerHeight * STEP;
+    window.scrollTo({ top: y, behavior: calm ? "auto" : "smooth" });
   };
   const go = (step: number) => scrollTo(indexNow() + step);
 
   // Opened from the fridge: line the page up on the drink that was picked.
   useEffect(() => {
     const el = sectionRef.current;
-    if (!el) return;
+    if (!el || !startId) return;
     const start = Math.max(0, entries.findIndex((e) => e.item.id === startId));
-    window.scrollTo({ top: el.getBoundingClientRect().top + window.scrollY - SHOWCASE_TOP + start * window.innerHeight * STEP, behavior: "auto" });
+    window.scrollTo({ top: el.getBoundingClientRect().top + window.scrollY - top + start * window.innerHeight * STEP, behavior: "auto" });
     // Only when the showcase first opens.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -221,7 +224,7 @@ export function DrinkShowcase({
       aria-label={title}
       className="relative mb-8 ml-[calc(50%-50vw)] w-screen select-none"
       // One screen for the stage, plus one scroll "step" for each drink after the first.
-      style={{ height: `calc(100svh - ${SHOWCASE_TOP}px + ${(count - 1) * STEP * 100}svh)` }}
+      style={{ height: `calc(100svh - ${top}px + ${(count - 1) * STEP * 100}svh)` }}
     >
      <div
       onPointerDown={(e) => (drag.current = { x: e.clientX, y: e.clientY })}
@@ -243,8 +246,8 @@ export function DrinkShowcase({
       className="sticky overflow-hidden"
       style={
         {
-          top: SHOWCASE_TOP,
-          height: `calc(100svh - ${SHOWCASE_TOP}px)`,
+          top,
+          height: `calc(100svh - ${top}px)`,
           backgroundColor: stage,
           color: ink,
           transition: "background-color 700ms ease, color 400ms ease",
