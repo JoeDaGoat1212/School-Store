@@ -93,9 +93,10 @@ export function Building({ doorsOpen, onDoors, canEnter, openSign }: { doorsOpen
       </mesh>
       {/* Air-conditioning units on the roof (they make the drone view look real) */}
       {[
-        [-11, -9],
-        [-3, -21],
-        [10, -14],
+        [-15, -11],
+        [-4, -27],
+        [14, -18],
+        [21, -33],
       ].map(([x, z]) => (
         <group key={`${x}${z}`} position={[x, H + 0.3, z]}>
           <RoundedBox args={[4, 1.8, 3]} radius={0.15} position-y={0.9} castShadow raycast={noRaycast}>
@@ -120,8 +121,8 @@ export function Building({ doorsOpen, onDoors, canEnter, openSign }: { doorsOpen
             <boxGeometry args={[w1 - w0, 0.9, 1.6]} />
             <Toon color="#b9b2a6" />
           </mesh>
-          {Array.from({ length: 6 }, (_, i) => (
-            <mesh key={i} position={[-(w1 - w0) / 2 + 1.3 + i * ((w1 - w0 - 2.6) / 5), 1.3, 0]} castShadow raycast={noRaycast}>
+          {Array.from({ length: 9 }, (_, i) => (
+            <mesh key={i} position={[-(w1 - w0) / 2 + 1.3 + i * ((w1 - w0 - 2.6) / 8), 1.3, 0]} castShadow raycast={noRaycast}>
               <icosahedronGeometry args={[0.85, 1]} />
               <meshToonMaterial color={i % 2 ? "#4f9a3d" : "#5fae47"} gradientMap={toonRamp()} />
             </mesh>
@@ -182,7 +183,7 @@ function StoreSign() {
 function Windows() {
   const { windowX: [w0, w1], windowY: [y0, y1] } = BUILDING;
   const frame = <meshStandardMaterial color="#2b2f33" metalness={0.4} roughness={0.45} />;
-  const panes = 3;
+  const panes = 4;
   const pw = (w1 - w0) / panes;
   return (
     <group>
@@ -335,7 +336,7 @@ function Doors({ open, onOpen, canEnter, openSign }: { open: boolean; onOpen: ()
 // ---- Parking lot and surroundings -------------------------------------------------------------
 
 /** One cartoon car: rounded body, glass cabin, chunky wheels, lights. */
-function Car({ color, position, turn = 0 }: { color: string; position: [number, number, number]; turn?: number }) {
+export function Car({ color, position, turn = 0 }: { color: string; position: [number, number, number]; turn?: number }) {
   const body = <Toon color={color} />;
   return (
     <group position={position} rotation-y={turn}>
@@ -423,23 +424,55 @@ function LampPost({ position }: { position: [number, number, number] }) {
   );
 }
 
-/** The parking lot: asphalt, painted stalls, the sidewalk and curb, cars, lamps, trees, grass. */
+/** Half the width of the parking lot (it's a bit wider than the store). */
+export const LOT_HALF = BUILDING.halfWidth + 8;
+const STALL_W = 4.4;
+/** The left edge of each parking stall. */
+const STALLS = Array.from({ length: Math.floor((LOT_HALF * 2 - 4) / STALL_W) }, (_, i) => -LOT_HALF + 2 + i * STALL_W);
+const stallMid = (i: number) => STALLS[i] + STALL_W / 2;
+
+/** The parked cars: colour, where they start, and which way they face. */
+export const PARKED_CARS: { color: string; x: number; z: number; turn: number }[] = [
+  { color: "#e5483b", x: stallMid(1), z: 10, turn: 0 },
+  { color: "#13a8a0", x: stallMid(4), z: 10, turn: 0 },
+  { color: "#ffd21f", x: stallMid(10), z: 10, turn: 0 },
+  { color: "#ffffff", x: stallMid(13), z: 10, turn: 0 },
+  { color: "#3d6fe0", x: stallMid(2), z: 27.5, turn: Math.PI },
+  { color: "#ff7a2a", x: stallMid(7), z: 27.5, turn: Math.PI },
+  { color: "#7b5cd6", x: stallMid(12), z: 27.5, turn: Math.PI },
+];
+
+/** Trees around the lot and the store: x, z, size. */
+export const TREES: [number, number, number][] = [
+  [-LOT_HALF - 10, 10, 1.2],
+  [-LOT_HALF - 12, 24, 1],
+  [LOT_HALF + 10, 12, 1.1],
+  [LOT_HALF + 13, 27, 1.3],
+  [-BUILDING.halfWidth - 8, -10, 1.2],
+  [BUILDING.halfWidth + 8, -18, 1],
+  [-BUILDING.halfWidth - 9, -34, 1.3],
+  [BUILDING.halfWidth + 10, -38, 1.1],
+  [-16, 42, 1],
+  [12, 43, 1.2],
+  [-LOT_HALF - 18, 0, 1.4],
+  [LOT_HALF + 19, -4, 1.3],
+];
+/** Lamp posts at the corners of the lot. */
+export const LAMPS: [number, number][] = [
+  [-LOT_HALF - 1, 3],
+  [LOT_HALF + 1, 3],
+  [-LOT_HALF - 1, 34],
+  [LOT_HALF + 1, 34],
+];
+
+/** The parking lot: asphalt, painted stalls, the sidewalk and curb, lamps, trees, grass. */
 export function Lot() {
-  const stallW = 4.4;
+  const stallW = STALL_W;
   const rows = [
     { z0: 5.5, z1: 14.5 },
     { z0: 23, z1: 32 },
   ];
-  const stalls = Array.from({ length: 11 }, (_, i) => -24.2 + i * stallW);
-  const cars: { color: string; x: number; row: number; flip?: boolean }[] = [
-    { color: "#e5483b", x: stalls[1] + stallW / 2, row: 0 },
-    { color: "#13a8a0", x: stalls[3] + stallW / 2, row: 0 },
-    { color: "#ffd21f", x: stalls[8] + stallW / 2, row: 0 },
-    { color: "#ffffff", x: stalls[10] + stallW / 2, row: 0 },
-    { color: "#3d6fe0", x: stalls[2] + stallW / 2, row: 1, flip: true },
-    { color: "#ff7a2a", x: stalls[6] + stallW / 2, row: 1, flip: true },
-    { color: "#7b5cd6", x: stalls[9] + stallW / 2, row: 1, flip: true },
-  ];
+  const stalls = STALLS;
 
   const asphalt = useMemo(() => {
     const c = document.createElement("canvas");
@@ -464,12 +497,12 @@ export function Lot() {
       </mesh>
       {/* Asphalt */}
       <mesh rotation-x={-Math.PI / 2} position={[0, 0.01, 19]} receiveShadow raycast={noRaycast}>
-        <planeGeometry args={[56, 32]} />
+        <planeGeometry args={[LOT_HALF * 2, 32]} />
         <meshStandardMaterial map={asphalt} roughness={0.95} />
       </mesh>
       {/* Sidewalk and curb along the front of the store */}
       <mesh position={[0, 0.15, 1.75]} receiveShadow raycast={noRaycast}>
-        <boxGeometry args={[48, 0.3, 3.5]} />
+        <boxGeometry args={[BUILDING.halfWidth * 2 + 8, 0.3, 3.5]} />
         <Toon color="#d9d5cc" />
       </mesh>
       {/* Painted stall lines */}
@@ -482,37 +515,17 @@ export function Lot() {
         )),
       )}
       {/* Arrows painted in the driving lane */}
-      {[-14, 0, 14].map((x) => (
+      {[-22, -7, 7, 22].map((x) => (
         <mesh key={x} rotation-x={-Math.PI / 2} position={[x, 0.03, 18.8]} raycast={noRaycast}>
           <planeGeometry args={[4.5, 0.35]} />
           <meshBasicMaterial color="#f4f4f0" />
         </mesh>
       ))}
-      {cars.map((c, i) => (
-        <Car key={i} color={c.color} position={[c.x, 0, c.row === 0 ? 10 : 27.5]} turn={c.flip ? Math.PI : 0} />
-      ))}
-      {[
-        [-29, 3],
-        [29, 3],
-        [-29, 34],
-        [29, 34],
-      ].map(([x, z]) => (
+      {/* The cars are drawn by <Cars> (in drive.tsx), so they can be driven. */}
+      {LAMPS.map(([x, z]) => (
         <LampPost key={`${x}${z}`} position={[x, 0, z]} />
       ))}
-      {[
-        [-38, 10, 1.2],
-        [-40, 24, 1],
-        [38, 12, 1.1],
-        [41, 27, 1.3],
-        [-28, -8, 1.2],
-        [28, -14, 1],
-        [-29, -27, 1.3],
-        [30, -30, 1.1],
-        [-16, 40, 1],
-        [12, 41, 1.2],
-        [-46, 0, 1.4],
-        [47, -4, 1.3],
-      ].map(([x, z, s]) => (
+      {TREES.map(([x, z, s]) => (
         <Tree key={`${x}${z}`} position={[x, 0, z]} scale={s} />
       ))}
     </group>
@@ -606,7 +619,8 @@ function useFloorTiles() {
       ctx.lineTo(256, i * 128);
       ctx.stroke();
     }
-    return canvasTexture(c, [13, 10]);
+    // About one 3-unit tile each way, whatever the store's size.
+    return canvasTexture(c, [Math.round((INSIDE.right - INSIDE.left) / 3), Math.round((INSIDE.front - INSIDE.back) / 3)]);
   }, []);
 }
 
@@ -630,8 +644,8 @@ export function Interior() {
         <meshBasicMaterial map={mat.texture} />
       </mesh>
       {/* Long ceiling light panels */}
-      {[-5, -12, -19, -26].map((z) =>
-        [-11, 0, 11].map((x) => (
+      {[-5, -12, -19, -26, -33].map((z) =>
+        [-16, -5.5, 5.5, 16].map((x) => (
           <mesh key={`${x}${z}`} position={[x, BUILDING.height - 0.05, z]} rotation-x={Math.PI / 2} raycast={noRaycast}>
             <planeGeometry args={[9, 1.1]} />
             <meshBasicMaterial color={panelGlow} toneMapped={false} />

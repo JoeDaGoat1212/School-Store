@@ -750,7 +750,8 @@ export function HalloweenOutside() {
         [12.5, -0.33, 3, 17.5],
         [14, 0.38, 5.5, 20],
       ].map(([radius, speed, phase, y], i) => (
-        <Bat key={i} position={[0, y, -14]} size={1.6} fly={{ radius, speed }} phase={phase} />
+        // Bats circle over the roof (wider for a bigger store).
+        <Bat key={i} position={[0, y, -BUILDING.depth / 2]} size={1.6} fly={{ radius: radius * (BUILDING.halfWidth / 20), speed }} phase={phase} />
       ))}
       {/* A little graveyard on each lawn */}
       {[
@@ -762,10 +763,11 @@ export function HalloweenOutside() {
         [34.5, 14, -0.3, "BOO", 0.06],
         [31.8, 18.5, -0.6, "RIP", 0],
       ].map(([x, z, turn, text, lean], i) => (
-        <Tombstone key={i} position={[Number(x), 0, Number(z)]} turn={Number(turn) + (Number(x) < 0 ? Math.PI / 2 : -Math.PI / 2)} text={String(text)} lean={Number(lean)} />
+        // (Placed for the old 20-wide store; pushed out by however much wider it is now.)
+        <Tombstone key={i} position={[Number(x) + Math.sign(Number(x)) * (BUILDING.halfWidth - 20), 0, Number(z)]} turn={Number(turn) + (Number(x) < 0 ? Math.PI / 2 : -Math.PI / 2)} text={String(text)} lean={Number(lean)} />
       ))}
-      <Pumpkin position={[-30, 0, 11]} size={1.1} face={2} turn={1.2} />
-      <Pumpkin position={[30.5, 0, 12]} size={1} face={0} turn={-1.2} />
+      <Pumpkin position={[-30 - (BUILDING.halfWidth - 20), 0, 11]} size={1.1} face={2} turn={1.2} />
+      <Pumpkin position={[30.5 + (BUILDING.halfWidth - 20), 0, 12]} size={1} face={0} turn={-1.2} />
     </group>
   );
 }
@@ -789,15 +791,17 @@ export function HalloweenInside({ fridgeX }: { fridgeX: number }) {
       <Web position={[left + 0.05, top - 0.05, front - 0.05]} radius={2.2} rotationY={Math.PI} flipX />
       <Web position={[right - 0.05, top - 0.05, front - 0.05]} radius={2.2} rotationY={Math.PI} />
       {/* Spiders and paper bats hanging from the ceiling */}
-      <HangingSpider x={-4} z={-6} top={top} low={8.6} />
-      <HangingSpider x={7} z={-20} top={top} low={8.2} phase={2} />
-      <HangingSpider x={-14} z={-17} top={top} low={8.8} phase={4} />
+      <HangingSpider x={-5} z={-7} top={top} low={8.6} />
+      <HangingSpider x={9} z={-27} top={top} low={8.2} phase={2} />
+      <HangingSpider x={-19} z={-24} top={top} low={8.8} phase={4} />
       {[
         [-7, 10.2, -12],
         [2.5, 10.6, -16],
         [-12, 10, -23],
         [11, 10.4, -6],
         [15, 10.2, -18],
+        [-20, 10.3, -30],
+        [22, 10.1, -26],
       ].map(([x, y, z], i) => (
         <group key={i}>
           <mesh position={[x, (top + y) / 2 + 0.2, z]} raycast={noRaycast}>
@@ -808,15 +812,15 @@ export function HalloweenInside({ fridgeX }: { fridgeX: number }) {
         </group>
       ))}
       {/* Ghosts drifting round overhead */}
-      <Ghost position={[-6, 9.6, -18]} size={1.1} circle={3} speed={0.25} />
-      <Ghost position={[9, 10, -15]} size={0.95} circle={2.5} speed={-0.3} phase={3} />
+      <Ghost position={[-8, 9.6, -22]} size={1.1} circle={3} speed={0.25} />
+      <Ghost position={[12, 10, -19]} size={0.95} circle={2.5} speed={-0.3} phase={3} />
       {/* A bubbling cauldron by the door */}
       <Cauldron position={[3.0, 0, -8]} />
       {/* Jack-o'-lanterns: by the door, either side of the fridge, and on the checkout counters */}
       <Pumpkin position={[-4.4, 0, -4]} size={1.1} face={0} turn={0.3} />
       <Pumpkin position={[-3.4, 0, -3.2]} size={0.7} face={1} turn={0.5} />
-      <Pumpkin position={[fridgeX - 5.2, 0, -27.5]} size={1.2} face={2} turn={0.3} />
-      <Pumpkin position={[fridgeX + 5.2, 0, -27.5]} size={1} face={1} turn={-0.3} />
+      <Pumpkin position={[fridgeX - 5.2, 0, back + 2]} size={1.2} face={2} turn={0.3} />
+      <Pumpkin position={[fridgeX + 5.2, 0, back + 2]} size={1} face={1} turn={-0.3} />
       {LANES.map((l) => (
         <Pumpkin key={l.number} position={[l.x, COUNTER, l.front - l.length + 0.35]} size={0.55} face={l.number} turn={-Math.PI / 2 + 0.3} />
       ))}

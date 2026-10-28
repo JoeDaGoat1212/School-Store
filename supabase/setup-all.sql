@@ -3936,7 +3936,7 @@ create table public.item_requests (
   note         text check (char_length(note) <= 200),
   requester    text check (char_length(requester) <= 60),  -- optional first name
   customer_id  uuid references public.customers (id) on delete set null,
-  teacher_id   uuid references public.teachers (id) on delete set null,
+  teacher_id   uuid,  -- a teacher's login id (no link, so this update doesn't need update 11)
   source       text not null default 'web' check (source in ('store3d', 'web')),
   ip_hash      text,  -- one-way hash of the device, only for limiting spam
   created_at   timestamptz not null default now()

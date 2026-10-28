@@ -253,7 +253,14 @@ export async function requestItem(_prev: RequestState, formData: FormData): Prom
     p_customer_id: account?.profile && !account.staff ? userId : undefined,
     p_teacher_id: isTeacher(account) ? userId : undefined,
   });
-  if (error) return { message: error.hint || "Couldn't send that. Please try again." };
+  if (error) {
+    // The full reason goes to the server log (Vercel → Logs).
+    console.error("[request item] failed:", error.code, error.message);
+    if (error.code === "PGRST202" || /request_item|item_requests/.test(error.message)) {
+      return { message: "Requests aren't switched on yet. (Store staff: run database update 12.)" };
+    }
+    return { message: error.hint || `Couldn't send that: ${error.message}` };
+  }
   revalidatePath("/admin/requests");
   return { done: data as RequestState["done"] };
 }

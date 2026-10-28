@@ -263,7 +263,8 @@ async function loadRequests(days: number) {
       .limit(5000),
     supabase.from("item_request_status").select("item_key, status, staff_note"),
   ]);
-  if (requests.error) throw new Error(requests.error.message);
+  // Before database update 12 the table doesn't exist: show the empty page (the banner says what to run).
+  if (requests.error) return { rows: [] as Row[], statusOf: new Map<string, RequestStatus>(), now };
   return {
     rows: (requests.data ?? []) as Row[],
     statusOf: new Map((statuses.data ?? []).map((s) => [s.item_key, s.status as RequestStatus])),

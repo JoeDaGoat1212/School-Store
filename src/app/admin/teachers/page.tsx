@@ -32,7 +32,7 @@ export default async function TeachersPage() {
     supabase.from("products").select("id", { count: "exact", head: true }).eq("archived", false).eq("unit_cost_cents", 0),
     supabase.from("orders").select("id", { count: "exact", head: true }).not("delivery_room", "is", null).gte("pickup_date", today),
   ]);
-  if (teachers.error) throw new Error(teachers.error.message);
+  // Before database update 11 the table doesn't exist: the banner at the top says what to run.
   const rows = (teachers.data ?? []) as TeacherRow[];
   const pending = rows.filter((t) => t.status === "pending");
   const approved = rows.filter((t) => t.status === "approved");

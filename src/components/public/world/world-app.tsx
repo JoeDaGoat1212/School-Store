@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useProgress } from "@react-three/drei";
-import { ArrowLeftIcon, ListIcon, LockIcon, PlusIcon, ShoppingBagIcon, TagIcon, UserRoundIcon, XIcon } from "lucide-react";
+import { ArrowLeftIcon, DoorOpenIcon, ListIcon, LockIcon, PlusIcon, ShoppingBagIcon, TagIcon, UserRoundIcon, XIcon } from "lucide-react";
 import { quoteCart } from "@/app/(public)/actions";
 import { Checkout } from "@/app/(public)/cart/checkout";
 import type { CheckoutProps } from "@/app/(public)/cart/checkout-props";
@@ -21,6 +21,7 @@ import { cart, cartTotals, splitCart, useCart, type CartItem } from "../cart-sto
 import { modelFor, sectionFor, unitFor, UNITS, type UnitKey } from "../store/catalog";
 import { unitLayout, type StoreItem } from "../store/layout";
 import type { TillDisplay, TillUnit } from "./checkout-scene";
+import { TouchPad, useMovementKeys } from "./drive";
 import type { BoardCard } from "./fixtures";
 import { LoadingScreen } from "./loading-screen";
 import { unitAt, type StationKey } from "./world-layout";
@@ -137,6 +138,8 @@ export default function WorldApp({
   const [sidebar, setSidebar] = useState(false);
   // Where you've walked from, for the Back button.
   const [trail, setTrail] = useState<StationKey[]>([]);
+  /** The parked car you're driving (its number), or null. */
+  const [driving, setDriving] = useState<number | null>(null);
   const counter = useRef(0);
   const sidebarScroll = useRef<HTMLDivElement>(null);
   const { progress, active } = useProgress();
@@ -202,6 +205,15 @@ export default function WorldApp({
     setHoveredUnit(null);
     document.body.style.cursor = "";
     return true;
+  }, []);
+
+  /** Walked there with the arrow keys / WASD: you're already there, so no flying. */
+  const onWalk = useCallback((key: StationKey) => {
+    if (stationRef.current === key) return;
+    stationRef.current = key;
+    setStation(key);
+    setHovered(null);
+    setHoveredUnit(null);
   }, []);
 
   /** Walk to a spot (and remember where you came from, for Back). */
@@ -299,12 +311,16 @@ export default function WorldApp({
     };
   }, []);
 
-  // Escape closes the deals list.
+  // Arrow keys / WASD walk you round the store (or drive a car), unless a panel is open.
+  useMovementKeys(!dealsOpen && !requestsOpen && !sidebar && !till);
+
+  // Escape closes the deals list (and gets you out of a car).
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== "Escape") return;
       setDealsOpen(false);
       setRequestsOpen(false);
+      setDriving(null);
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
@@ -361,8 +377,10 @@ export default function WorldApp({
       : null
     : moving
     ? null
-    : station === "outside"
-      ? "Tap the doors to walk in · drag to fly around"
+    : driving !== null
+      ? "W / ↑ gas · S / ↓ brake · A D or ← → steer · Space to stop"
+      : station === "outside"
+      ? "Tap the doors to walk in · tap a car to drive it · drag to fly around"
       : unit === "drinks"
         ? "Tap a fridge door to open it, then tap a drink"
         : unit
@@ -371,7 +389,7 @@ export default function WorldApp({
             ? "Tap the board to see every deal"
             : station === "requests"
               ? "Tap the table to ask us to sell something"
-            : "Drag to look around · tap a floor arrow to walk";
+            : "Drag to look around · tap a floor arrow, or walk with WASD / arrow keys";
   const status = note?.text ?? (hoveredUnit && !hovered ? `${UNITS.find((u) => u.key === hoveredUnit)!.title}: tap to walk over` : null);
   const visibleItems = unit ? items.filter((i) => i.unit === unit) : [];
   const canGoBack = station !== "outside" && station !== "entrance" && !till && !moving;
@@ -420,8 +438,31 @@ export default function WorldApp({
           onBagged={onBagged}
           busy={Boolean(till)}
           season={season}
+          onWalk={onWalk}
+          driving={driving}
+          onPickCar={(car) => {
+            setDriving(car);
+            say("You're driving! Get out when you're done.");
+          }}
+          onBump={() => say("Bonk!")}
         />
       </div>
+
+      {/* Driving: get out (top left), and pedals for phones */}
+      {driving !== null && (
+        <>
+          <div className="absolute top-18 left-3 sm:top-20 sm:left-4">
+            <button
+              type="button"
+              onClick={() => setDriving(null)}
+              className="flex h-10 items-center gap-1.5 rounded-full bg-black px-4 font-heading text-base font-extrabold tracking-wide text-white uppercase shadow-md transition-transform hover:-translate-y-0.5 focus-visible:ring-3 focus-visible:ring-primary/60 focus-visible:outline-none"
+            >
+              <DoorOpenIcon className="size-4" /> Get out
+            </button>
+          </div>
+          <TouchPad mode="drive" />
+        </>
+      )}
 
       {/* Top corners: the logo, and your rewards account */}
       <div className="pointer-events-none absolute inset-x-0 top-0 flex items-start justify-between gap-3 p-3 sm:p-4">

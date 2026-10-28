@@ -15,7 +15,8 @@ import { Building, Interior, Lot, Sky } from "./exterior";
 import { BulletinBoard, CandyStand, CheckoutLane, FloorMarker, WorldFridge, WorldShelf, YellowLetters, type BoardCard } from "./fixtures";
 import { PriceTag, ProductCopies } from "./products";
 import { RequestDesk } from "./request-desk";
-import { BULLETIN, BUILDING, LANES, placeUnits, stations, unitAt, type Place, type StationKey } from "./world-layout";
+import { Cars } from "./drive";
+import { BULLETIN, BUILDING, LANES, blockers, placeUnits, stations, unitAt, type Place, type StationKey } from "./world-layout";
 
 /*
  * The whole 3D world in one <Canvas>: sky, parking lot, the store building and
@@ -56,6 +57,12 @@ export type WorldSceneProps = {
   busy: boolean;
   /** Holiday decorations to put up (or null). */
   season: Season;
+  /** Walked up to a spot (or away from one) with the arrow keys / WASD. */
+  onWalk: (station: StationKey) => void;
+  /** The car being driven (its number), or null. */
+  driving: number | null;
+  onPickCar: (car: number) => void;
+  onBump: () => void;
 };
 
 export default function WorldScene(props: WorldSceneProps) {
@@ -65,6 +72,7 @@ export default function WorldScene(props: WorldSceneProps) {
   const fontsReady = useFontsReady();
   const places = useMemo(() => placeUnits(layouts), [layouts]);
   const spots = useMemo(() => stations(places, layouts), [places, layouts]);
+  const walls = useMemo(() => blockers(places, layouts), [places, layouts]);
   const here = spots[station];
   const spooky = props.season === "halloween";
 
@@ -78,7 +86,7 @@ export default function WorldScene(props: WorldSceneProps) {
       <color attach="background" args={[spooky ? "#ffd2a4" : "#a9dcfb"]} />
       <fog attach="fog" args={[spooky ? "#ffd8b0" : "#d9effc", 140, 380]} />
       <PerformanceMonitor onDecline={() => setShadows(false)} />
-      <CameraRig stations={spots} current={station} calm={calm} onArrive={props.onArrive} />
+      <CameraRig stations={spots} current={station} calm={calm} onArrive={props.onArrive} blockers={walls} onWalk={props.onWalk} />
       <FirstFrame onReady={props.onReady} />
       {process.env.NODE_ENV !== "production" && <TestHook spots={spots} places={places} layouts={layouts} station={station} moving={moving} items={props.items} />}
 
@@ -87,8 +95,8 @@ export default function WorldScene(props: WorldSceneProps) {
       <ambientLight intensity={0.35} />
       <Sun shadows={shadows} warm={spooky} />
       {/* Inside: warm ceiling light over the shop floor. */}
-      <pointLight position={[-9, BUILDING.height - 1, -16]} intensity={80} distance={34} decay={1.2} color="#fff4e6" />
-      <pointLight position={[9, BUILDING.height - 1, -16]} intensity={80} distance={34} decay={1.2} color="#fff4e6" />
+      <pointLight position={[-13, BUILDING.height - 1, -20]} intensity={105} distance={46} decay={1.2} color="#fff4e6" />
+      <pointLight position={[13, BUILDING.height - 1, -20]} intensity={105} distance={46} decay={1.2} color="#fff4e6" />
       <Environment resolution={128} frames={1}>
         <Lightformer intensity={2} position={[0, 10, 0]} rotation-x={Math.PI / 2} scale={[20, 20, 1]} />
         <Lightformer intensity={1.2} color="#ffe2c4" position={[-10, 3, 6]} rotation-y={Math.PI / 4} scale={[10, 4, 1]} />
@@ -99,7 +107,9 @@ export default function WorldScene(props: WorldSceneProps) {
       {fontsReady && (
         <>
           <Lot />
-          <Building doorsOpen={props.doorsOpen} onDoors={props.onDoors} canEnter={station === "outside" && !props.doorsOpen} openSign={props.openSign} />
+          {/* The parked cars: tap one from the drone view to drive it */}
+          <Cars driving={props.driving} canPick={station === "outside" && !moving && props.driving === null} calm={calm} onPick={props.onPickCar} onBump={props.onBump} />
+          <Building doorsOpen={props.doorsOpen} onDoors={props.onDoors} canEnter={station === "outside" && !props.doorsOpen && props.driving === null} openSign={props.openSign} />
           <Interior />
           {spooky && <HalloweenOutside />}
           {spooky && <HalloweenInside fridgeX={places.drinks?.x ?? -8.5} />}
@@ -202,7 +212,7 @@ function Sun({ shadows, warm }: { shadows: boolean; warm: boolean }) {
   useEffect(() => {
     const l = light.current;
     if (!l) return;
-    l.target.position.set(0, 0, -6);
+    l.target.position.set(0, 0, -10);
     scene.add(l.target);
     return () => {
       scene.remove(l.target);
@@ -218,10 +228,10 @@ function Sun({ shadows, warm }: { shadows: boolean; warm: boolean }) {
       shadow-mapSize={[2048, 2048]}
       shadow-bias={-0.0004}
       shadow-normalBias={0.04}
-      shadow-camera-left={-60}
-      shadow-camera-right={60}
-      shadow-camera-top={60}
-      shadow-camera-bottom={-60}
+      shadow-camera-left={-75}
+      shadow-camera-right={75}
+      shadow-camera-top={75}
+      shadow-camera-bottom={-75}
       shadow-camera-near={10}
       shadow-camera-far={180}
     />

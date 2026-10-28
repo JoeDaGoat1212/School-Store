@@ -25,13 +25,22 @@ export default async function AdminLayout({ children }: LayoutProps<"/admin">) {
     .in("status", ["received", "preparing", "ready"]);
 
   // Number badge on "Teachers": requests waiting for approval.
-  const { count: pendingTeachers } = await supabase.from("teachers").select("id", { count: "exact", head: true }).eq("status", "pending");
+  const { count: pendingTeachers, error: teachersMissing } = await supabase
+    .from("teachers")
+    .select("id", { count: "exact", head: true })
+    .eq("status", "pending");
 
   // Number badge on "Requests": requests from the last 7 days.
-  const { count: newRequests } = await supabase
+  const { count: newRequests, error: requestsMissing } = await supabase
     .from("item_requests")
     .select("id", { count: "exact", head: true })
     .gte("created_at", daysAgo(7));
+
+  // Database updates that haven't been run yet (their tables are missing).
+  const missing = [
+    ...(teachersMissing ? [{ file: "20261028000011_teachers_room_service.sql", what: "teachers, room service and combos" }] : []),
+    ...(requestsMissing ? [{ file: "20261028000012_item_requests.sql", what: "item requests" }] : []),
+  ];
 
   // Remember whether the sidebar was collapsed last time.
   const sidebarOpen = (await cookies()).get("sidebar_state")?.value !== "false";
@@ -48,7 +57,10 @@ export default async function AdminLayout({ children }: LayoutProps<"/admin">) {
           <div className="flex-1" />
           <ThemeToggle />
         </header>
-        <div className="mx-auto w-full max-w-7xl flex-1 px-4 py-6 md:px-8 md:py-8">{children}</div>
+        <div className="mx-auto w-full max-w-7xl flex-1 px-4 py-6 md:px-8 md:py-8">
+          {missing.length > 0 && <UpdatesNeeded missing={missing} />}
+          {children}
+        </div>
       </SidebarInset>
     </SidebarProvider>
   );
@@ -57,4 +69,28 @@ export default async function AdminLayout({ children }: LayoutProps<"/admin">) {
 /** The moment N days ago, for database filters. */
 function daysAgo(days: number) {
   return new Date(Date.now() - days * 86400000).toISOString();
+}
+
+/**
+ * Shown on every staff page until the store's database has every update the
+ * code needs. Each update is a file to paste into Supabase's SQL Editor.
+ */
+function UpdatesNeeded({ missing }: { missing: { file: string; what: string }[] }) {
+  return (
+    <div role="alert" className="mb-8 rounded-[5px] border-2 border-[var(--stamp,var(--destructive))] bg-card p-4 shadow-soft">
+      <p className="font-heading text-xl text-[var(--stamp,var(--destructive))]">Database update needed</p>
+      <p className="mt-1 text-sm">
+        Some features won&apos;t work until you run {missing.length === 1 ? "this update" : "these updates, in this order"}. Open each file
+        from <code className="font-receipt">supabase/sql-editor/</code>, paste all of it into Supabase → SQL Editor → New query, and click
+        Run.
+      </p>
+      <ol className="mt-2 grid gap-1 text-sm">
+        {missing.map((m) => (
+          <li key={m.file}>
+            <code className="font-receipt font-bold">{m.file}</code> <span className="text-muted-foreground">({m.what})</span>
+          </li>
+        ))}
+      </ol>
+    </div>
+  );
 }
