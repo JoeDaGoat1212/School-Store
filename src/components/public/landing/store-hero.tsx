@@ -31,11 +31,6 @@ export function StoreHero({ season }: { season: Season }) {
       <div aria-hidden className="absolute inset-x-0 bottom-0 h-1/3 bg-gradient-to-t from-black/60 to-transparent" />
 
       <div className="relative z-10 flex flex-col items-center px-4 text-center">
-        {season === "halloween" && (
-          <p className="mb-5 rounded-full bg-black/45 px-4 py-1.5 text-sm font-semibold backdrop-blur-sm animate-in fade-in slide-in-from-top-2 duration-700">
-            🎃 The store is dressed up for Halloween
-          </p>
-        )}
         <h1 className="font-heading text-[clamp(3.6rem,14vw,11rem)] leading-[0.82] font-extrabold tracking-wide uppercase [text-shadow:0_6px_40px_rgb(0_0_0/0.45)] animate-in fade-in zoom-in-95 duration-700">
           {brand.name}
         </h1>
