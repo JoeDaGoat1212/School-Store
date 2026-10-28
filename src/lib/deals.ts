@@ -34,7 +34,37 @@ export type Bundle = {
   items: { product_id: string; name: string; emoji: string | null; quantity: number }[];
 };
 
-export type Deals = { promotions: Promotion[]; bundles: Bundle[] };
+/** One part of a combo: "Pick 2 candy". Any of `products` can go in it. */
+export type ComboSlot = {
+  label: string;
+  quantity: number;
+  /** Priciest first. */
+  products: { product_id: string; name: string; emoji: string | null; price_cents: number; available: number }[];
+};
+
+/** "Chips + a soda for $2.50": pick what goes in each slot; the cart takes the discount off by itself. */
+export type Combo = {
+  id: string;
+  title: string;
+  price_cents: number;
+  ends_on: string | null;
+  members_only: boolean;
+  featured: boolean;
+  slots: ComboSlot[];
+};
+
+export type Deals = { promotions: Promotion[]; bundles: Bundle[]; /** Added in update 11. */ combos?: Combo[] };
+
+/** "chips + soda", "2 candy + soda" */
+export function comboRecipe(combo: Combo) {
+  return combo.slots.map((s) => `${s.quantity > 1 ? `${s.quantity} ` : ""}${s.label.toLowerCase()}`).join(" + ");
+}
+
+/** The most a combo can save (picking the priciest things in every slot). */
+export function comboSavesUpTo(combo: Combo) {
+  const top = combo.slots.reduce((sum, s) => sum + (s.products[0]?.price_cents ?? 0) * s.quantity, 0);
+  return Math.max(top - combo.price_cents, 0);
+}
 
 export type ShownPrice = {
   /** What this shopper pays per item right now. */

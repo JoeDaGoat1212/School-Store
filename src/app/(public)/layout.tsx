@@ -32,6 +32,9 @@ export default function PublicLayout({ children }: { children: React.ReactNode }
             <Link href="/lookup" className="underline-offset-4 hover:text-white hover:underline">
               Find my order
             </Link>
+            <Link href="/teacher" className="underline-offset-4 hover:text-white hover:underline">
+              Teachers
+            </Link>
             <Link href="/login" className="underline-offset-4 hover:text-white hover:underline">
               Staff login
             </Link>

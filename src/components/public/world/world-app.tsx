@@ -10,7 +10,7 @@ import type { CheckoutProps } from "@/app/(public)/cart/checkout-props";
 import type { Season } from "@/lib/seasons";
 import { FlameMark } from "@/components/brand-mark";
 import { brand, formatOrderNumber } from "@/config/brand";
-import { buyGetLabel, bundleOpenTo, type Bundle, type Deals, type ShownPrice } from "@/lib/deals";
+import { buyGetLabel, bundleOpenTo, comboRecipe, type Bundle, type Combo, type Deals, type ShownPrice } from "@/lib/deals";
 import { formatCents } from "@/lib/format";
 import { productLook } from "@/lib/product-look";
 import type { MenuItem } from "@/lib/store-data";
@@ -544,6 +544,7 @@ export default function WorldApp({
           onSale={onSale}
           buyGets={buyGets}
           bundles={deals.bundles}
+          combos={deals.combos ?? []}
           isMember={isMember}
           rewards={rewards}
           onAdd={(id) => add(id)}
@@ -590,6 +591,7 @@ function DealsPanel({
   onSale,
   buyGets,
   bundles,
+  combos,
   isMember,
   rewards,
   onAdd,
@@ -599,6 +601,7 @@ function DealsPanel({
   onSale: Priced[];
   buyGets: Deals["promotions"];
   bundles: Bundle[];
+  combos: Combo[];
   isMember: boolean;
   rewards: { enabled: boolean; pointsPerDollar: number };
   onAdd: (id: string) => void;
@@ -607,7 +610,7 @@ function DealsPanel({
 }) {
   const closeRef = useRef<HTMLButtonElement>(null);
   useEffect(() => closeRef.current?.focus(), []);
-  const empty = onSale.length === 0 && buyGets.length === 0 && bundles.length === 0;
+  const empty = onSale.length === 0 && buyGets.length === 0 && bundles.length === 0 && combos.length === 0;
 
   return (
     <div role="dialog" aria-modal="true" aria-label="Deals" className="fixed inset-0 z-[85] flex justify-end">
@@ -627,6 +630,24 @@ function DealsPanel({
         </div>
 
         <div className="flex-1 space-y-6 overflow-y-auto p-5">
+          {combos.length > 0 && (
+            <section>
+              <h3 className="mb-2 font-heading text-xl font-extrabold tracking-wide text-[#0b6b67] uppercase">Combos</h3>
+              <ul className="space-y-2">
+                {combos.map((c) => (
+                  <li key={c.id}>
+                    <Link href="/deals#combos" className="flex items-center justify-between gap-3 rounded-2xl bg-white p-3 shadow-sm transition-transform hover:-translate-y-0.5">
+                      <span>
+                        <span className="block font-semibold">{c.title}</span>
+                        <span className="block text-sm text-black/60">Any {comboRecipe(c)}</span>
+                      </span>
+                      <span className="font-heading text-2xl font-extrabold">{formatCents(c.price_cents)}</span>
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )}
           {bundles.length > 0 && (
             <section>
               <h3 className="mb-2 font-heading text-xl font-extrabold tracking-wide text-[#0b6b67] uppercase">Bundles</h3>

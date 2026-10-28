@@ -22,6 +22,10 @@ export type StoreInfo = {
   rewards_enabled?: boolean; // added in phase 8
   points_per_dollar?: number;
   pickup_windows: PickupWindow[];
+  // Added with teachers and room service (update 11).
+  room_service_enabled?: boolean;
+  /** Class hours a teacher can have room service brought during. */
+  class_periods?: PickupWindow[];
 };
 
 export type PickupDay = {
@@ -41,14 +45,18 @@ export function toMinutes(hhmm: string) {
 /**
  * The days a student can pick from (today and/or the next school day), with
  * each pickup window marked open or closed.
+ *
+ * Teachers: pass `teacher: true` (they can order after the same-day cutoff),
+ * and `windows: info.class_periods` for room service.
  */
-export function pickupDays(info: StoreInfo): PickupDay[] {
+export function pickupDays(info: StoreInfo, options: { windows?: PickupWindow[]; teacher?: boolean } = {}): PickupDay[] {
   const days: PickupDay[] = [];
   const now = toMinutes(info.now_time);
-  const beforeCutoff = now < toMinutes(info.order_cutoff_time);
+  const beforeCutoff = options.teacher || now < toMinutes(info.order_cutoff_time);
+  const list = options.windows ?? info.pickup_windows;
 
   if (info.today_is_open) {
-    const windows = info.pickup_windows.map((window) => ({
+    const windows = list.map((window) => ({
       window,
       open: beforeCutoff && now < toMinutes(window.starts_at) - info.order_lead_minutes,
     }));
@@ -56,7 +64,7 @@ export function pickupDays(info: StoreInfo): PickupDay[] {
   }
 
   if (info.next_open_day) {
-    const windows = info.pickup_windows.map((window) => ({ window, open: true }));
+    const windows = list.map((window) => ({ window, open: true }));
     days.push({ date: info.next_open_day, isToday: false, windows, anyOpen: windows.length > 0 });
   }
 

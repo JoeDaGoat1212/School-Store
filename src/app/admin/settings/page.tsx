@@ -11,6 +11,7 @@ export const metadata: Metadata = { title: "Settings" };
 const SECTIONS = [
   ["store", "Store info"],
   ["pickup", "Pickup times"],
+  ["class", "Class hours"],
   ["ordering", "Ordering rules"],
   ["closed", "Closed days"],
   ["inventory", "Inventory & privacy"],
@@ -21,7 +22,7 @@ export default async function SettingsPage() {
   const { supabase, user } = await requireAdmin();
   const [{ data: settings, error }, { data: windows }, { data: closed }] = await Promise.all([
     supabase.from("settings").select("*").eq("id", 1).single(),
-    supabase.from("pickup_windows").select("id, label, starts_at, active").order("sort_order").order("starts_at"),
+    supabase.from("pickup_windows").select("id, label, starts_at, active, kind").order("sort_order").order("starts_at"),
     supabase.from("closed_dates").select("closed_on, reason").order("closed_on"),
   ]);
   if (error) throw new Error(error.message);
@@ -53,7 +54,13 @@ export default async function SettingsPage() {
           <PickupWindowsEditor
             // Rebuild the editor after a save, so new times get their real ids.
             key={JSON.stringify(windows)}
-            initial={(windows ?? []).map((w) => ({ ...w, starts_at: w.starts_at.slice(0, 5) }))}
+            initial={(windows ?? []).filter((w) => w.kind !== "class").map((w) => ({ ...w, starts_at: w.starts_at.slice(0, 5) }))}
+            leadMinutes={s.order_lead_minutes}
+          />
+          <PickupWindowsEditor
+            key={`class-${JSON.stringify(windows)}`}
+            kind="class"
+            initial={(windows ?? []).filter((w) => w.kind === "class").map((w) => ({ ...w, starts_at: w.starts_at.slice(0, 5) }))}
             leadMinutes={s.order_lead_minutes}
           />
           <OrderingForm s={s} />

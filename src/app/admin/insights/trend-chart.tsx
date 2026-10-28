@@ -102,7 +102,7 @@ export function TrendChart({ data }: { data: Insights }) {
               />
               <Tooltip cursor={{ fill: "var(--muted)", opacity: 0.6 }} content={TrendTooltip} />
               {SERIES.map((s) => (
-                <Bar key={s.key} dataKey={s.key} name={s.label} fill={s.color} radius={[4, 4, 0, 0]} maxBarSize={24} />
+                <Bar key={s.key} dataKey={s.key} name={s.label} fill={s.color} maxBarSize={24} shape={PencilBar} />
               ))}
           </BarChart>
         </div>
@@ -154,5 +154,40 @@ function TrendTooltip({ active, payload }: TooltipContentProps<ValueType, NameTy
         <span className="font-semibold tabular-nums">{formatCents(row.revenue - row.spending)}</span>
       </p>
     </div>
+  );
+}
+
+/**
+ * A bar drawn like a pencil sketch: a slightly wobbly outline in the series
+ * color, filled with diagonal hatching. (Each bar wobbles the same way every
+ * time, based on where it is.)
+ */
+function PencilBar(props: unknown) {
+  const { x = 0, y = 0, width = 0, height = 0, fill = "currentColor" } = props as { x?: number; y?: number; width?: number; height?: number; fill?: string };
+  if (height <= 0.5 || width <= 0) return <g />;
+  const j = (n: number) => Math.sin(x * 12.9898 + y * 78.233 + n * 37.719) * 1.3; // a steady little wobble
+  const left = x + j(1);
+  const right = x + width + j(2);
+  const top = y + j(3);
+  const bottom = y + height;
+  // Hatch lines every 4px, clipped to the bar.
+  const lines: string[] = [];
+  for (let k = -height; k < width; k += 4) lines.push(`M${x + k} ${bottom} L${x + k + height} ${y}`);
+  const id = `hatch-${Math.round(x)}-${Math.round(y)}`;
+  return (
+    <g>
+      <clipPath id={id}>
+        <rect x={x} y={y} width={width} height={height} />
+      </clipPath>
+      <path d={lines.join(" ")} stroke={fill} strokeWidth="1.4" strokeOpacity="0.55" clipPath={`url(#${id})`} />
+      <path
+        d={`M${left} ${bottom} L${x + j(4)} ${top} Q${x + width / 2} ${top + j(5)} ${right} ${y + j(6)} L${x + width + j(7)} ${bottom}`}
+        fill="none"
+        stroke={fill}
+        strokeWidth="2.4"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </g>
   );
 }

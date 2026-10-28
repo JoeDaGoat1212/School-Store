@@ -96,6 +96,9 @@ export default async function PrepListPage(props: PageProps<"/admin/orders/prep"
                         {o.first_name} {o.last_name}
                       </span>
                     </div>
+                    {o.delivery_room && (
+                      <p className="mt-1 font-heading text-lg font-extrabold uppercase">Deliver to Room {o.delivery_room} · ${(o.total_cents / 100).toFixed(2)} due</p>
+                    )}
                     <ul className="mt-2 grid gap-0.5 text-sm">
                       {o.items.map((i) => (
                         <li key={i.product_name} className="flex gap-2">

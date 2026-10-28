@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Suspense } from "react";
-import { GiftIcon, PackageIcon, PercentIcon, StarIcon, TagIcon } from "lucide-react";
+import { GiftIcon, PackageIcon, PercentIcon, StarIcon, TagIcon, UtensilsCrossedIcon } from "lucide-react";
 import { FlashToast } from "@/components/flash-toast";
 import { EmptyState, PageHeader } from "@/components/staff/page-header";
 import { Pill, type Tone } from "@/components/status-badge";
@@ -32,7 +32,7 @@ export default async function DealsPage() {
   const [promos, bundles] = await Promise.all([
     supabase
       .from("promotions")
-      .select("id, kind, title, category, sale_price_cents, buy_qty, get_qty, starts_on, ends_on, members_only, featured, active, products(name, price_cents)")
+      .select("id, kind, title, category, sale_price_cents, buy_qty, get_qty, starts_on, ends_on, members_only, featured, active, combo_slots, products(name, price_cents)")
       .order("ends_on", { ascending: false }),
     supabase
       .from("bundles")
@@ -55,6 +55,11 @@ export default async function DealsPage() {
             <Button asChild variant="outline">
               <Link href="/admin/deals/edit?kind=sale">
                 <TagIcon /> New sale
+              </Link>
+            </Button>
+            <Button asChild variant="outline">
+              <Link href="/admin/deals/edit?kind=combo">
+                <UtensilsCrossedIcon /> New combo
               </Link>
             </Button>
             <Button asChild variant="outline">
@@ -84,7 +89,11 @@ export default async function DealsPage() {
             {promos.data.map((p) => {
               const status = dealStatus(p.active, p.starts_on, p.ends_on, today);
               const what =
-                p.kind === "sale"
+                p.kind === "combo"
+                  ? `Combo for ${formatCents(p.sale_price_cents ?? 0)}: ${((p.combo_slots ?? []) as { label: string; quantity: number }[])
+                      .map((s) => `${s.quantity > 1 ? `${s.quantity} ` : ""}${s.label.toLowerCase()}`)
+                      .join(" + ")}`
+                  : p.kind === "sale"
                   ? `${p.products?.name}: ${formatCents(p.sale_price_cents!)} (normally ${formatCents(p.products?.price_cents ?? 0)})`
                   : `Buy ${p.buy_qty}, get ${p.get_qty} free on ${p.products?.name ?? `any ${p.category}`}`;
               return (

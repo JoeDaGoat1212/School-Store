@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useActionState, useEffect, useRef, useState } from "react";
-import { AlertCircleIcon, BanknoteIcon, CheckCircle2Icon, GiftIcon, Loader2Icon, ShoppingBagIcon, SparklesIcon } from "lucide-react";
+import { AlertCircleIcon, BanknoteIcon, BellRingIcon, CheckCircle2Icon, GiftIcon, Loader2Icon, ShoppingBagIcon, SparklesIcon, StoreIcon } from "lucide-react";
 import { cart, cartTotals, splitCart, useCart } from "@/components/public/cart-store";
 import { Choice, ChoiceGroup, TextField } from "@/components/public/form-fields";
 import { QuantityStepper } from "@/components/public/quantity-stepper";
@@ -20,6 +20,7 @@ import { placeOrder, placeOrderHere, quoteCart, type CheckoutState, type Quote }
 type LiveItem = { id: string; price_cents: number; available: number };
 type LiveBundle = { id: string; price_cents: number; available: number; itemsPer: number; open: boolean };
 export type CheckoutMember = { first_name: string; last_name: string; grade: string; balance: number };
+export type CheckoutTeacher = { first_name: string; last_name: string; room: string };
 
 export function Checkout({
   menu,
@@ -32,6 +33,8 @@ export function Checkout({
   signedIn,
   rewards,
   rewardsEnabled,
+  teacher = null,
+  classDays = [],
   variant = "page",
   onClose,
   onPlaced,
@@ -47,6 +50,10 @@ export function Checkout({
   signedIn: boolean;
   rewards: Reward[];
   rewardsEnabled: boolean;
+  /** An approved teacher: teacher prices, and room service or pickup. */
+  teacher?: CheckoutTeacher | null;
+  /** Teachers: the days and class hours room service can come. Empty = no room service. */
+  classDays?: PickupDay[];
   /**
    * "page": the cart page (goes to the order page when it's placed).
    * "sidebar": the sidebar at the checkout counter in the 3D store (shows the
@@ -63,21 +70,28 @@ export function Checkout({
   const inSidebar = variant === "sidebar";
   const [state, formAction, placing] = useActionState<CheckoutState, FormData>(inSidebar ? placeOrderHere : placeOrder, {});
   // What was sent, kept so the "order placed" view can still show it after the cart empties.
-  const [sent, setSent] = useState<{ lines: { id: string; name: string; quantity: number }[]; total: number; when: string } | null>(null);
+  const [sent, setSent] = useState<Sent | null>(null);
   const errors = state.errors ?? {};
 
-  // Default to the first day that still has an open pickup time.
-  const firstOpenDay = days.find((d) => d.anyOpen);
+  // Teachers choose room service (brought to their room) or pickup.
+  const roomServiceOpen = classDays.some((d) => d.anyOpen);
+  const [delivery, setDelivery] = useState<"room" | "pickup">(teacher && roomServiceOpen ? "room" : "pickup");
+  const roomService = Boolean(teacher) && delivery === "room";
+  const whenDays = roomService ? classDays : days;
+  const [room, setRoom] = useState(teacher?.room ?? "");
+
+  // Default to the first day that still has an open time.
+  const firstOpenDay = whenDays.find((d) => d.anyOpen);
   const [day, setDay] = useState(firstOpenDay?.date ?? "");
   const [windowId, setWindowId] = useState<number | null>(null);
   // Kept in state (not just in the inputs) because React clears a form after
   // each submit — this way an error doesn't wipe what the student typed.
   // Members get their name filled in.
-  const [firstName, setFirstName] = useState(member?.first_name ?? "");
-  const [lastName, setLastName] = useState(member?.last_name ?? "");
+  const [firstName, setFirstName] = useState(member?.first_name ?? teacher?.first_name ?? "");
+  const [lastName, setLastName] = useState(member?.last_name ?? teacher?.last_name ?? "");
   const [grade, setGrade] = useState(member?.grade ?? "");
   const [rewardId, setRewardId] = useState<string | null>(null);
-  const selectedDay = days.find((d) => d.date === day);
+  const selectedDay = whenDays.find((d) => d.date === day);
 
   // ---- Live price from the database ---------------------------------------------
   // Every time the cart or reward changes, ask the server what it costs with
@@ -163,7 +177,7 @@ export function Checkout({
   const usableRewards = member ? rewards.filter((r) => r.available > 0) : [];
 
   if (placedNumber !== null && sent) {
-    return <Placed number={placedNumber} sent={sent} pickupLocation={pickupLocation} onDone={onClose} />;
+    return <Placed number={placedNumber} sent={sent} pickupLocation={pickupLocation} onDone={onClose} room={sent.room} />;
   }
 
   if (items.length === 0) {
@@ -385,7 +399,7 @@ export function Checkout({
       )}
 
       {/* ---- Details ------------------------------------------------------ */}
-      {days.every((d) => !d.anyOpen) ? (
+      {days.every((d) => !d.anyOpen) && !roomServiceOpen ? (
         <p className="mt-8 rounded-2xl border border-dashed p-6 text-center text-muted-foreground">
           Online ordering is closed right now. Your cart is saved, so you can order once it opens again.
         </p>
@@ -398,6 +412,7 @@ export function Checkout({
               lines: lines.map((l) => ({ id: l.id, name: l.name, quantity: l.quantity })),
               total,
               when: selectedDay ? `${relativeDay(selectedDay.date, today)}${w ? `, ${w.label.toLowerCase()} (${formatClock(w.starts_at)})` : ""}` : "",
+              room: roomService ? room : null,
             });
           }}
           className="mt-8 grid gap-7"
@@ -407,8 +422,49 @@ export function Checkout({
           <input type="hidden" name="bundles" value={JSON.stringify(splitCart(items).bundles)} />
           <input type="hidden" name="reward_id" value={rewardId ?? ""} />
 
+          {teacher && (
+            <fieldset className="grid gap-3">
+              <legend className="mb-3 font-heading text-2xl font-extrabold">How do you want it?</legend>
+              <input type="hidden" name="delivery" value={delivery} />
+              <div role="radiogroup" aria-label="Room service or pickup" className="grid grid-cols-2 gap-2">
+                {(
+                  [
+                    ["room", BellRingIcon, "Room service", roomServiceOpen ? "We bring it to your room" : "Not available right now"],
+                    ["pickup", StoreIcon, "Pick it up", "At the store window"],
+                  ] as const
+                ).map(([value, Icon, title, note]) => {
+                  const on = delivery === value;
+                  const off = value === "room" && !roomServiceOpen;
+                  return (
+                    <button
+                      key={value}
+                      type="button"
+                      role="radio"
+                      aria-checked={on}
+                      disabled={off}
+                      onClick={() => {
+                        setDelivery(value);
+                        setDay((value === "room" ? classDays : days).find((d) => d.anyOpen)?.date ?? "");
+                        setWindowId(null);
+                      }}
+                      className={cn(
+                        "flex flex-col items-start gap-1 rounded-2xl border-2 p-3.5 text-left transition-colors focus-visible:ring-3 focus-visible:ring-ring/60 focus-visible:outline-none",
+                        on ? "border-foreground bg-foreground text-background" : "hover:border-foreground/40",
+                        off && "cursor-not-allowed opacity-50 hover:border-border",
+                      )}
+                    >
+                      <Icon className={cn("size-6", on && value === "room" && "text-primary")} />
+                      <span className="font-semibold">{title}</span>
+                      <span className={cn("text-xs", on ? "opacity-75" : "text-muted-foreground")}>{note}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </fieldset>
+          )}
+
           <fieldset className="grid gap-4">
-            <legend className="mb-3 font-heading text-2xl font-extrabold">Who&apos;s picking it up?</legend>
+            <legend className="mb-3 font-heading text-2xl font-extrabold">{teacher ? "Your name" : "Who's picking it up?"}</legend>
             <div className="grid grid-cols-2 gap-3">
               <TextField
                 id="first_name"
@@ -427,20 +483,25 @@ export function Checkout({
                 error={errors.last_name}
               />
             </div>
-            <ChoiceGroup label="Grade" error={errors.grade}>
-              {GRADES.map((g) => (
-                <Choice key={g} name="grade" value={g} checked={grade === g} onChange={() => setGrade(g)}>
-                  {g}
-                </Choice>
-              ))}
-            </ChoiceGroup>
+            {!teacher && (
+              <ChoiceGroup label="Grade" error={errors.grade}>
+                {GRADES.map((g) => (
+                  <Choice key={g} name="grade" value={g} checked={grade === g} onChange={() => setGrade(g)}>
+                    {g}
+                  </Choice>
+                ))}
+              </ChoiceGroup>
+            )}
+            {roomService && (
+              <TextField id="room" label="Room number" autoComplete="off" value={room} onChange={setRoom} error={errors.room} />
+            )}
           </fieldset>
 
           <fieldset className="grid gap-4">
             <legend className="mb-3 font-heading text-2xl font-extrabold">When?</legend>
 
-            <ChoiceGroup label="Pickup day" error={errors.pickup_date}>
-              {days.map((d) => (
+            <ChoiceGroup label={roomService ? "Day" : "Pickup day"} error={errors.pickup_date}>
+              {whenDays.map((d) => (
                 <Choice
                   key={d.date}
                   name="pickup_date"
@@ -462,7 +523,7 @@ export function Checkout({
             </ChoiceGroup>
 
             {selectedDay && (
-              <ChoiceGroup label="Pickup time" error={errors.pickup_window_id} grid>
+              <ChoiceGroup label={roomService ? "Which class hour should we bring it?" : "Pickup time"} error={errors.pickup_window_id} grid>
                 {selectedDay.windows.map(({ window, open }) => (
                   <Choice
                     key={window.id}
@@ -484,10 +545,17 @@ export function Checkout({
 
           <div className="flex gap-3 rounded-2xl bg-sticker/25 p-4 ring-1 ring-sticker/60 ring-inset">
             <BanknoteIcon className="mt-0.5 size-5 shrink-0" />
-            <p className="text-sm">
-              <strong className="font-semibold">Pay at pickup, cash or debit.</strong> No payment is taken online. Bring{" "}
-              {formatCents(total)} to {pickupLocation.charAt(0).toLowerCase() + pickupLocation.slice(1)}.
-            </p>
+            {roomService ? (
+              <p className="text-sm">
+                <strong className="font-semibold">Pay when it&apos;s delivered, cash or debit.</strong> No payment is taken online. Have{" "}
+                {formatCents(total)} ready for the student who brings it.
+              </p>
+            ) : (
+              <p className="text-sm">
+                <strong className="font-semibold">Pay at pickup, cash or debit.</strong> No payment is taken online. Bring{" "}
+                {formatCents(total)} to {pickupLocation.charAt(0).toLowerCase() + pickupLocation.slice(1)}.
+              </p>
+            )}
           </div>
 
           {state.message && (
@@ -499,7 +567,7 @@ export function Checkout({
 
           <Button type="submit" size="xl" className="h-14 text-lg" disabled={placing || hasProblems || !quote}>
             {placing ? <Loader2Icon className="animate-spin" /> : null}
-            {placing ? "Placing order…" : `Place order for ${formatCents(total)}`}
+            {placing ? "Placing order…" : roomService ? `Send it to my room · ${formatCents(total)}` : `Place order for ${formatCents(total)}`}
           </Button>
           {hasProblems && (
             <p className="-mt-4 text-center text-sm text-muted-foreground">Fix the items marked in red to continue.</p>
@@ -511,16 +579,21 @@ export function Checkout({
 }
 
 /** Sidebar: the order went through. Its number, when to pick it up, and what's in it. */
+type Sent = { lines: { id: string; name: string; quantity: number }[]; total: number; when: string; room: string | null };
+
 function Placed({
   number,
   sent,
   pickupLocation,
   onDone,
+  room,
 }: {
   number: number;
-  sent: { lines: { id: string; name: string; quantity: number }[]; total: number; when: string };
+  sent: Sent;
   pickupLocation: string;
   onDone?: () => void;
+  /** Room service: the room it's going to. */
+  room: string | null;
 }) {
   return (
     <div className="animate-in fade-in slide-in-from-bottom-2 duration-500">
@@ -534,13 +607,13 @@ function Placed({
       <dl className="mt-6 grid gap-3 rounded-2xl border bg-card p-4 text-sm shadow-soft">
         {sent.when && (
           <div>
-            <dt className="text-muted-foreground">Pick up</dt>
+            <dt className="text-muted-foreground">{room ? "Brought to you" : "Pick up"}</dt>
             <dd className="font-semibold">{sent.when}</dd>
           </div>
         )}
         <div>
           <dt className="text-muted-foreground">Where</dt>
-          <dd className="font-semibold">{pickupLocation}</dd>
+          <dd className="font-semibold">{room ? `Room ${room}` : pickupLocation}</dd>
         </div>
         <div>
           <dt className="text-muted-foreground">Items</dt>
@@ -561,7 +634,7 @@ function Placed({
         </div>
       </dl>
       <p className="mt-3 flex gap-2 text-sm">
-        <BanknoteIcon className="mt-0.5 size-4 shrink-0" /> Pay cash or debit when you pick it up.
+        <BanknoteIcon className="mt-0.5 size-4 shrink-0" /> Pay cash or debit when you {room ? "get it" : "pick it up"}.
       </p>
 
       <div className="mt-6 grid gap-2">

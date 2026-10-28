@@ -1,5 +1,5 @@
 import { bundleOpenTo, type Deals } from "@/lib/deals";
-import type { Account, Reward } from "@/lib/member";
+import { isTeacher, type Account, type Reward } from "@/lib/member";
 import { pickupDays, type StoreInfo } from "@/lib/ordering";
 import type { MenuItem } from "@/lib/store-data";
 import type { Checkout } from "./checkout";
@@ -21,7 +21,8 @@ export function checkoutProps({
   account: Account | null;
   rewards: Reward[];
 }): CheckoutProps {
-  const isMember = Boolean(account?.profile) && !account?.staff;
+  const teacher = isTeacher(account) ? account.teacher : null;
+  const isMember = !teacher && Boolean(account?.profile) && !account?.staff;
   return {
     menu: menu.map((m) => ({ id: m.id, price_cents: m.price_cents, available: m.available })),
     bundles: deals.bundles.map((b) => ({
@@ -31,14 +32,18 @@ export function checkoutProps({
       itemsPer: b.items.reduce((n, i) => n + i.quantity, 0),
       open: bundleOpenTo(b, isMember),
     })),
-    days: pickupDays(info),
+    // Teachers can order after the students' same-day cutoff.
+    days: pickupDays(info, { teacher: Boolean(teacher) }),
     today: info.today,
     maxItems: info.max_items_per_order,
     pickupLocation: info.pickup_location,
     member: isMember && account?.profile ? { ...account.profile, balance: account.balance } : null,
     signedIn: Boolean(account) && !account?.staff,
     rewards: isMember ? rewards : [],
-    rewardsEnabled: info.rewards_enabled ?? false,
+    rewardsEnabled: !teacher && (info.rewards_enabled ?? false),
+    teacher: teacher ? { first_name: teacher.first_name, last_name: teacher.last_name, room: teacher.room } : null,
+    // Room service: the class hours it can be brought during.
+    classDays: teacher && info.room_service_enabled ? pickupDays(info, { windows: info.class_periods ?? [], teacher: true }) : [],
   };
 }
 

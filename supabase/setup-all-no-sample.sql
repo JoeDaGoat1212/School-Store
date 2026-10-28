@@ -2932,6 +2932,978 @@ grant execute on function public.username_available(text) to anon, authenticated
 revoke all on function public.save_profile(text, text, text, text) from public, anon;
 grant execute on function public.save_profile(text, text, text, text) to authenticated;
 
+-- >>>>>>>>>>>>>>>>>>>>>>>> 20261028000011_teachers_room_service.sql >>>>>>>>>>>>>>>>>>>>>>>>
+-- =============================================================================
+-- Teachers, room service and combo deals (update 11)
+-- =============================================================================
+-- What this adds:
+--   teachers           teacher accounts. A teacher signs up, then staff approve
+--                      them in Admin → Teachers before teacher prices start.
+--   Teacher prices     what the item cost the store + 50¢ (settings.teacher_markup_cents),
+--                      never more than the normal price. A product with no cost
+--                      saved yet stays at its normal price for teachers.
+--   Room service       teachers can have an order brought to their room during
+--                      a class hour. Class hours live in pickup_windows with
+--                      kind = 'class' (edit them in Settings). They pay when it arrives.
+--   Combo deals        promotions with kind = 'combo': "chips + a soda for $2.50".
+--                      Each combo has slots (what goes in it); the cart finds
+--                      the combos by itself, like buy-2-get-1 deals.
+--
+-- Teachers don't get combos, buy-X-get-Y deals or rewards (their prices are
+-- already close to cost), and don't earn points.
+-- =============================================================================
+
+
+-- -----------------------------------------------------------------------------
+-- 1. Settings
+-- -----------------------------------------------------------------------------
+alter table public.settings
+  add column teacher_markup_cents int     not null default 50 check (teacher_markup_cents between 0 and 500),
+  add column room_service_enabled boolean not null default true;
+
+
+-- -----------------------------------------------------------------------------
+-- 2. Class hours (for room service) live next to the pickup times
+-- -----------------------------------------------------------------------------
+alter table public.pickup_windows
+  add column kind text not null default 'pickup' check (kind in ('pickup', 'class'));
+
+-- A starting set of class hours. Change the times in Admin → Settings.
+insert into public.pickup_windows (label, starts_at, sort_order, kind) values
+  ('1st hour', '07:25', 101, 'class'),
+  ('2nd hour', '08:20', 102, 'class'),
+  ('3rd hour', '09:15', 103, 'class'),
+  ('4th hour', '10:10', 104, 'class'),
+  ('5th hour', '11:30', 105, 'class'),
+  ('6th hour', '12:30', 106, 'class'),
+  ('7th hour', '13:25', 107, 'class');
+
+
+-- -----------------------------------------------------------------------------
+-- 3. Teachers
+-- -----------------------------------------------------------------------------
+create table public.teachers (
+  id           uuid primary key references auth.users (id) on delete cascade,
+  email        text not null,
+  first_name   text not null check (char_length(first_name) between 1 and 40),
+  last_name    text not null check (char_length(last_name)  between 1 and 40),
+  room         text not null check (char_length(room) between 1 and 20),
+  status       text not null default 'pending' check (status in ('pending', 'approved', 'removed')),
+  approved_at  timestamptz,
+  approved_by  uuid references auth.users (id) on delete set null,
+  created_at   timestamptz not null default now(),
+  updated_at   timestamptz not null default now()
+);
+create index on public.teachers (status, last_name);
+
+-- The signed-in user, if they're an APPROVED teacher.
+create or replace function public.current_teacher()
+returns uuid
+language sql stable security definer
+set search_path = public
+as $$
+  select id from public.teachers where id = auth.uid() and status = 'approved';
+$$;
+
+-- A teacher fills in their name and room (asks to be approved, or updates them).
+create or replace function public.save_teacher_profile(p_first_name text, p_last_name text, p_room text)
+returns void
+language plpgsql security definer
+set search_path = public
+as $$
+declare
+  v_first text := btrim(coalesce(p_first_name, ''));
+  v_last  text := btrim(coalesce(p_last_name, ''));
+  v_room  text := btrim(coalesce(p_room, ''));
+  v_email text := auth.jwt()->>'email';
+begin
+  if auth.uid() is null or v_email is null then
+    raise exception 'SIGN_IN_NEEDED' using hint = 'Please sign in first.';
+  end if;
+  if public.is_admin() then
+    raise exception 'STAFF_ACCOUNT' using hint = 'The staff login can''t be a teacher account.';
+  end if;
+  if v_first = '' or v_last = '' or v_room = '' then
+    raise exception 'MISSING_INFO' using hint = 'Please fill in your name and room number.';
+  end if;
+  if char_length(v_first) > 40 or char_length(v_last) > 40 or char_length(v_room) > 20 then
+    raise exception 'INFO_TOO_LONG' using hint = 'One of your answers is too long.';
+  end if;
+
+  insert into public.teachers (id, email, first_name, last_name, room)
+  values (auth.uid(), lower(v_email), v_first, v_last, v_room)
+  on conflict (id) do update
+     set first_name = excluded.first_name, last_name = excluded.last_name,
+         room = excluded.room, email = excluded.email, updated_at = now();
+end;
+$$;
+
+-- Teacher prices for every product (only for an approved teacher; empty otherwise).
+create or replace function public.get_teacher_prices()
+returns jsonb
+language sql stable security definer
+set search_path = public
+as $$
+  select coalesce(jsonb_agg(jsonb_build_object('product_id', p.id, 'price_cents',
+           case when p.unit_cost_cents > 0 then least(p.price_cents, p.unit_cost_cents + s.teacher_markup_cents)
+                else p.price_cents end)), '[]'::jsonb)
+  from public.products p, public.settings s
+  where s.id = 1 and not p.archived and p.available_online
+    and public.current_teacher() is not null;
+$$;
+
+
+-- -----------------------------------------------------------------------------
+-- 4. Orders remember the teacher and the room
+-- -----------------------------------------------------------------------------
+alter table public.orders
+  add column teacher_id    uuid references public.teachers (id) on delete set null,
+  add column delivery_room text check (char_length(delivery_room) between 1 and 20);
+create index on public.orders (teacher_id, created_at desc);
+
+
+-- -----------------------------------------------------------------------------
+-- 5. Combo deals
+-- -----------------------------------------------------------------------------
+-- combo_slots: [{"label": "Chips", "quantity": 1, "product_ids": ["…", "…"]},
+--               {"label": "Candy", "quantity": 2, "category": "candy"}]
+-- A slot is filled by the listed products, or by anything in its category.
+-- The combo's price is in sale_price_cents. Combos don't need an end date.
+alter table public.promotions add column combo_slots jsonb;
+alter table public.promotions alter column ends_on drop not null;
+
+-- Swap the old "what kind of deal" rules for ones that know about combos.
+do $$
+declare
+  c record;
+begin
+  for c in select conname from pg_constraint
+           where conrelid = 'public.promotions'::regclass and contype = 'c'
+             and (pg_get_constraintdef(oid) like '%buy_get%')
+  loop
+    execute format('alter table public.promotions drop constraint %I', c.conname);
+  end loop;
+  for c in select conname from pg_constraint
+           where conrelid = 'public.order_discounts'::regclass and contype = 'c'
+             and pg_get_constraintdef(oid) like '%reward%'
+  loop
+    execute format('alter table public.order_discounts drop constraint %I', c.conname);
+  end loop;
+end $$;
+
+alter table public.promotions
+  add constraint promotions_kind_check check (kind in ('sale', 'buy_get', 'combo')),
+  add constraint promotions_shape_check check (
+    (kind = 'sale' and product_id is not null and sale_price_cents is not null and category is null and ends_on is not null)
+    or
+    (kind = 'buy_get' and buy_qty is not null and get_qty is not null
+       and ((product_id is null) <> (category is null)) and ends_on is not null)
+    or
+    (kind = 'combo' and sale_price_cents is not null and product_id is null and category is null
+       and jsonb_typeof(combo_slots) = 'array' and jsonb_array_length(combo_slots) between 1 and 6)
+  );
+alter table public.order_discounts
+  add constraint order_discounts_kind_check check (kind in ('buy_get', 'reward', 'combo'));
+
+-- Does one item fit a combo slot?
+create or replace function public.fits_slot(p_slot jsonb, p_product_id uuid, p_category text)
+returns boolean
+language sql immutable
+as $$
+  select (p_slot ? 'category' and lower(p_slot->>'category') = lower(p_category))
+      or (p_slot ? 'product_ids' and p_slot->'product_ids' ? p_product_id::text);
+$$;
+
+
+-- -----------------------------------------------------------------------------
+-- 6. Pricing (now with teacher prices and combos)
+-- -----------------------------------------------------------------------------
+drop function if exists public._price_cart(jsonb, jsonb, boolean, uuid);
+
+create or replace function public._price_cart(
+  p_items jsonb, p_bundles jsonb, p_member boolean, p_reward_id uuid, p_teacher boolean default false)
+returns jsonb
+language plpgsql security definer
+set search_path = public
+as $$
+declare
+  v_day        date := public.store_today();
+  v_markup     int  := (select teacher_markup_cents from public.settings where id = 1);
+  v_bundles    jsonb := '[]'::jsonb;
+  v_discounts  jsonb := '[]'::jsonb;
+  v_reward     jsonb := null;
+  v_subtotal   int;
+  v_discount   int := 0;
+  v_promo      record;
+  v_rw         record;
+  v_slot       jsonb;
+  v_pick       bigint[];
+  v_ids        bigint[];
+  v_part       int;
+  v_got        int;
+  v_sum        int;
+  v_ok         boolean;
+  v_made       int;
+  v_count      int;
+  v_free       int;
+  v_amount     int;
+begin
+  -- ---- Products ------------------------------------------------------------
+  drop table if exists _pc_lines;
+  create temporary table _pc_lines on commit drop as
+    select (x->>'product_id')::uuid as product_id, sum((x->>'quantity')::int)::int as quantity
+    from jsonb_array_elements(coalesce(p_items, '[]'::jsonb)) as x
+    group by 1;
+
+  if exists (select 1 from _pc_lines where product_id is null or quantity is null or quantity < 1 or quantity > 100) then
+    raise exception 'BAD_QUANTITY' using hint = 'Each item needs a quantity of at least 1.';
+  end if;
+  if exists (select 1 from _pc_lines l left join public.products p on p.id = l.product_id
+             where p.id is null or p.archived or not p.available_online) then
+    raise exception 'UNAVAILABLE' using hint = 'An item in your cart is no longer available. Please refresh the menu.';
+  end if;
+
+  -- Each line's price: the lowest of the normal price, a running sale, and
+  -- (for teachers) cost + markup.
+  drop table if exists _pc_priced;
+  create temporary table _pc_priced on commit drop as
+    select l.product_id, p.name, p.category, l.quantity,
+           p.price_cents as regular_price_cents,
+           least(p.price_cents, coalesce(s.sale_price_cents, p.price_cents), coalesce(t.price, p.price_cents)) as unit_price_cents,
+           case when t.price is not null and t.price < least(p.price_cents, coalesce(s.sale_price_cents, p.price_cents))
+                then 'Teacher price' else s.title end as deal_title,
+           false as is_reward
+    from _pc_lines l
+    join public.products p on p.id = l.product_id
+    left join lateral (
+      select pm.sale_price_cents, pm.title
+      from public.promotions pm
+      where pm.kind = 'sale' and pm.product_id = p.id
+        and public.deal_is_live(pm.active, pm.starts_on, pm.ends_on, pm.members_only, v_day, p_member)
+      order by pm.sale_price_cents
+      limit 1
+    ) s on true
+    left join lateral (
+      select p.unit_cost_cents + v_markup as price
+      where p_teacher and p.unit_cost_cents > 0
+    ) t on true;
+
+  -- ---- Reward (one free item) ----------------------------------------------
+  if p_reward_id is not null then
+    if not p_member then
+      raise exception 'SIGN_IN_NEEDED' using hint = 'Sign in to your rewards account to use a reward.';
+    end if;
+    select rw.id, rw.points_cost, p.id as product_id, p.name, p.category, p.price_cents,
+           least(p.price_cents, coalesce((
+             select min(pm.sale_price_cents) from public.promotions pm
+             where pm.kind = 'sale' and pm.product_id = p.id
+               and public.deal_is_live(pm.active, pm.starts_on, pm.ends_on, pm.members_only, v_day, p_member)
+           ), p.price_cents)) as unit_price_cents
+      into v_rw
+      from public.rewards rw
+      join public.products p on p.id = rw.product_id
+     where rw.id = p_reward_id and rw.active and not p.archived and p.available_online;
+    if not found then
+      raise exception 'REWARD_UNAVAILABLE' using hint = 'That reward isn''t available right now.';
+    end if;
+
+    insert into _pc_priced values (v_rw.product_id, v_rw.name, v_rw.category, 1,
+                                   v_rw.price_cents, v_rw.unit_price_cents, null, true);
+    v_reward := jsonb_build_object('id', v_rw.id, 'product_id', v_rw.product_id,
+                                   'name', v_rw.name, 'points_cost', v_rw.points_cost);
+    if v_rw.unit_price_cents > 0 then
+      v_discounts := v_discounts || jsonb_build_object(
+        'label', 'Reward: free ' || v_rw.name, 'amount_cents', v_rw.unit_price_cents, 'kind', 'reward');
+    end if;
+  end if;
+
+  -- ---- Bundles ---------------------------------------------------------------
+  drop table if exists _pc_bundles;
+  create temporary table _pc_bundles on commit drop as
+    select (x->>'bundle_id')::uuid as bundle_id, sum((x->>'quantity')::int)::int as quantity
+    from jsonb_array_elements(coalesce(p_bundles, '[]'::jsonb)) as x
+    group by 1;
+
+  if exists (select 1 from _pc_bundles where bundle_id is null or quantity is null or quantity < 1 or quantity > 20) then
+    raise exception 'BAD_QUANTITY' using hint = 'Each bundle needs a quantity of at least 1.';
+  end if;
+  if exists (
+    select 1 from _pc_bundles pb
+    left join public.bundles b on b.id = pb.bundle_id
+    where b.id is null
+       or not public.deal_is_live(b.active, b.starts_on, b.ends_on, b.members_only, v_day, p_member)
+       or not exists (select 1 from public.bundle_items bi where bi.bundle_id = b.id)
+       or exists (select 1 from public.bundle_items bi join public.products p on p.id = bi.product_id
+                  where bi.bundle_id = b.id and (p.archived or not p.available_online))
+  ) then
+    raise exception 'BUNDLE_UNAVAILABLE' using hint = 'A bundle in your cart isn''t available right now. Please refresh the menu.';
+  end if;
+
+  select coalesce(jsonb_agg(jsonb_build_object(
+           'bundle_id', b.id,
+           'name', b.name,
+           'quantity', pb.quantity,
+           'unit_price_cents', b.price_cents,
+           'items', (select jsonb_agg(jsonb_build_object('product_id', p.id, 'name', p.name, 'quantity', bi.quantity)
+                                      order by p.name)
+                     from public.bundle_items bi join public.products p on p.id = bi.product_id
+                     where bi.bundle_id = b.id))
+         order by b.name), '[]'::jsonb)
+    into v_bundles
+    from _pc_bundles pb join public.bundles b on b.id = pb.bundle_id;
+
+  -- ---- Combos, then buy X get Y ----------------------------------------------
+  -- One row per single item (not counting the reward or bundles). An item can
+  -- only be used by one deal. Teachers skip this part.
+  drop table if exists _pc_units;
+  create temporary table _pc_units on commit drop as
+    select row_number() over () as unit_id, p.product_id, p.category, p.unit_price_cents, false as used
+    from _pc_priced p
+    cross join lateral generate_series(1, p.quantity)
+    where not p.is_reward;
+
+  if not p_teacher then
+    for v_promo in
+      select * from public.promotions pm
+      where pm.kind = 'combo'
+        and public.deal_is_live(pm.active, pm.starts_on, pm.ends_on, pm.members_only, v_day, p_member)
+      order by pm.created_at
+    loop
+      v_made := 0;
+      v_amount := 0;
+      -- Make as many of this combo as the cart allows. Each round fills every
+      -- slot with the priciest items that fit (so the shopper saves the most),
+      -- and stops when the combo wouldn't save anything.
+      loop
+        v_pick := '{}';
+        v_sum := 0;
+        v_ok := true;
+        for v_slot in select value from jsonb_array_elements(v_promo.combo_slots) loop
+          select array_agg(unit_id), coalesce(sum(unit_price_cents), 0)::int, count(*)::int
+            into v_ids, v_part, v_got
+          from (select u.unit_id, u.unit_price_cents from _pc_units u
+                where not u.used and not (u.unit_id = any(v_pick))
+                  and public.fits_slot(v_slot, u.product_id, u.category)
+                order by u.unit_price_cents desc, u.unit_id
+                limit greatest(coalesce((v_slot->>'quantity')::int, 1), 1)) x;
+          if v_got < greatest(coalesce((v_slot->>'quantity')::int, 1), 1) then
+            v_ok := false;
+            exit;
+          end if;
+          v_pick := v_pick || v_ids;
+          v_sum := v_sum + v_part;
+        end loop;
+        exit when not v_ok or v_sum <= v_promo.sale_price_cents;
+
+        update _pc_units set used = true where unit_id = any(v_pick);
+        v_made := v_made + 1;
+        v_amount := v_amount + (v_sum - v_promo.sale_price_cents);
+      end loop;
+
+      if v_amount > 0 then
+        v_discounts := v_discounts || jsonb_build_object(
+          'label', v_promo.title || case when v_made > 1 then ' ×' || v_made else '' end,
+          'amount_cents', v_amount, 'kind', 'combo');
+      end if;
+    end loop;
+
+    for v_promo in
+      select * from public.promotions pm
+      where pm.kind = 'buy_get'
+        and public.deal_is_live(pm.active, pm.starts_on, pm.ends_on, pm.members_only, v_day, p_member)
+      order by pm.created_at
+    loop
+      select count(*) into v_count from _pc_units u
+       where not u.used and (u.product_id = v_promo.product_id or u.category = v_promo.category);
+
+      -- Every full group of (buy + get) items makes `get` of them free.
+      v_free := (v_count / (v_promo.buy_qty + v_promo.get_qty)) * v_promo.get_qty;
+      if v_free > 0 then
+        select coalesce(sum(unit_price_cents), 0) into v_amount
+        from (select u.unit_price_cents from _pc_units u
+              where not u.used and (u.product_id = v_promo.product_id or u.category = v_promo.category)
+              order by u.unit_price_cents
+              limit v_free) cheapest;
+
+        update _pc_units u set used = true
+         where not u.used and (u.product_id = v_promo.product_id or u.category = v_promo.category);
+
+        if v_amount > 0 then
+          v_discounts := v_discounts || jsonb_build_object(
+            'label', v_promo.title, 'amount_cents', v_amount, 'kind', 'buy_get');
+        end if;
+      end if;
+    end loop;
+  end if;
+
+  -- ---- Totals ----------------------------------------------------------------
+  select coalesce(sum(unit_price_cents * quantity), 0)::int into v_subtotal from _pc_priced;
+  select v_subtotal + coalesce(sum((b->>'unit_price_cents')::int * (b->>'quantity')::int), 0)::int
+    into v_subtotal from jsonb_array_elements(v_bundles) b;
+  select coalesce(sum((d->>'amount_cents')::int), 0)::int into v_discount from jsonb_array_elements(v_discounts) d;
+  v_discount := least(v_discount, v_subtotal);
+
+  return jsonb_build_object(
+    'lines', coalesce((select jsonb_agg(jsonb_build_object(
+                         'product_id', product_id,
+                         'name', name,
+                         'quantity', quantity,
+                         'regular_price_cents', regular_price_cents,
+                         'unit_price_cents', unit_price_cents,
+                         'deal_title', deal_title,
+                         'is_reward', is_reward) order by is_reward, name)
+                       from _pc_priced), '[]'::jsonb),
+    'bundles', v_bundles,
+    'discounts', v_discounts,
+    'reward', v_reward,
+    'subtotal_cents', v_subtotal,
+    'discount_cents', v_discount,
+    'total_cents', v_subtotal - v_discount
+  );
+end;
+$$;
+
+-- Public: price a cart (members get member prices, approved teachers teacher prices).
+create or replace function public.quote_cart(p_items jsonb, p_bundles jsonb default '[]', p_reward_id uuid default null)
+returns jsonb
+language plpgsql security definer
+set search_path = public
+as $$
+declare
+  s         public.settings;
+  v_teacher uuid := public.current_teacher();
+  v_member  uuid := case when v_teacher is null then public.current_member() end;
+  v_quote   jsonb;
+  v_total   int;
+  v_balance int := 0;
+  v_points  int;
+begin
+  select * into s from public.settings where id = 1;
+  v_quote := public._price_cart(p_items, p_bundles, v_member is not null, p_reward_id, v_teacher is not null);
+  v_total := (v_quote->>'total_cents')::int;
+  v_points := case when s.rewards_enabled and v_teacher is null then floor(v_total * s.points_per_dollar / 100.0)::int else 0 end;
+
+  if v_member is not null then
+    v_balance := public.points_balance(v_member);
+    if v_quote->'reward' <> 'null'::jsonb and v_balance < (v_quote->'reward'->>'points_cost')::int then
+      raise exception 'NOT_ENOUGH_POINTS' using hint = 'You don''t have enough points for that reward yet.';
+    end if;
+  end if;
+
+  return v_quote || jsonb_build_object(
+    'member', v_member is not null,
+    'teacher', v_teacher is not null,
+    'points_balance', v_balance,
+    'points_earned', case when v_member is not null then v_points else 0 end,
+    'points_if_member', v_points
+  );
+end;
+$$;
+
+
+-- -----------------------------------------------------------------------------
+-- 7. place_order: teachers and room service
+-- -----------------------------------------------------------------------------
+drop function if exists public.place_order(text, text, text, int, date, jsonb, text, jsonb, uuid, uuid);
+
+create or replace function public.place_order(
+  p_first_name       text,
+  p_last_name        text,
+  p_grade            text,
+  p_pickup_window_id int,
+  p_pickup_date      date,
+  p_items            jsonb,
+  p_ip_hash          text,
+  p_bundles          jsonb default '[]',
+  p_customer_id      uuid  default null,  -- set by the website server after checking the sign-in
+  p_reward_id        uuid  default null,
+  p_teacher_id       uuid  default null,  -- set by the website server for an approved teacher
+  p_delivery_room    text  default null   -- room service: the room to bring it to
+)
+returns jsonb
+language plpgsql security definer
+set search_path = public
+as $$
+declare
+  s            public.settings;
+  w            public.pickup_windows;
+  v_today      date := public.store_today();
+  v_now        time := public.store_now_time();
+  v_first      text := btrim(coalesce(p_first_name, ''));
+  v_last       text := btrim(coalesce(p_last_name, ''));
+  v_grade      text := btrim(coalesce(p_grade, ''));
+  v_room       text := nullif(btrim(coalesce(p_delivery_room, '')), '');
+  v_teacher    boolean := false;
+  v_member     boolean := false;
+  v_price      jsonb;
+  v_item       record;
+  v_bundle     jsonb;
+  v_ob_id      uuid;
+  v_product    public.products;
+  v_available  int;
+  v_count      int;
+  v_total      int;
+  v_spent      int := 0;
+  v_earned     int := 0;
+  v_order      public.orders;
+begin
+  select * into s from public.settings where id = 1;
+
+  -- ---- Who is ordering --------------------------------------------------------
+  if p_teacher_id is not null then
+    v_teacher := exists (select 1 from public.teachers where id = p_teacher_id and status = 'approved');
+    if not v_teacher then
+      raise exception 'TEACHER_NOT_APPROVED' using hint = 'Your teacher account hasn''t been approved yet.';
+    end if;
+    if v_grade = '' then v_grade := 'Teacher'; end if;
+  end if;
+  if v_first = '' or v_last = '' or v_grade = '' then
+    raise exception 'MISSING_INFO' using hint = 'Please fill in your first name, last name, and grade.';
+  end if;
+  if char_length(v_first) > 40 or char_length(v_last) > 40 or char_length(v_grade) > 20 then
+    raise exception 'INFO_TOO_LONG' using hint = 'One of your answers is too long.';
+  end if;
+  if p_customer_id is not null and not v_teacher then
+    v_member := exists (select 1 from public.customers where id = p_customer_id);
+    if not v_member then
+      raise exception 'PROFILE_NEEDED' using hint = 'Finish setting up your rewards account first.';
+    end if;
+  end if;
+
+  -- ---- Room service -------------------------------------------------------------
+  if v_room is not null then
+    if not v_teacher then
+      raise exception 'TEACHERS_ONLY' using hint = 'Room service is for teachers.';
+    end if;
+    if not s.room_service_enabled then
+      raise exception 'NO_ROOM_SERVICE' using hint = 'Room service is turned off right now. You can still pick your order up.';
+    end if;
+    if char_length(v_room) > 20 then
+      raise exception 'INFO_TOO_LONG' using hint = 'That room number is too long.';
+    end if;
+  end if;
+
+  -- ---- When -------------------------------------------------------------------
+  if p_pickup_date is null
+     or p_pickup_date not in (v_today, public.next_open_day(v_today)) then
+    raise exception 'BAD_DATE' using hint = 'Orders can only be placed for today or the next school day.';
+  end if;
+  if not public.is_open_day(p_pickup_date) then
+    raise exception 'STORE_CLOSED' using hint = 'The store is closed that day.';
+  end if;
+
+  -- Pickup orders need a pickup time; room service needs a class hour.
+  select * into w from public.pickup_windows
+   where id = p_pickup_window_id and active
+     and kind = case when v_room is not null then 'class' else 'pickup' end;
+  if not found then
+    raise exception 'BAD_WINDOW' using hint = case when v_room is not null
+      then 'Please choose which class hour to bring it.' else 'Please choose a pickup time.' end;
+  end if;
+
+  if p_pickup_date = v_today then
+    -- Teachers can order later in the day; everyone needs the lead time.
+    if v_now >= s.order_cutoff_time and not v_teacher then
+      raise exception 'ORDERS_CLOSED' using hint = format(
+        'Same-day orders close at %s. You can still order for the next school day.',
+        to_char(s.order_cutoff_time, 'FMHH12:MI AM'));
+    end if;
+    if v_now >= w.starts_at - make_interval(mins => s.order_lead_minutes) then
+      raise exception 'WINDOW_CLOSED' using hint = format(
+        'It''s too late to order for %s today. Please pick a later time.', w.label);
+    end if;
+  end if;
+
+  -- ---- Prank protection ---------------------------------------------------------
+  if not v_teacher then
+    select count(*) into v_count
+    from public.orders
+    where pickup_date = p_pickup_date
+      and lower(first_name) = lower(v_first)
+      and lower(last_name)  = lower(v_last)
+      and status not in ('canceled');
+    if v_count >= s.max_orders_per_student_day then
+      raise exception 'STUDENT_LIMIT' using hint = format(
+        'You already have %s order(s) for that day, which is the limit.', v_count);
+    end if;
+  end if;
+
+  if p_ip_hash is not null then
+    select count(*) into v_count
+    from public.orders
+    where ip_hash = p_ip_hash and created_at > now() - interval '1 hour';
+    if v_count >= s.max_orders_per_hour_per_device then
+      raise exception 'RATE_LIMIT' using hint = 'Too many orders from this device. Please try again later.';
+    end if;
+  end if;
+
+  -- ---- What -------------------------------------------------------------------
+  if coalesce(jsonb_array_length(case when jsonb_typeof(p_items) = 'array' then p_items end), 0)
+     + coalesce(jsonb_array_length(case when jsonb_typeof(p_bundles) = 'array' then p_bundles end), 0) = 0
+     and p_reward_id is null then
+    raise exception 'EMPTY_CART' using hint = 'Your cart is empty.';
+  end if;
+
+  v_price := public._price_cart(p_items, p_bundles, v_member, p_reward_id, v_teacher);
+
+  -- Every single product needed, counting what's inside bundles.
+  drop table if exists _need;
+  create temporary table _need on commit drop as
+    select product_id, sum(qty)::int as quantity from (
+      select (l->>'product_id')::uuid as product_id, (l->>'quantity')::int as qty
+      from jsonb_array_elements(v_price->'lines') l
+      union all
+      select (i->>'product_id')::uuid, (i->>'quantity')::int * (b->>'quantity')::int
+      from jsonb_array_elements(v_price->'bundles') b, jsonb_array_elements(b->'items') i
+    ) t
+    group by product_id;
+
+  if (select sum(quantity) from _need) > s.max_items_per_order then
+    raise exception 'TOO_MANY_ITEMS' using hint = format(
+      'Orders are limited to %s items (bundles count each item inside).', s.max_items_per_order);
+  end if;
+
+  -- Lock each product (in a fixed order to avoid deadlocks) and check stock.
+  for v_item in select * from _need order by product_id loop
+    select * into v_product from public.products where id = v_item.product_id for update;
+    v_available := public.product_available(v_product.id);
+    if v_available < v_item.quantity then
+      raise exception 'SOLD_OUT' using hint = case
+        when v_available <= 0 then format('%s just sold out.', v_product.name)
+        else format('Only %s %s left.', v_available, v_product.name) end;
+    end if;
+  end loop;
+
+  -- ---- Rewards points ---------------------------------------------------------
+  if v_price->'reward' <> 'null'::jsonb then
+    perform 1 from public.customers where id = p_customer_id for update;
+    v_spent := (v_price->'reward'->>'points_cost')::int;
+    if public.points_balance(p_customer_id) < v_spent then
+      raise exception 'NOT_ENOUGH_POINTS' using hint = 'You don''t have enough points for that reward yet.';
+    end if;
+  end if;
+
+  v_total := (v_price->>'total_cents')::int;
+  if v_member and s.rewards_enabled then
+    v_earned := floor(v_total * s.points_per_dollar / 100.0)::int;
+  end if;
+
+  -- ---- Save it ------------------------------------------------------------------
+  insert into public.orders (first_name, last_name, grade, pickup_window_id, pickup_date, ip_hash, customer_id,
+                             teacher_id, delivery_room,
+                             subtotal_cents, discount_cents, total_cents, points_earned, points_spent)
+  values (v_first, v_last, v_grade, w.id, p_pickup_date, p_ip_hash, case when v_member then p_customer_id end,
+          case when v_teacher then p_teacher_id end, v_room,
+          (v_price->>'subtotal_cents')::int, (v_price->>'discount_cents')::int, v_total, v_earned, v_spent)
+  returning * into v_order;
+
+  insert into public.order_items (order_id, product_id, product_name, unit_price_cents, quantity)
+  select v_order.id, (l->>'product_id')::uuid, l->>'name', (l->>'unit_price_cents')::int, (l->>'quantity')::int
+  from jsonb_array_elements(v_price->'lines') l;
+
+  for v_bundle in select * from jsonb_array_elements(v_price->'bundles') loop
+    insert into public.order_bundles (order_id, bundle_id, bundle_name, unit_price_cents, quantity)
+    values (v_order.id, (v_bundle->>'bundle_id')::uuid, v_bundle->>'name',
+            (v_bundle->>'unit_price_cents')::int, (v_bundle->>'quantity')::int)
+    returning id into v_ob_id;
+
+    insert into public.order_items (order_id, product_id, product_name, unit_price_cents, quantity, order_bundle_id)
+    select v_order.id, (i->>'product_id')::uuid, i->>'name', 0,
+           (i->>'quantity')::int * (v_bundle->>'quantity')::int, v_ob_id
+    from jsonb_array_elements(v_bundle->'items') i;
+  end loop;
+
+  insert into public.order_discounts (order_id, label, amount_cents, kind)
+  select v_order.id, d->>'label', (d->>'amount_cents')::int, d->>'kind'
+  from jsonb_array_elements(v_price->'discounts') d;
+
+  perform public.sync_order_points(v_order.id);  -- takes the reward's points
+
+  return jsonb_build_object(
+    'order_number',  v_order.order_number,
+    'pickup_date',   v_order.pickup_date,
+    'pickup_window', w.label,
+    'delivery_room', v_room,
+    'total_cents',   v_total,
+    'points_earned', v_earned,
+    'points_spent',  v_spent
+  );
+end;
+$$;
+
+
+-- -----------------------------------------------------------------------------
+-- 8. Reading orders: say when it's room service
+-- -----------------------------------------------------------------------------
+create or replace function public._order_json(p_order_id uuid)
+returns jsonb
+language sql stable security definer
+set search_path = public
+as $$
+  select jsonb_build_object(
+    'order_number',   o.order_number,
+    'status',         o.status,
+    'pickup_date',    o.pickup_date,
+    'pickup_window',  w.label,
+    'delivery_room',  o.delivery_room,
+    'teacher',        o.teacher_id is not null,
+    'subtotal_cents', o.subtotal_cents,
+    'discount_cents', o.discount_cents,
+    'total_cents',    o.total_cents,
+    'points_earned',  o.points_earned,
+    'points_spent',   o.points_spent,
+    'member',         o.customer_id is not null,
+    'created_at',     o.created_at,
+    'items', coalesce((
+      select jsonb_agg(jsonb_build_object(
+               'name', oi.product_name,
+               'quantity', oi.quantity,
+               'unit_price_cents', oi.unit_price_cents)
+             order by oi.product_name)
+      from public.order_items oi where oi.order_id = o.id and oi.order_bundle_id is null), '[]'::jsonb),
+    'bundles', coalesce((
+      select jsonb_agg(jsonb_build_object(
+               'name', ob.bundle_name,
+               'quantity', ob.quantity,
+               'unit_price_cents', ob.unit_price_cents,
+               'items', (select jsonb_agg(jsonb_build_object('name', oi.product_name, 'quantity', oi.quantity)
+                                          order by oi.product_name)
+                         from public.order_items oi where oi.order_bundle_id = ob.id))
+             order by ob.bundle_name)
+      from public.order_bundles ob where ob.order_id = o.id), '[]'::jsonb),
+    'discounts', coalesce((
+      select jsonb_agg(jsonb_build_object('label', d.label, 'amount_cents', d.amount_cents) order by d.kind, d.label)
+      from public.order_discounts d where d.order_id = o.id), '[]'::jsonb)
+  )
+  from public.orders o
+  join public.pickup_windows w on w.id = o.pickup_window_id
+  where o.id = p_order_id;
+$$;
+
+-- A signed-in member's or teacher's own order (no last name needed).
+create or replace function public.lookup_my_order(p_order_number int)
+returns jsonb
+language sql stable security definer
+set search_path = public
+as $$
+  select public._order_json(o.id)
+  from public.orders o
+  where o.order_number = p_order_number
+    and (o.customer_id = auth.uid() or o.teacher_id = auth.uid());
+$$;
+
+
+-- -----------------------------------------------------------------------------
+-- 9. Public info: combos, class hours, room service
+-- -----------------------------------------------------------------------------
+create or replace function public.get_deals()
+returns jsonb
+language sql stable security definer
+set search_path = public
+as $$
+  select jsonb_build_object(
+    'promotions', coalesce((
+      select jsonb_agg(jsonb_build_object(
+               'id', pm.id, 'kind', pm.kind, 'title', pm.title,
+               'product_id', pm.product_id, 'category', pm.category,
+               'sale_price_cents', pm.sale_price_cents,
+               'buy_qty', pm.buy_qty, 'get_qty', pm.get_qty,
+               'ends_on', pm.ends_on, 'members_only', pm.members_only, 'featured', pm.featured)
+             order by pm.featured desc, pm.created_at)
+      from public.promotions pm
+      join lateral (select pm.product_id is null
+                        or exists (select 1 from public.products p
+                                   where p.id = pm.product_id and not p.archived and p.available_online) as ok) c on c.ok
+      where pm.kind in ('sale', 'buy_get')
+        and public.deal_is_live(pm.active, pm.starts_on, pm.ends_on, false, public.store_today(), false)), '[]'::jsonb),
+    'bundles', coalesce((
+      select jsonb_agg(x order by x->>'name')
+      from (
+        select jsonb_build_object(
+                 'id', b.id, 'name', b.name, 'description', b.description,
+                 'emoji', b.emoji, 'photo_path', b.photo_path,
+                 'price_cents', b.price_cents,
+                 'regular_cents', (select sum(p.price_cents * bi.quantity) from public.bundle_items bi
+                                   join public.products p on p.id = bi.product_id where bi.bundle_id = b.id),
+                 'members_only', b.members_only, 'ends_on', b.ends_on,
+                 'available', (select coalesce(min(public.product_available(bi.product_id) / bi.quantity), 0)
+                               from public.bundle_items bi where bi.bundle_id = b.id),
+                 'items', (select jsonb_agg(jsonb_build_object('product_id', p.id, 'name', p.name,
+                                                               'emoji', p.emoji, 'quantity', bi.quantity)
+                                            order by p.name)
+                           from public.bundle_items bi join public.products p on p.id = bi.product_id
+                           where bi.bundle_id = b.id)) as x
+        from public.bundles b
+        where public.deal_is_live(b.active, b.starts_on, b.ends_on, false, public.store_today(), false)
+          and exists (select 1 from public.bundle_items bi where bi.bundle_id = b.id)
+          and not exists (select 1 from public.bundle_items bi join public.products p on p.id = bi.product_id
+                          where bi.bundle_id = b.id and (p.archived or not p.available_online))
+      ) t), '[]'::jsonb),
+    -- Combos, with the products that can go in each slot (priciest first).
+    'combos', coalesce((
+      select jsonb_agg(x order by (x->>'featured')::boolean desc, x->>'title')
+      from (
+        select jsonb_build_object(
+                 'id', pm.id, 'title', pm.title, 'price_cents', pm.sale_price_cents,
+                 'ends_on', pm.ends_on, 'members_only', pm.members_only, 'featured', pm.featured,
+                 'slots', (select jsonb_agg(jsonb_build_object(
+                                    'label', sl.value->>'label',
+                                    'quantity', greatest(coalesce((sl.value->>'quantity')::int, 1), 1),
+                                    'products', coalesce((
+                                      select jsonb_agg(jsonb_build_object(
+                                               'product_id', p.id, 'name', p.name, 'emoji', p.emoji,
+                                               'price_cents', p.price_cents,
+                                               'available', public.product_available(p.id))
+                                             order by p.price_cents desc, p.name)
+                                      from public.products p
+                                      where not p.archived and p.available_online
+                                        and public.fits_slot(sl.value, p.id, p.category)), '[]'::jsonb))
+                                  order by sl.ordinality)
+                           from jsonb_array_elements(pm.combo_slots) with ordinality sl)) as x
+        from public.promotions pm
+        where pm.kind = 'combo'
+          and public.deal_is_live(pm.active, pm.starts_on, pm.ends_on, false, public.store_today(), false)
+      ) t
+      -- Hide a combo when one of its slots has nothing left to put in it.
+      where not exists (select 1 from jsonb_array_elements(x->'slots') sl where jsonb_array_length(sl->'products') = 0)
+    ), '[]'::jsonb)
+  );
+$$;
+
+create or replace function public.get_store_info()
+returns jsonb
+language sql stable security definer
+set search_path = public
+as $$
+  select jsonb_build_object(
+    'store_name',        s.store_name,
+    'store_hours',       s.store_hours,
+    'pickup_location',   s.pickup_location,
+    'banner_text',       s.banner_text,
+    'today',             public.store_today(),
+    'now_time',          to_char(public.store_now_time(), 'HH24:MI'),
+    'order_cutoff_time', to_char(s.order_cutoff_time, 'HH24:MI'),
+    'order_lead_minutes', s.order_lead_minutes,
+    'max_items_per_order', s.max_items_per_order,
+    'today_is_open',     public.is_open_day(public.store_today()),
+    'next_open_day',     public.next_open_day(public.store_today()),
+    'rewards_enabled',   s.rewards_enabled,
+    'points_per_dollar', s.points_per_dollar,
+    'room_service_enabled', s.room_service_enabled,
+    'pickup_windows', coalesce((
+      select jsonb_agg(jsonb_build_object(
+               'id', w.id,
+               'label', w.label,
+               'starts_at', to_char(w.starts_at, 'HH24:MI'))
+             order by w.sort_order, w.starts_at)
+      from public.pickup_windows w where w.active and w.kind = 'pickup'), '[]'::jsonb),
+    'class_periods', coalesce((
+      select jsonb_agg(jsonb_build_object(
+               'id', w.id,
+               'label', w.label,
+               'starts_at', to_char(w.starts_at, 'HH24:MI'))
+             order by w.sort_order, w.starts_at)
+      from public.pickup_windows w where w.active and w.kind = 'class'), '[]'::jsonb)
+  )
+  from public.settings s where s.id = 1;
+$$;
+
+-- "My account" also says whether this login is a teacher (and if approved).
+create or replace function public.get_my_account()
+returns jsonb
+language sql stable security definer
+set search_path = public
+as $$
+  select case when auth.uid() is null then null else jsonb_build_object(
+    'email', auth.jwt()->>'email',
+    'staff', public.is_admin(),
+    'profile', (select jsonb_build_object('first_name', c.first_name, 'last_name', c.last_name,
+                                          'grade', c.grade, 'created_at', c.created_at, 'username', c.username)
+                from public.customers c where c.id = auth.uid()),
+    'teacher', (select jsonb_build_object('first_name', t.first_name, 'last_name', t.last_name,
+                                          'room', t.room, 'status', t.status)
+                from public.teachers t where t.id = auth.uid()),
+    'balance', public.points_balance(auth.uid()),
+    'history', coalesce((
+      select jsonb_agg(jsonb_build_object('change', e.change, 'reason', e.reason, 'note', e.note,
+                                          'order_number', e.order_number, 'created_at', e.created_at)
+                       order by e.created_at desc)
+      from (select * from public.point_entries where customer_id = auth.uid()
+            order by created_at desc limit 30) e), '[]'::jsonb),
+    'orders', coalesce((
+      select jsonb_agg(jsonb_build_object('order_number', o.order_number, 'status', o.status,
+                                          'pickup_date', o.pickup_date, 'total_cents', o.total_cents,
+                                          'points_earned', o.points_earned, 'points_spent', o.points_spent,
+                                          'delivery_room', o.delivery_room)
+                       order by o.created_at desc)
+      from (select * from public.orders where customer_id = auth.uid() or teacher_id = auth.uid()
+            order by created_at desc limit 15) o), '[]'::jsonb)
+  ) end;
+$$;
+
+
+-- -----------------------------------------------------------------------------
+-- 10. The two combos asked for
+-- -----------------------------------------------------------------------------
+-- "Chips + a soda" for $2.50 and "2 candies + a soda" for $5. Sodas are the
+-- $2 ones (Coke, Sprite, Fanta, Dr Pepper, Mountain Dew…). Change what's in
+-- them in Admin → Deals.
+do $$
+declare
+  v_chips  jsonb;
+  v_sodas  jsonb;
+begin
+  select jsonb_agg(id) into v_chips from public.products
+   where not archived and lower(category) = 'snacks'
+     and name ~* '(chip|dorito|cheeto|takis|lay''?s|frito|ruffles|funyuns|pringles)';
+  select jsonb_agg(id) into v_sodas from public.products
+   where not archived and lower(category) = 'drinks' and price_cents <= 200
+     and name ~* '(coke|cola|pepsi|sprite|fanta|dr\.? ?pepper|mountain dew|root beer|7 ?up|ginger ale|crush|soda|starry|mug)';
+
+  if v_sodas is null then
+    raise notice 'No sodas found, so the combos weren''t made. Make them in Admin → Deals.';
+    return;
+  end if;
+
+  if v_chips is not null then
+    insert into public.promotions (kind, title, sale_price_cents, combo_slots, starts_on, ends_on)
+    values ('combo', 'Chips + soda', 250,
+            jsonb_build_array(jsonb_build_object('label', 'Chips', 'quantity', 1, 'product_ids', v_chips),
+                              jsonb_build_object('label', 'Soda', 'quantity', 1, 'product_ids', v_sodas)),
+            public.store_today(), null);
+  else
+    raise notice 'No chips found, so "Chips + soda" wasn''t made. Make it in Admin → Deals.';
+  end if;
+
+  insert into public.promotions (kind, title, sale_price_cents, combo_slots, starts_on, ends_on)
+  values ('combo', 'Candy combo', 500,
+          jsonb_build_array(jsonb_build_object('label', 'Candy', 'quantity', 2, 'category', 'candy'),
+                            jsonb_build_object('label', 'Soda', 'quantity', 1, 'product_ids', v_sodas)),
+          public.store_today(), null);
+end $$;
+
+
+-- -----------------------------------------------------------------------------
+-- 11. Security
+-- -----------------------------------------------------------------------------
+alter table public.teachers enable row level security;
+create policy "admin full access" on public.teachers for all to authenticated
+  using (public.is_admin()) with check (public.is_admin());
+create policy "teacher sees self" on public.teachers
+  for select to authenticated using (id = auth.uid());
+
+revoke execute on function public.current_teacher() from public, anon, authenticated;
+revoke execute on function public._price_cart(jsonb, jsonb, boolean, uuid, boolean) from public, anon, authenticated;
+revoke execute on function public.place_order(text, text, text, int, date, jsonb, text, jsonb, uuid, uuid, uuid, text)
+  from public, anon, authenticated;
+grant execute on function public.place_order(text, text, text, int, date, jsonb, text, jsonb, uuid, uuid, uuid, text) to service_role;
+
+revoke execute on function public.save_teacher_profile(text, text, text) from public, anon;
+grant execute on function public.save_teacher_profile(text, text, text) to authenticated;
+revoke execute on function public.get_teacher_prices() from public, anon;
+grant execute on function public.get_teacher_prices() to authenticated;
+grant execute on function public.fits_slot(jsonb, uuid, text) to anon, authenticated;
+
 -- >>>>>>>>>>>>>>>>>>>>>>>> record what was applied >>>>>>>>>>>>>>>>>>>>>>>>
 create schema if not exists supabase_migrations;
 create table if not exists supabase_migrations.schema_migrations (
@@ -2949,7 +3921,8 @@ insert into supabase_migrations.schema_migrations (version, name) values
   ('20261026000007', 'sales_import'),
   ('20261026000008', 'insights'),
   ('20261026000009', 'rewards_deals'),
-  ('20261027000010', 'usernames')
+  ('20261027000010', 'usernames'),
+  ('20261028000011', 'teachers_room_service')
 on conflict (version) do nothing;
 
 -- Tell the API about the new tables and functions right away.

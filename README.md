@@ -230,6 +230,9 @@ Accounts made before this update sign in once with "Forgot password?", then pick
 | Change pickup times, cutoff, closed days, the banner, order limits, or your password | **Settings** page in the staff dashboard |
 | Put something on sale, make a "buy 2, get 1 free" deal, or a bundle | **Deals** page. Turn on **Deal of the day** to show it big at the top of the menu. |
 | Change points per $1, the rewards students can get, or someone's points | **Rewards** page |
+| Approve a teacher, turn one off, change the teacher price (cost + 50¢) or turn room service off | **Teachers** page |
+| Change the class hours teachers pick for room service | **Settings** page → Class hours |
+| Make a pick-your-own combo ("chips + a soda for $2.50") | **Deals** page → New combo |
 | Make a fresh sample InTouchPay file for testing imports | `npm run sample-csv` (writes `sample-data/intouchpay-sample.csv`) |
 | Change the database | Add a **new** file in `supabase/migrations/`. Never edit old ones; they have already run. Then run `npm run db:bundle` and `npm run db:types`, and apply it (see below). |
 | Check for mistakes before pushing | `npm run typecheck`, `npm run lint` and `npm test` |
@@ -257,12 +260,41 @@ model, run `npm run dev` and then `node scripts/render-products.mjs` to draw the
 
 ### The deals page
 
-**/deals** (the yellow **Deals** tag in the top bar) puts every money-saver on one page: the deal of the day, bundles,
+**/deals** (the yellow **Deals** tag in the top bar) puts every money-saver on one page: the deal of the day, combos, bundles,
 sale prices, coupons (buy X, get Y free; they come off in the cart by themselves), member prices with a sign-up button
 for guests, and the rewards you can spend points on. Each part only shows when there is something in it. Everything on
 it is set up in **Admin → Deals** and **Admin → Rewards**. Code: `src/components/public/deals/deals-page.tsx`.
 
 A link like `/#shop-Drinks` opens the shop on the home page with that tab picked (the coupons use it).
+
+### Teachers and room service
+
+Teachers go to **/teacher** (there's a link in the footer) and request an account with their name, room number,
+school email and a password. Requests show up on the **Teachers** page in the staff dashboard (the sidebar shows how
+many are waiting); tap **Approve**. Approved teachers:
+
+- pay **what the item cost the store + 50¢** (never more than the normal price). A product with no cost saved stays
+  at its normal price, so keep costs filled in (Products, or by logging shopping trips in Expenses). The Teachers
+  page warns you when some are missing.
+- get **room service**: at checkout they pick their room and a class hour (Settings → Class hours), and a student
+  brings the order to their room. They pay when it's delivered. Room service orders show a black **Room service →
+  Room ###** label in the order queue, are grouped under their class hour, and the prep list prints the room on each slip.
+- can order after the students' same-day cutoff (they still need the usual lead time).
+- don't get combos, buy-X-get-Y deals, rewards or points (their prices are already close to cost).
+
+### Combos
+
+A combo is a pick-your-own deal, like **chips + a soda for $2.50** or **2 candies + a soda for $5**. Each combo has
+parts; a part is filled by any product from a list, or by anything in a category. Students pick what goes in each
+part on the **/deals** page (or the shop's Deals tab), and the cart spots the combo and takes the difference off by
+itself, as many times as it fits and only when it actually saves money. The two combos above were made by update 11;
+the "soda" part is the $2 sodas, which you can change on the Deals page.
+
+### The staff dashboard look
+
+The staff pages use a "back room" look: manila ledger paper, receipt-style order cards, rubber-stamp statuses and a
+hand-drawn sales sketch on the dashboard. The colors and fonts are at the end of `src/app/globals.css` (search for
+"The back room") and in `src/app/admin/fonts.ts`; the dashboard is `src/app/admin/page.tsx`.
 
 ### The 3D store
 

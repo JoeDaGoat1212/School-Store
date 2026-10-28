@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { SearchIcon, TagIcon, UserRoundIcon } from "lucide-react";
+import { BellRingIcon, SearchIcon, TagIcon, UserRoundIcon } from "lucide-react";
 import { BrandMark } from "@/components/brand-mark";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Button } from "@/components/ui/button";
@@ -44,7 +44,16 @@ export async function SiteHeader() {
         </Button>
         {/* On phones the theme switch lives in the footer, to make room. */}
         <ThemeToggle className="hidden sm:inline-flex" />
-        {member ? (
+        {account?.teacher && !member ? (
+          <Link
+            href="/teacher"
+            aria-label={account.teacher.status === "approved" ? `Teacher page, room ${account.teacher.room}` : "Teacher page"}
+            className="flex h-9 shrink-0 items-center gap-1.5 rounded-full bg-[#ffc45c] px-3 text-sm font-semibold text-black transition-transform hover:-translate-y-0.5 focus-visible:ring-3 focus-visible:ring-ring/60 focus-visible:outline-none"
+          >
+            <BellRingIcon className="size-4" />
+            <span className="hidden sm:inline">{account.teacher.status === "approved" ? `Room ${account.teacher.room}` : "Teacher"}</span>
+          </Link>
+        ) : member ? (
           <Link
             href="/account"
             aria-label={`My rewards, ${member.balance} points`}

@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { requireAdmin } from "@/lib/auth";
-import { parseDollarsToCents } from "@/lib/format";
+import { parseDollarsToCents, storeToday as storeTodayIso } from "@/lib/format";
 
 /*
  * Saving and deleting deals (sales, buy-X-get-Y) and bundles.
@@ -156,6 +156,77 @@ export async function saveBundle(id: string | null, input: BundleInput): Promise
   revalidatePath("/admin/deals");
   revalidatePath("/", "layout");
   return { ok: true, id: bundleId, message: id ? "Bundle saved" : "Bundle created" };
+}
+
+const comboSchema = z
+  .object({
+    title: z.string().trim().min(1, "Give the combo a name").max(60, "Keep it under 60 characters"),
+    price: dollars("Price"),
+    starts_on: z.union([isoDate, z.literal("")]),
+    ends_on: z.union([isoDate, z.literal("")]),
+    members_only: z.boolean(),
+    featured: z.boolean(),
+    active: z.boolean(),
+    slots: z
+      .array(
+        z.object({
+          label: z.string().trim().min(1, "Name each part, like Chips").max(30),
+          quantity: z.coerce.number().int().min(1).max(10),
+          by: z.enum(["category", "products"]),
+          category: z.string().trim().max(30),
+          product_ids: z.array(z.string()).max(200),
+        }),
+      )
+      .min(1, "A combo needs at least one part")
+      .max(6, "Up to 6 parts"),
+  })
+  .superRefine((c, ctx) => {
+    if (c.starts_on && c.ends_on && c.ends_on < c.starts_on) {
+      ctx.addIssue({ code: "custom", path: ["ends_on"], message: "Ends before it starts" });
+    }
+    c.slots.forEach((s, i) => {
+      if (s.by === "category" ? !s.category : s.product_ids.length === 0) {
+        ctx.addIssue({ code: "custom", path: ["slots"], message: `Part ${i + 1}: choose ${s.by === "category" ? "a category" : "at least one product"}` });
+      }
+    });
+  });
+
+export type ComboInput = z.input<typeof comboSchema>;
+
+/** Saves a combo ("chips + a soda for $2.50"). Stored as a promotion with kind "combo". */
+export async function saveCombo(id: string | null, input: ComboInput): Promise<DealResult> {
+  const { supabase } = await requireAdmin();
+  const parsed = comboSchema.safeParse(input);
+  if (!parsed.success) return { errors: issuesToErrors(parsed.error), message: "Some fields need fixing." };
+  const c = parsed.data;
+
+  const row = {
+    kind: "combo",
+    title: c.title,
+    product_id: null,
+    category: null,
+    sale_price_cents: c.price,
+    buy_qty: null,
+    get_qty: null,
+    combo_slots: c.slots.map((s) =>
+      s.by === "category"
+        ? { label: s.label, quantity: s.quantity, category: s.category }
+        : { label: s.label, quantity: s.quantity, product_ids: s.product_ids },
+    ),
+    starts_on: c.starts_on || storeTodayIso(),
+    ends_on: c.ends_on || null,
+    members_only: c.members_only,
+    featured: c.featured,
+    active: c.active,
+  };
+  const { error } = id
+    ? await supabase.from("promotions").update(row).eq("id", id)
+    : await supabase.from("promotions").insert(row);
+  if (error) return { message: `Couldn't save: ${error.message}` };
+
+  revalidatePath("/admin/deals");
+  revalidatePath("/", "layout");
+  return { ok: true, message: id ? "Combo saved" : "Combo created" };
 }
 
 export async function deleteDeal(kind: "promotion" | "bundle", id: string): Promise<DealResult> {

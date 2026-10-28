@@ -5,6 +5,7 @@ import { type Deals, shownPrice } from "@/lib/deals";
 import type { MenuItem } from "@/lib/store-data";
 import { cn } from "@/lib/utils";
 import { BundleCard } from "./bundle-card";
+import { ComboCard } from "./combo-card";
 import { CartBar } from "./cart-bar";
 import { useCart } from "./cart-store";
 import { FeaturedDeal } from "./featured-deal";
@@ -40,7 +41,8 @@ export function Menu({
   const priced = useMemo(() => items.map((item) => ({ item, shown: shownPrice(item, deals.promotions, isMember) })), [items, deals.promotions, isMember]);
   const onDeal = (p: (typeof priced)[number]) =>
     p.shown.regular !== null || p.shown.buyGets.length > 0 || p.shown.memberPrice !== null;
-  const hasDeals = deals.bundles.length > 0 || priced.some(onDeal);
+  const combos = deals.combos ?? [];
+  const hasDeals = combos.length > 0 || deals.bundles.length > 0 || priced.some(onDeal);
 
   const categories = [
     ALL,
@@ -177,6 +179,15 @@ export function Menu({
 
       {/* Drinks get the 3D fridge instead of the usual grid of cards. */}
       {drinksFridge && <DrinksExperience drinks={visible} maxPerOrder={maxPerOrder} inCart={quantityInCart} />}
+
+      {/* Combos lead the Deals tab */}
+      {category === DEALS && combos.length > 0 && (
+        <div className="mb-9 grid gap-5 md:grid-cols-2">
+          {combos.map((c) => (
+            <ComboCard key={c.id} combo={c} isMember={isMember} />
+          ))}
+        </div>
+      )}
 
       {/* key={category}: a new grid for each category, so the cards deal in again. */}
       <div key={category} hidden={drinksFridge} className="grid grid-cols-2 gap-x-4 gap-y-9 sm:grid-cols-3 lg:grid-cols-4">

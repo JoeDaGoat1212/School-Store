@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { CheckIcon, LogOutIcon } from "lucide-react";
 import { FlameMark } from "@/components/brand-mark";
 import { MemberCard } from "@/components/public/member-card";
@@ -66,6 +67,9 @@ export default async function AccountPage(props: PageProps<"/account">) {
       </div>
     );
   }
+
+  // ---- A teacher account: their page is /teacher ---------------------------------
+  if (account.teacher && !account.profile) redirect(needsPassword ? "/teacher?password=new" : "/teacher");
 
   // ---- Signed in for the first time: name, grade and username ---------------------
   if (!account.profile) {

@@ -21,7 +21,7 @@ import {
 import { brand } from "@/config/brand";
 import { staffNav } from "./nav-items";
 
-export function StaffSidebar({ email, openOrders }: { email: string; openOrders: number }) {
+export function StaffSidebar({ email, openOrders, pendingTeachers = 0 }: { email: string; openOrders: number; pendingTeachers?: number }) {
   const pathname = usePathname();
 
   // "/admin" is only active on the dashboard itself; other items also match their sub-pages.
@@ -36,8 +36,8 @@ export function StaffSidebar({ email, openOrders }: { email: string; openOrders:
               <Link href="/admin">
                 <BrandMark size={32} />
                 <span className="grid leading-tight">
-                  <span className="font-heading font-bold">{brand.name}</span>
-                  <span className="text-xs text-muted-foreground">Staff</span>
+                  <span className="font-heading text-base font-bold">{brand.name}</span>
+                  <span className="font-hand text-lg leading-none text-sidebar-primary">the back room</span>
                 </span>
               </Link>
             </SidebarMenuButton>
@@ -59,6 +59,9 @@ export function StaffSidebar({ email, openOrders }: { email: string; openOrders:
                   </SidebarMenuButton>
                   {item.href === "/admin/orders" && openOrders > 0 && (
                     <SidebarMenuBadge aria-label={`${openOrders} open orders today`}>{openOrders}</SidebarMenuBadge>
+                  )}
+                  {item.href === "/admin/teachers" && pendingTeachers > 0 && (
+                    <SidebarMenuBadge aria-label={`${pendingTeachers} teachers waiting for approval`}>{pendingTeachers}</SidebarMenuBadge>
                   )}
                 </SidebarMenuItem>
               ))}

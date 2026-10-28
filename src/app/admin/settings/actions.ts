@@ -102,15 +102,16 @@ const windowSchema = z.object({
  * time. A removed window that past orders still point to is turned off
  * instead of deleted (so those orders keep their pickup time).
  */
-export async function savePickupWindows(windows: z.input<typeof windowSchema>[], removedIds: number[]) {
+export async function savePickupWindows(windows: z.input<typeof windowSchema>[], removedIds: number[], kind: "pickup" | "class" = "pickup") {
   const { supabase } = await requireAdmin();
-  const parsed = z.array(windowSchema).min(1, "Keep at least one pickup time").safeParse(windows);
+  // Class hours (for teachers' room service) can all be off; pickup times can't.
+  const parsed = z.array(windowSchema).safeParse(windows);
   if (!parsed.success) return { error: parsed.error.issues[0].message };
-  if (!parsed.data.some((w) => w.active)) return { error: "At least one pickup time must be turned on." };
+  if (kind === "pickup" && !parsed.data.some((w) => w.active)) return { error: "At least one pickup time must be turned on." };
 
   const sorted = [...parsed.data].sort((a, b) => a.starts_at.localeCompare(b.starts_at));
   for (const [i, w] of sorted.entries()) {
-    const row = { label: w.label, starts_at: w.starts_at, active: w.active, sort_order: i };
+    const row = { label: w.label, starts_at: w.starts_at, active: w.active, sort_order: (kind === "class" ? 100 : 0) + i, kind };
     const { error } = w.id
       ? await supabase.from("pickup_windows").update(row).eq("id", w.id)
       : await supabase.from("pickup_windows").insert(row);
@@ -134,7 +135,9 @@ export async function savePickupWindows(windows: z.input<typeof windowSchema>[],
     ok: true,
     message: turnedOff
       ? `Saved. ${turnedOff} removed time${turnedOff === 1 ? " was" : "s were"} turned off instead, because past orders use ${turnedOff === 1 ? "it" : "them"}.`
-      : "Pickup times saved",
+      : kind === "class"
+        ? "Class hours saved"
+        : "Pickup times saved",
   };
 }
 

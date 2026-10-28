@@ -21,6 +21,8 @@ export type LookedUpOrder = {
   member?: boolean;
   bundles?: { name: string; quantity: number; unit_price_cents: number; items: { name: string; quantity: number }[] }[];
   discounts?: { label: string; amount_cents: number }[];
+  /** Room service (teachers): the room it's brought to. */
+  delivery_room?: string | null;
 };
 
 const STEPS: OrderStatus[] = ["received", "preparing", "ready", "picked_up"];
@@ -43,6 +45,10 @@ export function OrderTicket({
 }) {
   const stepIndex = STEPS.indexOf(order.status);
   const closed = stepIndex === -1; // canceled, no-show, expired
+  const room = order.delivery_room ?? null;
+  // Room service reads "On its way" / "Delivered" instead of pickup words.
+  const stepLabel = (step: OrderStatus) =>
+    room && step === "ready" ? "On its way" : room && step === "picked_up" ? "Delivered" : ORDER_STATUS[step].studentLabel;
 
   return (
     <article
@@ -98,7 +104,7 @@ export function OrderTicket({
                     {done ? <CheckIcon className="size-4" /> : i + 1}
                   </span>
                   <span className={cn("text-xs leading-tight", done ? "font-semibold" : "text-muted-foreground")}>
-                    {ORDER_STATUS[step].studentLabel}
+                    {stepLabel(step)}
                   </span>
                 </li>
               );
@@ -109,15 +115,15 @@ export function OrderTicket({
         {/* Pickup details */}
         <dl className="grid grid-cols-2 gap-4 text-sm">
           <div>
-            <dt className="text-muted-foreground">Pick up</dt>
+            <dt className="text-muted-foreground">{room ? "Room service" : "Pick up"}</dt>
             <dd className="font-semibold">
-              {relativeDay(order.pickup_date, today)}, {order.pickup_window}
+              {relativeDay(order.pickup_date, today)}, {room ? `during ${order.pickup_window.toLowerCase()}` : order.pickup_window}
             </dd>
             <dd className="text-muted-foreground">{formatDay(order.pickup_date, { weekday: "long" })}</dd>
           </div>
           <div>
             <dt className="text-muted-foreground">Where</dt>
-            <dd className="font-semibold">{pickupLocation}</dd>
+            <dd className="font-semibold">{room ? `Room ${room}` : pickupLocation}</dd>
           </div>
         </dl>
 
@@ -151,11 +157,13 @@ export function OrderTicket({
         </ul>
 
         <div className="flex items-baseline justify-between border-t pt-4">
-          <span className="font-semibold">{order.status === "picked_up" ? "Paid" : "Due at pickup"}</span>
+          <span className="font-semibold">{order.status === "picked_up" ? "Paid" : room ? "Due on delivery" : "Due at pickup"}</span>
           <span className="font-heading text-4xl leading-none font-extrabold tabular-nums">{formatCents(order.total_cents)}</span>
         </div>
         {order.status !== "picked_up" && !closed && (
-          <p className="-mt-3 text-sm text-muted-foreground">Cash or debit. Say your order number at the window.</p>
+          <p className="-mt-3 text-sm text-muted-foreground">
+            {room ? "Cash or debit, to the student who brings it." : "Cash or debit. Say your order number at the window."}
+          </p>
         )}
         {order.member && (order.points_earned ?? 0) > 0 && !closed && (
           <p className="-mt-2 rounded-xl bg-teal/15 px-3.5 py-2.5 text-sm font-medium">

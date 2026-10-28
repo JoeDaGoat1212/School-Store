@@ -95,7 +95,7 @@ export function OrderQueue({
   const goToDay = (d: string) => router.push(d === today ? "/admin/orders" : `/admin/orders?date=${d}`);
 
   return (
-    <div className="grid gap-5">
+    <div className="grid grid-cols-[minmax(0,1fr)] gap-5">
       {/* Day + window + search */}
       <div className="flex flex-wrap items-center gap-3">
         <div className="inline-flex rounded-lg bg-muted p-1" role="group" aria-label="Pickup day">

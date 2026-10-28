@@ -18,10 +18,14 @@ type Window = { id: number | null; key: string; label: string; starts_at: string
 export function PickupWindowsEditor({
   initial,
   leadMinutes,
+  kind = "pickup",
 }: {
   initial: { id: number; label: string; starts_at: string; active: boolean }[];
   leadMinutes: number;
+  /** "class": the class hours teachers pick for room service. */
+  kind?: "pickup" | "class";
 }) {
+  const isClass = kind === "class";
   const [rows, setRows] = useState<Window[]>(() => initial.map((w) => ({ ...w, key: String(w.id) })));
   const [removed, setRemoved] = useState<number[]>([]);
   const [saving, startSaving] = useTransition();
@@ -45,6 +49,7 @@ export function PickupWindowsEditor({
       const result = await savePickupWindows(
         rows.map(({ id, label, starts_at, active }) => ({ id, label, starts_at, active })),
         removed,
+        kind,
       );
       if (result.error) {
         toast.error(result.error);
@@ -57,20 +62,21 @@ export function PickupWindowsEditor({
   }
 
   return (
-    <section id="pickup" className="scroll-mt-20 rounded-2xl border bg-card shadow-soft" aria-labelledby="pickup-title">
+    <section id={kind} className="scroll-mt-20 rounded-2xl border bg-card shadow-soft" aria-labelledby={`${kind}-title`}>
       <div className="border-b px-5 py-4">
-        <h2 id="pickup-title" className="font-heading text-lg font-semibold">
-          Pickup times
+        <h2 id={`${kind}-title`} className="font-heading text-lg font-semibold">
+          {isClass ? "Class hours (room service)" : "Pickup times"}
         </h2>
         <p className="mt-0.5 text-sm text-muted-foreground">
-          Match your bell schedule. Each time stops taking orders {leadMinutes} minutes before it starts (change that
-          under Ordering rules).
+          {isClass
+            ? `When each class starts. Teachers pick one, and a student brings the order to their room. Orders close ${leadMinutes} minutes before.`
+            : `Match your bell schedule. Each time stops taking orders ${leadMinutes} minutes before it starts (change that under Ordering rules).`}
         </p>
       </div>
 
       <div className="grid gap-2 px-5 py-4">
         <div className="hidden grid-cols-[1fr_140px_150px_60px_40px] gap-3 px-1 text-xs font-medium text-muted-foreground sm:grid">
-          <span>Name students see</span>
+          <span>{isClass ? "Name teachers see" : "Name students see"}</span>
           <span>Time</span>
           <span>Orders close</span>
           <span>On</span>
@@ -133,7 +139,7 @@ export function PickupWindowsEditor({
             setDirty(true);
           }}
         >
-          <PlusIcon /> Add pickup time
+          <PlusIcon /> {isClass ? "Add class hour" : "Add pickup time"}
         </Button>
       </div>
 
@@ -141,7 +147,7 @@ export function PickupWindowsEditor({
         {dirty && <span className="text-sm text-muted-foreground">Unsaved changes</span>}
         <Button onClick={save} disabled={saving || !dirty}>
           {saving && <Loader2Icon className="animate-spin" />}
-          Save pickup times
+          {isClass ? "Save class hours" : "Save pickup times"}
         </Button>
       </div>
     </section>

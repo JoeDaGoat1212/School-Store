@@ -5,7 +5,8 @@ import { ThemeToggle } from "@/components/theme-toggle";
 import { SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { SkipLink } from "@/components/skip-link";
 import { requireAdmin } from "@/lib/auth";
-import { storeToday } from "@/lib/format";
+import { formatDay, storeToday } from "@/lib/format";
+import { backroomFonts } from "./fonts";
 
 export const metadata: Metadata = {
   title: { default: "Dashboard", template: "%s · Staff" },
@@ -23,16 +24,21 @@ export default async function AdminLayout({ children }: LayoutProps<"/admin">) {
     .eq("pickup_date", storeToday())
     .in("status", ["received", "preparing", "ready"]);
 
+  // Number badge on "Teachers": requests waiting for approval.
+  const { count: pendingTeachers } = await supabase.from("teachers").select("id", { count: "exact", head: true }).eq("status", "pending");
+
   // Remember whether the sidebar was collapsed last time.
   const sidebarOpen = (await cookies()).get("sidebar_state")?.value !== "false";
 
   return (
-    <SidebarProvider defaultOpen={sidebarOpen}>
+    // "backroom": the staff pages' retro corner-store look (globals.css).
+    <SidebarProvider defaultOpen={sidebarOpen} className={`backroom ${backroomFonts}`}>
       <SkipLink />
-      <StaffSidebar email={user.email} openOrders={openOrders ?? 0} />
+      <StaffSidebar email={user.email} openOrders={openOrders ?? 0} pendingTeachers={pendingTeachers ?? 0} />
       <SidebarInset id="main">
-        <header className="no-print sticky top-0 z-10 flex h-14 items-center gap-2 border-b bg-background/85 px-4 backdrop-blur">
+        <header className="no-print sticky top-0 z-10 flex h-14 items-center gap-3 border-b-2 border-dashed border-border bg-card/90 px-4 backdrop-blur">
           <SidebarTrigger className="-ml-1" />
+          <p className="font-hand text-xl leading-none text-muted-foreground">{formatDay(storeToday(), { weekday: "long" })}</p>
           <div className="flex-1" />
           <ThemeToggle />
         </header>

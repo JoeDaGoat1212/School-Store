@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import {
   ArrowRightIcon,
   BanIcon,
+  BellRingIcon,
   CheckCheckIcon,
   Loader2Icon,
   MoreVerticalIcon,
@@ -54,6 +55,12 @@ const NEXT_LABEL: Partial<Record<OrderStatus, string>> = {
   ready: "Picked up & paid",
 };
 
+/** Room service orders: the steps read like a delivery. */
+const DELIVERY_LABEL: Partial<Record<OrderStatus, string>> = {
+  preparing: "Ready to deliver",
+  ready: "Delivered & paid",
+};
+
 /** One step back, for fixing a mis-tap. */
 const PREVIOUS_STATUS: Partial<Record<OrderStatus, OrderStatus>> = {
   preparing: "received",
@@ -100,7 +107,8 @@ export function OrderCard({ order }: { order: QueueOrder }) {
     <article
       aria-label={`Order ${number}`}
       className={cn(
-        "flex flex-col rounded-2xl border bg-card shadow-soft transition-opacity",
+        // "receipt": drawn as a register receipt with a torn edge on staff pages.
+        "receipt flex flex-col rounded-2xl border bg-card shadow-soft transition-opacity",
         !isOpen && "opacity-75",
         order.status === "ready" && "border-success/50 ring-1 ring-success/30",
         pending && "opacity-60",
@@ -108,10 +116,13 @@ export function OrderCard({ order }: { order: QueueOrder }) {
     >
       <div className="flex items-start gap-3 p-4 pb-3">
         <div className="min-w-0 flex-1">
-          <p className="font-heading text-2xl leading-none font-extrabold tracking-tight tabular-nums">{number}</p>
+          <p className="receipt-number font-heading text-2xl leading-none font-extrabold tracking-tight tabular-nums">{number}</p>
           <p className="mt-1.5 truncate font-semibold">
             {order.first_name} {order.last_name}
             <span className="font-normal text-muted-foreground"> · {order.grade}</span>
+            {order.teacher && (
+              <span className="ml-1.5 rounded-md bg-[#ffc45c]/40 px-1.5 py-0.5 align-middle text-[0.7rem] font-semibold">Teacher</span>
+            )}
             {order.member && (
               <span className="ml-1.5 rounded-md bg-teal/20 px-1.5 py-0.5 align-middle text-[0.7rem] font-semibold text-teal-ink">
                 Member
@@ -119,6 +130,11 @@ export function OrderCard({ order }: { order: QueueOrder }) {
             )}
           </p>
           <p className="text-xs text-muted-foreground">Ordered {formatTime(order.created_at)}</p>
+          {order.delivery_room && (
+            <p className="mt-2 inline-flex items-center gap-1.5 rounded-lg bg-foreground px-2.5 py-1 text-sm font-bold text-background">
+              <BellRingIcon className="size-4 text-[#ffc45c]" /> Room service → Room {order.delivery_room}
+            </p>
+          )}
         </div>
         <StatusBadge status={order.status} />
         <DropdownMenu>
@@ -214,7 +230,7 @@ export function OrderCard({ order }: { order: QueueOrder }) {
             )}
           >
             {pending ? <Loader2Icon className="animate-spin" /> : next === "picked_up" ? <CheckCheckIcon /> : <ArrowRightIcon />}
-            {NEXT_LABEL[order.status]}
+            {(order.delivery_room && DELIVERY_LABEL[order.status]) || NEXT_LABEL[order.status]}
           </Button>
         )}
       </div>

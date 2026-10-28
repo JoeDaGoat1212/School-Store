@@ -6,6 +6,7 @@ import { PageHeader } from "@/components/staff/page-header";
 import { requireAdmin } from "@/lib/auth";
 import { storeToday } from "@/lib/format";
 import { BundleForm } from "./bundle-form";
+import { ComboForm, type InitialCombo } from "./combo-form";
 import { PromotionForm } from "./promotion-form";
 
 export const metadata: Metadata = { title: "Edit deal" };
@@ -15,7 +16,7 @@ export type ProductOption = { id: string; name: string; price_cents: number; cat
 /** One page for every kind: ?kind=sale | buy_get | bundle, and &id= to edit. */
 export default async function EditDealPage(props: PageProps<"/admin/deals/edit">) {
   const { kind: rawKind, id: rawId } = await props.searchParams;
-  const kind = rawKind === "buy_get" || rawKind === "bundle" ? rawKind : "sale";
+  const kind = rawKind === "buy_get" || rawKind === "bundle" || rawKind === "combo" ? rawKind : "sale";
   const id = typeof rawId === "string" ? rawId : null;
   const { supabase } = await requireAdmin();
 
@@ -54,6 +55,25 @@ export default async function EditDealPage(props: PageProps<"/admin/deals/edit">
           description="A few products sold together for one price. Each product's stock goes down when a bundle is picked up."
         />
         <BundleForm id={id} initial={initial} products={products} />
+      </>
+    );
+  }
+
+  if (kind === "combo") {
+    let initial: InitialCombo | null = null;
+    if (id) {
+      const { data } = await supabase.from("promotions").select("*").eq("id", id).maybeSingle();
+      if (!data) notFound();
+      initial = { ...data, combo_slots: (data.combo_slots ?? []) as InitialCombo["combo_slots"] };
+    }
+    return (
+      <>
+        {back}
+        <PageHeader
+          title={id ? `Edit ${initial?.title}` : "New combo"}
+          description="Pick-your-own deals, like chips + a soda for $2.50. Students choose what goes in each part, and the cart takes the difference off by itself."
+        />
+        <ComboForm id={id} initial={initial} products={products} categories={categories} />
       </>
     );
   }

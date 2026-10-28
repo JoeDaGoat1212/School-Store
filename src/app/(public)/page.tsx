@@ -29,7 +29,7 @@ export default async function HomePage(props: PageProps<"/">) {
   const isMember = Boolean(account?.profile);
   const season = pickSeason(info.today, seasonParam);
   const priced = menu.map((item) => ({ item, shown: shownPrice(item, deals.promotions, isMember) }));
-  const hasDeals = deals.bundles.length > 0 || priced.some((p) => p.shown.regular !== null || p.shown.buyGets.length > 0);
+  const hasDeals = (deals.combos ?? []).length > 0 || deals.bundles.length > 0 || priced.some((p) => p.shown.regular !== null || p.shown.buyGets.length > 0);
 
   // The aisle cards: how many products each has, and a few to show (ones with 3D pictures, in stock first).
   const inCategory = (test: RegExp) => menu.filter((m) => test.test(m.category));
@@ -51,7 +51,7 @@ export default async function HomePage(props: PageProps<"/">) {
     aisle("Candy", "Candy", "Chocolate, sour and chewy", /^candy$/i, "pink"),
     aisle("Hot food", "Hot food", "Ramen, muffins and more", /hot food/i, "gold"),
     hasDeals
-      ? ({ category: "Deals", title: "Deals", blurb: "Sales, bundles and coupons this week", count: deals.bundles.length + priced.filter((p) => p.shown.regular !== null || p.shown.buyGets.length > 0).length, picks: [], tone: "black", href: "/deals" } satisfies Aisle)
+      ? ({ category: "Deals", title: "Deals", blurb: "Sales, bundles and coupons this week", count: (deals.combos ?? []).length + deals.bundles.length + priced.filter((p) => p.shown.regular !== null || p.shown.buyGets.length > 0).length, picks: [], tone: "black", href: "/deals" } satisfies Aisle)
       : null,
   ].filter((a): a is Aisle => a !== null);
 

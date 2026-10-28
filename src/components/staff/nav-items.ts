@@ -4,6 +4,7 @@ import {
   ClipboardListIcon,
   FileUpIcon,
   GiftIcon,
+  GraduationCapIcon,
   LayoutDashboardIcon,
   type LucideIcon,
   PackageIcon,
@@ -23,5 +24,6 @@ export const staffNav: { title: string; href: string; icon: LucideIcon }[] = [
   { title: "Products", href: "/admin/products", icon: PackageIcon },
   { title: "Deals", href: "/admin/deals", icon: TagIcon },
   { title: "Rewards", href: "/admin/rewards", icon: GiftIcon },
+  { title: "Teachers", href: "/admin/teachers", icon: GraduationCapIcon },
   { title: "Settings", href: "/admin/settings", icon: SettingsIcon },
 ];

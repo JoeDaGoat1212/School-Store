@@ -96,7 +96,7 @@ export function SignInForm({ next = "/account", startOn = "signin" }: { next?: s
   );
 }
 
-function Field({
+export function Field({
   label,
   name,
   type = "text",
@@ -138,7 +138,7 @@ function Field({
   );
 }
 
-function PasswordField({ autoComplete, error, help }: { autoComplete: string; error?: string; help?: string }) {
+export function PasswordField({ autoComplete, error, help }: { autoComplete: string; error?: string; help?: string }) {
   const [show, setShow] = useState(false);
   const note = error ?? help;
   return (
@@ -193,8 +193,19 @@ function CodeInput({ error, inputRef }: { error?: string; inputRef: React.RefObj
 }
 
 /** After "Create account": type the code from the confirmation email. */
-function ConfirmStep({ email, next, note }: { email: string; next: string; note?: string }) {
-  const [checked, confirmAction, confirming] = useActionState<AuthState, FormData>(confirmSignUp, { view: "confirm", email });
+export function ConfirmStep({
+  email,
+  next,
+  note,
+  confirm = confirmSignUp,
+}: {
+  email: string;
+  next: string;
+  note?: string;
+  /** What checks the code (teachers use their own, which also files their request). */
+  confirm?: typeof confirmSignUp;
+}) {
+  const [checked, confirmAction, confirming] = useActionState<AuthState, FormData>(confirm, { view: "confirm", email });
   const [resent, resendAction, resending] = useActionState<AuthState, FormData>(resendSignUpCode, { view: "confirm", email });
   const codeRef = useRef<HTMLInputElement>(null);
   useEffect(() => codeRef.current?.focus(), [resent.sentAt]);
@@ -236,7 +247,7 @@ function ConfirmStep({ email, next, note }: { email: string; next: string; note?
 }
 
 /** "Forgot password?": email → code → signed in (then they set a new password). */
-function CodeSignIn({ next, onBack }: { next: string; onBack: () => void }) {
+export function CodeSignIn({ next, onBack }: { next: string; onBack: () => void }) {
   const [sent, sendAction, sending] = useActionState<SignInState, FormData>(sendCode, { step: "email" });
   const [checked, verifyAction, verifying] = useActionState<SignInState, FormData>(verifyCode, { step: "code" });
   const codeRef = useRef<HTMLInputElement>(null);

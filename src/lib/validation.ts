@@ -86,6 +86,21 @@ export const orderSchema = z.object({
 
 export type OrderInput = z.infer<typeof orderSchema>;
 
+/** A teacher's order: no grade; room service needs a room and a class hour. */
+export const teacherOrderSchema = z
+  .object({
+    first_name: z.string().trim().min(1, "Enter your first name").max(40, "First name is too long"),
+    last_name: z.string().trim().min(1, "Enter your last name").max(40, "Last name is too long"),
+    delivery: z.enum(["room", "pickup"], { message: "Choose room service or pickup" }),
+    room: z.string().trim().max(20, "That room number is too long").optional().default(""),
+    pickup_date: z.iso.date({ message: "Choose a day" }),
+    pickup_window_id: z.coerce.number({ message: "Choose a time" }).int().positive("Choose a time"),
+    items: z.array(z.object({ product_id: z.uuid(), quantity: z.number().int().min(1).max(50) })).max(60),
+    bundles: z.array(z.object({ bundle_id: z.guid(), quantity: z.number().int().min(1).max(20) })).max(20).default([]),
+  })
+  .refine((o) => o.items.length + o.bundles.length > 0, { message: "Your cart is empty", path: ["items"] })
+  .refine((o) => o.delivery !== "room" || o.room !== "", { message: "Enter your room number", path: ["room"] });
+
 /** Turns zod errors into { fieldName: "message" } for showing under each field. */
 export function fieldErrors(error: z.ZodError) {
   const out: Record<string, string> = {};

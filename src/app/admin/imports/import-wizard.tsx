@@ -220,7 +220,7 @@ export function ImportWizard({ products, aliases }: { products: Product[]; alias
         <h2 id="import-heading" className="font-heading text-lg font-semibold">
           Import sales
         </h2>
-        <ol className="ml-auto flex items-center gap-2 text-sm" aria-label="Steps">
+        <ol className="ml-auto flex flex-wrap items-center gap-2 text-sm" aria-label="Steps">
           {(["upload", "columns", "review", "done"] as Step[]).map((s, i) => (
             <li key={s} className="flex items-center gap-2">
               {i > 0 && <span className="h-px w-4 bg-border" aria-hidden />}

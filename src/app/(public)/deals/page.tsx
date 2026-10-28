@@ -15,6 +15,7 @@ export default async function Deals() {
       priced={menu.map((item) => ({ item, shown: shownPrice(item, deals.promotions, isMember) }))}
       promotions={deals.promotions}
       bundles={deals.bundles}
+      combos={deals.combos ?? []}
       rewards={rewards}
       isMember={isMember}
       signedIn={Boolean(account) && !account?.staff}

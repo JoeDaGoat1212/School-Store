@@ -5,10 +5,10 @@ import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { parseOrderNumber } from "@/config/brand";
 import { ipHashSalt } from "@/lib/env";
-import { getAccount } from "@/lib/member";
+import { getAccount, isTeacher } from "@/lib/member";
 import { saveOrder } from "@/lib/my-orders";
 import { createClient, createSecretClient } from "@/lib/supabase/server";
-import { fieldErrors, orderSchema } from "@/lib/validation";
+import { fieldErrors, orderSchema, teacherOrderSchema } from "@/lib/validation";
 
 export type CheckoutState = {
   errors?: Record<string, string>;
@@ -64,6 +64,12 @@ async function submitOrder(formData: FormData): Promise<CheckoutState> {
     return { message: "Your cart couldn't be read. Please refresh the page." };
   }
 
+  // An approved teacher? (Checked here from the login cookie, never from the form.)
+  const { data: login } = await (await createClient()).auth.getClaims();
+  const userId = (login?.claims?.sub as string | undefined) ?? undefined;
+  const account = userId ? await getAccount() : null;
+  if (userId && isTeacher(account)) return submitTeacherOrder(formData, userId, items, bundles);
+
   const parsed = orderSchema.safeParse({ ...Object.fromEntries(formData), items, bundles });
   if (!parsed.success) {
     const errors = fieldErrors(parsed.error);
@@ -73,10 +79,7 @@ async function submitOrder(formData: FormData): Promise<CheckoutState> {
 
   // Signed in to rewards? The login cookie is checked here on the server, so
   // nobody can claim to be someone else's account.
-  const { data: login } = await (await createClient()).auth.getClaims();
-  const customerId = (login?.claims?.sub as string | undefined) ?? undefined;
-  const account = customerId ? await getAccount() : null;
-  const memberId = account?.profile && !account.staff ? customerId : undefined;
+  const memberId = account?.profile && !account.staff ? userId : undefined;
 
   // The secret client is needed because students aren't allowed to call
   // place_order directly — only this server code can.
@@ -108,6 +111,39 @@ async function submitOrder(formData: FormData): Promise<CheckoutState> {
   return { placed: { orderNumber } };
 }
 
+/**
+ * A teacher's order: teacher prices, and room service (brought to their room
+ * during a class hour) or pickup. The database checks the teacher is approved.
+ */
+async function submitTeacherOrder(formData: FormData, teacherId: string, items: unknown, bundles: unknown): Promise<CheckoutState> {
+  const parsed = teacherOrderSchema.safeParse({ ...Object.fromEntries(formData), items, bundles });
+  if (!parsed.success) {
+    const errors = fieldErrors(parsed.error);
+    return { errors, message: errors.items ?? "Please fix the highlighted fields." };
+  }
+  const o = parsed.data;
+
+  const { data, error } = await createSecretClient().rpc("place_order", {
+    p_first_name: o.first_name,
+    p_last_name: o.last_name,
+    p_grade: "Teacher",
+    p_pickup_window_id: o.pickup_window_id,
+    p_pickup_date: o.pickup_date,
+    p_items: o.items,
+    p_bundles: o.bundles,
+    p_ip_hash: await deviceHash(),
+    p_teacher_id: teacherId,
+    p_delivery_room: o.delivery === "room" ? o.room : undefined,
+  });
+  if (error) {
+    return { code: error.message, message: error.hint || "Something went wrong placing your order. Please try again." };
+  }
+
+  const orderNumber = (data as { order_number: number }).order_number;
+  await saveOrder(orderNumber, o.last_name);
+  return { placed: { orderNumber } };
+}
+
 /** What the cart costs right now, from the database (deals, bundles, rewards). */
 export type Quote = {
   lines: {
@@ -120,11 +156,13 @@ export type Quote = {
     is_reward: boolean;
   }[];
   bundles: { bundle_id: string; name: string; quantity: number; unit_price_cents: number }[];
-  discounts: { label: string; amount_cents: number; kind: "buy_get" | "reward" }[];
+  discounts: { label: string; amount_cents: number; kind: "buy_get" | "reward" | "combo" }[];
   subtotal_cents: number;
   discount_cents: number;
   total_cents: number;
   member: boolean;
+  /** Priced as an approved teacher. */
+  teacher?: boolean;
   points_balance: number;
   points_earned: number;
   points_if_member: number;

@@ -3,14 +3,15 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { CSSProperties } from "react";
-import { BoxIcon, GiftIcon, LockIcon, PackageIcon, ScissorsIcon, SparklesIcon, TagIcon, TimerIcon } from "lucide-react";
-import { buyGetLabel, type Bundle, type Promotion, type ShownPrice } from "@/lib/deals";
+import { BoxIcon, GiftIcon, LockIcon, PackageIcon, ScissorsIcon, SparklesIcon, TagIcon, TimerIcon, UtensilsCrossedIcon } from "lucide-react";
+import { buyGetLabel, type Bundle, type Combo, type Promotion, type ShownPrice } from "@/lib/deals";
 import { formatCents, formatDay, relativeDay } from "@/lib/format";
 import type { Reward } from "@/lib/member";
 import { productRenderUrl } from "@/lib/product-renders";
 import type { MenuItem } from "@/lib/store-data";
 import { cn } from "@/lib/utils";
 import { BundleCard } from "../bundle-card";
+import { ComboCard } from "../combo-card";
 import { CartBar } from "../cart-bar";
 import { useCart } from "../cart-store";
 import { FeaturedDeal } from "../featured-deal";
@@ -34,6 +35,7 @@ export function DealsPage({
   priced,
   promotions,
   bundles,
+  combos,
   rewards,
   isMember,
   signedIn,
@@ -45,6 +47,7 @@ export function DealsPage({
   priced: Priced[];
   promotions: Promotion[];
   bundles: Bundle[];
+  combos: Combo[];
   rewards: Reward[];
   isMember: boolean;
   signedIn: boolean;
@@ -63,7 +66,7 @@ export function DealsPage({
   const coupons = promotions.filter((p) => p.kind === "buy_get" && (isMember || !p.members_only));
   const lockedCoupons = isMember ? [] : promotions.filter((p) => p.kind === "buy_get" && p.members_only);
   const lockedBundles = bundles.filter((b) => b.members_only && !isMember).length;
-  const count = bundles.length + onSale.length + coupons.length;
+  const count = bundles.length + onSale.length + coupons.length + combos.length;
   const nothing = count === 0 && memberOnly.length === 0 && lockedCoupons.length === 0;
 
   // When the soonest deal ends (for the "Ends …" chip at the top).
@@ -89,6 +92,7 @@ export function DealsPage({
             </h1>
           </div>
           <ul className="flex flex-wrap gap-2 sm:max-w-xs sm:justify-end">
+            {combos.length > 0 && <Chip icon={UtensilsCrossedIcon} text={`${combos.length} combo${combos.length === 1 ? "" : "s"}`} />}
             <Chip icon={PackageIcon} text={`${bundles.length} bundle${bundles.length === 1 ? "" : "s"}`} />
             <Chip icon={TagIcon} text={`${onSale.length} on sale`} />
             <Chip icon={ScissorsIcon} text={`${coupons.length} coupon${coupons.length === 1 ? "" : "s"}`} />
@@ -117,6 +121,17 @@ export function DealsPage({
           inCart={inCart}
           onShowCategory={(c) => router.push(`/#shop-${encodeURIComponent(c)}`)}
         />
+      )}
+
+      {/* ---- Combos ---- */}
+      {combos.length > 0 && (
+        <Section id="combos" icon={UtensilsCrossedIcon} title="Combos" blurb="Pick what you want in it. The combo price comes off in your cart.">
+          <div className="grid gap-5 md:grid-cols-2">
+            {combos.map((c) => (
+              <ComboCard key={c.id} combo={c} isMember={isMember} />
+            ))}
+          </div>
+        </Section>
       )}
 
       {/* ---- Bundles ---- */}

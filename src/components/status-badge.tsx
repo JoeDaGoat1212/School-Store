@@ -16,7 +16,8 @@ export function Pill({ tone, children, className }: { tone: Tone; children: Reac
   return (
     <span
       className={cn(
-        "inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-semibold whitespace-nowrap ring-1 ring-inset",
+        // "pill": staff pages draw these as rubber stamps (see .backroom .pill in globals.css).
+        "pill inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-semibold whitespace-nowrap ring-1 ring-inset",
         TONES[tone],
         className,
       )}

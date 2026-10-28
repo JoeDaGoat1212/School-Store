@@ -200,6 +200,8 @@ export type Database = {
           discount_cents: number;
           points_earned: number;
           points_spent: number;
+          teacher_id: string | null;
+          delivery_room: string | null;
         };
         ComputedFields: never;
         Insert: {
@@ -222,6 +224,8 @@ export type Database = {
           discount_cents?: number;
           points_earned?: number;
           points_spent?: number;
+          teacher_id?: string | null;
+          delivery_room?: string | null;
         };
         Update: {
           created_at?: string;
@@ -243,6 +247,8 @@ export type Database = {
           discount_cents?: number;
           points_earned?: number;
           points_spent?: number;
+          teacher_id?: string | null;
+          delivery_room?: string | null;
         };
         Relationships: [
           {
@@ -268,6 +274,7 @@ export type Database = {
           label: string;
           sort_order: number;
           starts_at: string;
+          kind: string;
         };
         ComputedFields: never;
         Insert: {
@@ -276,6 +283,7 @@ export type Database = {
           label: string;
           sort_order?: number;
           starts_at: string;
+          kind?: string;
         };
         Update: {
           active?: boolean;
@@ -283,6 +291,7 @@ export type Database = {
           label?: string;
           sort_order?: number;
           starts_at?: string;
+          kind?: string;
         };
         Relationships: [];
       };
@@ -568,6 +577,8 @@ export type Database = {
           updated_at: string;
           rewards_enabled: boolean;
           points_per_dollar: number;
+          teacher_markup_cents: number;
+          room_service_enabled: boolean;
         };
         ComputedFields: never;
         Insert: {
@@ -590,6 +601,8 @@ export type Database = {
           updated_at?: string;
           rewards_enabled?: boolean;
           points_per_dollar?: number;
+          teacher_markup_cents?: number;
+          room_service_enabled?: boolean;
         };
         Update: {
           banner_text?: string | null;
@@ -611,6 +624,8 @@ export type Database = {
           updated_at?: string;
           rewards_enabled?: boolean;
           points_per_dollar?: number;
+          teacher_markup_cents?: number;
+          room_service_enabled?: boolean;
         };
         Relationships: [];
       };
@@ -939,7 +954,8 @@ export type Database = {
           buy_qty: number | null;
           get_qty: number | null;
           starts_on: string;
-          ends_on: string;
+          ends_on: string | null;
+          combo_slots: Json | null;
           members_only: boolean;
           featured: boolean;
           active: boolean;
@@ -956,7 +972,8 @@ export type Database = {
           buy_qty?: number | null;
           get_qty?: number | null;
           starts_on: string;
-          ends_on: string;
+          ends_on?: string | null;
+          combo_slots?: Json | null;
           members_only?: boolean;
           featured?: boolean;
           active?: boolean;
@@ -972,7 +989,8 @@ export type Database = {
           buy_qty?: number | null;
           get_qty?: number | null;
           starts_on?: string;
-          ends_on?: string;
+          ends_on?: string | null;
+          combo_slots?: Json | null;
           members_only?: boolean;
           featured?: boolean;
           active?: boolean;
@@ -987,6 +1005,46 @@ export type Database = {
             referencedColumns: ["id"];
           },
         ];
+      };
+      teachers: {
+        Row: {
+          id: string;
+          email: string;
+          first_name: string;
+          last_name: string;
+          room: string;
+          status: string;
+          approved_at: string | null;
+          approved_by: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        ComputedFields: never;
+        Insert: {
+          id: string;
+          email: string;
+          first_name: string;
+          last_name: string;
+          room: string;
+          status?: string;
+          approved_at?: string | null;
+          approved_by?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          email?: string;
+          first_name?: string;
+          last_name?: string;
+          room?: string;
+          status?: string;
+          approved_at?: string | null;
+          approved_by?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
       };
       rewards: {
         Row: {
@@ -1060,6 +1118,8 @@ export type Database = {
           orders: number;
         }[];
       };
+      save_teacher_profile: { Args: { p_first_name: string; p_last_name: string; p_room: string }; Returns: undefined };
+      get_teacher_prices: { Args: Record<PropertyKey, never>; Returns: Json };
       quote_cart: { Args: { p_bundles?: Json; p_items: Json; p_reward_id?: string }; Returns: Json };
       save_profile: { Args: { p_first_name: string; p_grade: string; p_last_name: string; p_username?: string | null }; Returns: undefined };
       username_available: { Args: { p_username: string }; Returns: boolean };
@@ -1103,6 +1163,8 @@ export type Database = {
           p_pickup_date: string;
           p_pickup_window_id: number;
           p_reward_id?: string;
+          p_teacher_id?: string;
+          p_delivery_room?: string;
         };
         Returns: Json;
       };

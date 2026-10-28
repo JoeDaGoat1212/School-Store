@@ -373,3 +373,185 @@
   0%, 100% { translate: 0 0; }
   50% { translate: 0 -8px; }
 }
+
+/* Teacher page: the room service cloche. The lid lifts every 5 seconds,
+   steam rises while it's up, and the little bell rings. */
+.cloche-lid {
+  transform-origin: 88% 86%;
+  animation: lid-lift 5s cubic-bezier(0.5, 0, 0.3, 1) infinite;
+}
+@keyframes lid-lift {
+  0%, 30% { transform: none; }
+  42%, 78% { transform: translate(4%, -30%) rotate(16deg); }
+  90%, 100% { transform: none; }
+}
+.cloche-steam path {
+  opacity: 0;
+  animation: steam 5s ease-out infinite;
+}
+@keyframes steam {
+  0%, 40% { opacity: 0; transform: translateY(10px); }
+  55% { opacity: 1; }
+  80%, 100% { opacity: 0; transform: translateY(-26px); }
+}
+.bell-ring { animation: bell-ring 5s ease-in-out infinite; }
+@keyframes bell-ring {
+  0%, 34%, 46%, 100% { transform: rotate(0); }
+  36% { transform: rotate(-18deg) scale(1.08); }
+  39% { transform: rotate(16deg) scale(1.08); }
+  42% { transform: rotate(-10deg); }
+  44% { transform: rotate(6deg); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .cloche-lid { animation: none; transform: translate(4%, -30%) rotate(16deg); }
+  .cloche-steam path, .bell-ring { animation: none; }
+}
+
+/* =============================================================================
+   The back room: the staff pages' retro corner-store look.
+   Manila ledger paper with green rules, receipt-paper cards, blue-black
+   register ink, rubber-stamp red, ledger green and price-gun orange.
+   `body:has(.backroom)` (not just .backroom) so pop-ups and the phone menu,
+   which render outside the page, get the same colors.
+   ============================================================================= */
+body:has(.backroom) {
+  --paper: #fffcf2;
+  --manila: #ede3c8;
+  --ink: #222631;
+  --stamp: #c33a2c;
+  --ledger: #2f6b4e;
+  --label: #f29b1d;
+  --rule: rgb(47 107 78 / 0.14);
+  --background: var(--manila);
+  --foreground: var(--ink);
+  --card: var(--paper);
+  --card-foreground: var(--ink);
+  --popover: var(--paper);
+  --popover-foreground: var(--ink);
+  --primary: var(--ink);
+  --primary-foreground: var(--paper);
+  --secondary: #e4d8b8;
+  --secondary-foreground: var(--ink);
+  --muted: #e6dbbd;
+  --muted-foreground: #5d5747;
+  --accent: #e9dfc2;
+  --accent-foreground: var(--ink);
+  --destructive: var(--stamp);
+  --success: var(--ledger);
+  --warning: #93520a;
+  --border: #d3c59f;
+  --input: #bcab80;
+  --ring: var(--label);
+  --ember-ink: #a8481a;
+  --radius: 0.375rem;
+  --shadow-soft: 0 1px 0 rgb(34 38 49 / 0.06), 0 12px 24px -18px rgb(70 50 10 / 0.55);
+  --chart-1: var(--label);
+  --chart-2: var(--ledger);
+  --sidebar: var(--ink);
+  --sidebar-foreground: #e9dfc2;
+  --sidebar-primary: var(--label);
+  --sidebar-primary-foreground: var(--ink);
+  --sidebar-accent: rgb(237 227 200 / 0.1);
+  --sidebar-accent-foreground: var(--paper);
+  --sidebar-border: rgb(237 227 200 / 0.14);
+  --sidebar-ring: var(--label);
+  background: var(--manila);
+}
+.dark body:has(.backroom) {
+  /* After hours: the back room with the lights low. */
+  --paper: #29251d;
+  --manila: #1b1813;
+  --ink: #ece2c6;
+  --stamp: #f07a63;
+  --ledger: #74c39a;
+  --rule: rgb(116 195 154 / 0.07);
+  --primary: #ece2c6;
+  --primary-foreground: #1b1813;
+  --secondary: #332e24;
+  --secondary-foreground: var(--ink);
+  --muted: #332e24;
+  --muted-foreground: #b3a78a;
+  --accent: #39332a;
+  --border: #4a4334;
+  --input: #5a5141;
+  --warning: #f0b25a;
+  --ember-ink: #f6a66c;
+  --sidebar: #0f0d0a;
+  --sidebar-foreground: #d9ceb0;
+  --sidebar-accent-foreground: #fffcf2;
+  --shadow-soft: 0 1px 0 rgb(0 0 0 / 0.4), 0 14px 26px -18px rgb(0 0 0 / 0.9);
+}
+
+.backroom {
+  --font-display: var(--font-slab);
+}
+
+/* The page: ledger paper, with the red double margin rule down the left. */
+.backroom [data-slot="sidebar-inset"] {
+  background-color: var(--manila);
+  background-image:
+    linear-gradient(to right, transparent 0 22px, rgb(195 58 44 / 0.28) 22px 23px, transparent 23px 26px, rgb(195 58 44 / 0.28) 26px 27px, transparent 27px),
+    repeating-linear-gradient(to bottom, transparent 0 31px, var(--rule) 31px 32px);
+}
+
+/* Paper isn't round: square off the big rounded corners. */
+.backroom .rounded-2xl,
+.backroom .rounded-3xl { border-radius: 5px; }
+.backroom .rounded-xl { border-radius: 4px; }
+
+/* Headings in slab, a little tighter. */
+.backroom .font-heading { font-weight: 700; letter-spacing: -0.01em; }
+
+/* Sidebar: a ledger book's cover, with the open page's index tab pulled out. */
+.backroom [data-sidebar="menu-button"] { font-size: 0.9rem; }
+.backroom [data-sidebar="menu-button"][data-active="true"] {
+  background: var(--manila);
+  color: var(--ink);
+  font-weight: 700;
+  border-radius: 4px 0 0 4px;
+  margin-right: -0.5rem;
+  width: calc(100% + 0.5rem);
+  box-shadow: inset 3px 0 0 var(--label);
+}
+.backroom [data-collapsible="icon"] [data-sidebar="menu-button"][data-active="true"] { margin-right: 0; width: auto; border-radius: 4px; }
+
+/* Status stamps: inked rubber stamps instead of pills. */
+.backroom .pill {
+  border-radius: 3px;
+  background: transparent;
+  box-shadow: inset 0 0 0 1.5px currentColor;
+  font-family: var(--font-slab);
+  font-weight: 700;
+  font-size: 0.72rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  transform: rotate(-2deg);
+  padding: 0.1rem 0.45rem;
+}
+
+/* Order tickets: register receipts with a torn bottom edge. */
+.backroom .receipt {
+  --tear: 7px;
+  border-radius: 3px 3px 0 0;
+  padding-bottom: calc(var(--tear) + 2px);
+  mask: conic-gradient(from -45deg at bottom, #0000, #000 1deg 89deg, #0000 90deg) 50% / calc(2 * var(--tear)) 100%;
+}
+.backroom .receipt .receipt-number { font-family: var(--font-receipt); font-weight: 700; letter-spacing: 0.02em; }
+
+/* Handwriting and receipt type helpers. */
+.font-hand { font-family: var(--font-hand), cursive; }
+.font-receipt { font-family: var(--font-receipt), ui-monospace, monospace; }
+
+/* The dashboard's register tape prints out once when the page opens. */
+.tape-print { animation: tape-print 900ms steps(14, end) both; clip-path: inset(0 0 0 0); }
+@keyframes tape-print {
+  from { clip-path: inset(0 0 100% 0); }
+  to { clip-path: inset(0 0 0 0); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .tape-print { animation: none; }
+}
+
+/* Staff pages: grid columns shrink to the screen instead of growing to fit a
+   wide table (tables scroll sideways inside their own box). */
+.backroom [data-slot="sidebar-inset"] .grid > * { min-width: 0; }
