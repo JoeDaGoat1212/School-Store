@@ -370,17 +370,33 @@ function useBeltTexture() {
  * shelf, and a light pole with the lane number.
  * Its own coordinates: the register end is at z = 0, the belt runs back into -z.
  */
-export function CheckoutLane({ lane }: { lane: (typeof LANES)[number] }) {
+export function CheckoutLane({
+  lane,
+  beltSpeed = 0.5,
+  bag = true,
+  divider = true,
+}: {
+  lane: (typeof LANES)[number];
+  /** How fast the belt runs toward the register (scene units a second). */
+  beltSpeed?: number;
+  /** A paper bag on the bagging shelf (lane 1 has its own, which items drop into). */
+  bag?: boolean;
+  /** The bar that separates one shopper's things from the next. */
+  divider?: boolean;
+}) {
   const belt = useBeltTexture();
   const L = lane.length;
   const number = signTexture(String(lane.number), { bg: TEAL, fg: "#ffffff", height: 128, pad: 0.6 });
   const screen = signTexture("Firebirds Nest", { bg: "#0a2e2c", fg: "#5ff2e6", height: 96, pad: 0.3, upper: false });
 
-  // Slide the belt's stripes along, so it looks like it's running.
+  // Slide the belt's stripes along toward the register, so it looks like it's running.
+  // (The stripe picture repeats 6 times along the belt.)
   const beltMat = useRef<THREE.MeshStandardMaterial>(null);
+  const speedRef = useRef(beltSpeed);
   useFrame((_, delta) => {
+    speedRef.current = THREE.MathUtils.damp(speedRef.current, beltSpeed, 4, delta);
     const map = beltMat.current?.map;
-    if (map) map.offset.y = (map.offset.y - delta * 0.6) % 1;
+    if (map) map.offset.y = (map.offset.y + (delta * speedRef.current * 6) / (L - 1.4)) % 1;
   });
 
   const white = <meshStandardMaterial color="#f3f1ec" roughness={0.45} />;
@@ -410,19 +426,23 @@ export function CheckoutLane({ lane }: { lane: (typeof LANES)[number] }) {
         </mesh>
       ))}
       {/* A divider bar sitting on the belt */}
-      <mesh position={[0, COUNTER + 0.1, -L + 1.6]} rotation-z={Math.PI / 2} raycast={noRaycast}>
-        <cylinderGeometry args={[0.07, 0.07, 1.3, 3]} />
-        <meshStandardMaterial color="#d23b2a" roughness={0.5} />
-      </mesh>
+      {divider && (
+        <mesh position={[0, COUNTER + 0.1, -L + 1.6]} rotation-z={Math.PI / 2} raycast={noRaycast}>
+          <cylinderGeometry args={[0.07, 0.07, 1.3, 3]} />
+          <meshStandardMaterial color="#d23b2a" roughness={0.5} />
+        </mesh>
+      )}
       {/* Bagging shelf at the front, with a paper bag */}
       <mesh position={[0, COUNTER - 0.05, 0.6]} raycast={noRaycast}>
         <boxGeometry args={[2.2, 0.08, 1.2]} />
         <meshStandardMaterial color="#c9ced3" metalness={0.7} roughness={0.3} />
       </mesh>
-      <mesh position={[0.3, COUNTER + 0.45, 0.6]} raycast={noRaycast}>
-        <boxGeometry args={[0.8, 0.9, 0.5]} />
-        <meshStandardMaterial color="#c89b67" roughness={0.9} />
-      </mesh>
+      {bag && (
+        <mesh position={[0.3, COUNTER + 0.45, 0.6]} raycast={noRaycast}>
+          <boxGeometry args={[0.8, 0.9, 0.5]} />
+          <meshStandardMaterial color="#c89b67" roughness={0.9} />
+        </mesh>
+      )}
 
       {/* Card reader for the customer (left side) */}
       <group position={[-0.75, COUNTER, -0.6]}>

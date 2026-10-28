@@ -1,8 +1,9 @@
 import { Suspense } from "react";
 import { FlashToast } from "@/components/flash-toast";
 import { StoreWorld } from "@/components/public/world/store-world";
+import { checkoutProps } from "@/app/(public)/cart/checkout-props";
 import { shownPrice } from "@/lib/deals";
-import { getAccount } from "@/lib/member";
+import { getAccount, getRewards } from "@/lib/member";
 import { loadStorefront } from "@/lib/store-data";
 import { openSignText } from "@/lib/store-sign";
 
@@ -11,7 +12,7 @@ import { openSignText } from "@/lib/store-sign";
  * sky, tap the doors to walk in, and shop. (/menu has the same things as a list.)
  */
 export default async function HomePage() {
-  const [{ menu, info, deals }, account] = await Promise.all([loadStorefront(), getAccount()]);
+  const [{ menu, info, deals }, account, rewardList] = await Promise.all([loadStorefront(), getAccount(), getRewards()]);
   const isMember = Boolean(account?.profile);
   // Each product's price for this shopper (sale prices, member prices…).
   const priced = menu.map((item) => ({ item, shown: shownPrice(item, deals.promotions, isMember) }));
@@ -33,6 +34,7 @@ export default async function HomePage() {
         maxPerOrder={info.max_items_per_order}
         openSign={openSignText(info)}
         rewards={{ enabled: info.rewards_enabled ?? false, pointsPerDollar: info.points_per_dollar ?? 1 }}
+        checkout={checkoutProps({ menu, info, deals, account, rewards: rewardList })}
       />
     </>
   );

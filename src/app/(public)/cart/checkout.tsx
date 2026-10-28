@@ -3,18 +3,19 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useActionState, useEffect, useRef, useState } from "react";
-import { AlertCircleIcon, BanknoteIcon, GiftIcon, Loader2Icon, ShoppingBagIcon, SparklesIcon } from "lucide-react";
+import { AlertCircleIcon, BanknoteIcon, CheckCircle2Icon, GiftIcon, Loader2Icon, ShoppingBagIcon, SparklesIcon } from "lucide-react";
 import { cart, cartTotals, splitCart, useCart } from "@/components/public/cart-store";
 import { Choice, ChoiceGroup, TextField } from "@/components/public/form-fields";
 import { QuantityStepper } from "@/components/public/quantity-stepper";
 import { ProductArt } from "@/components/product-art";
 import { Button } from "@/components/ui/button";
+import { formatOrderNumber } from "@/config/brand";
 import { formatCents, formatClock, formatDay, relativeDay } from "@/lib/format";
 import type { Reward } from "@/lib/member";
 import type { PickupDay } from "@/lib/ordering";
 import { cn } from "@/lib/utils";
 import { GRADES } from "@/lib/validation";
-import { placeOrder, quoteCart, type CheckoutState, type Quote } from "../actions";
+import { placeOrder, placeOrderHere, quoteCart, type CheckoutState, type Quote } from "../actions";
 
 type LiveItem = { id: string; price_cents: number; available: number };
 type LiveBundle = { id: string; price_cents: number; available: number; itemsPer: number; open: boolean };
@@ -31,6 +32,9 @@ export function Checkout({
   signedIn,
   rewards,
   rewardsEnabled,
+  variant = "page",
+  onClose,
+  onPlaced,
 }: {
   menu: LiveItem[];
   bundles: LiveBundle[];
@@ -43,10 +47,23 @@ export function Checkout({
   signedIn: boolean;
   rewards: Reward[];
   rewardsEnabled: boolean;
+  /**
+   * "page": the cart page (goes to the order page when it's placed).
+   * "sidebar": the sidebar at the checkout counter in the 3D store (shows the
+   * order number right there).
+   */
+  variant?: "page" | "sidebar";
+  /** Sidebar only: "Keep shopping" / "Done". */
+  onClose?: () => void;
+  /** Sidebar only: the order went through. */
+  onPlaced?: (orderNumber: number) => void;
 }) {
   const router = useRouter();
   const items = useCart();
-  const [state, formAction, placing] = useActionState<CheckoutState, FormData>(placeOrder, {});
+  const inSidebar = variant === "sidebar";
+  const [state, formAction, placing] = useActionState<CheckoutState, FormData>(inSidebar ? placeOrderHere : placeOrder, {});
+  // What was sent, kept so the "order placed" view can still show it after the cart empties.
+  const [sent, setSent] = useState<{ lines: { id: string; name: string; quantity: number }[]; total: number; when: string } | null>(null);
   const errors = state.errors ?? {};
 
   // Default to the first day that still has an open pickup time.
@@ -88,6 +105,18 @@ export function Checkout({
     }, 250);
     return () => clearTimeout(timer);
   }, [cartKey, rewardId]);
+
+  // Sidebar: the order went through. Empty the cart and tell the store.
+  const placedNumber = inSidebar ? (state.placed?.orderNumber ?? null) : null;
+  const onPlacedRef = useRef(onPlaced);
+  useEffect(() => {
+    onPlacedRef.current = onPlaced;
+  });
+  useEffect(() => {
+    if (placedNumber === null) return;
+    cart.clear();
+    onPlacedRef.current?.(placedNumber);
+  }, [placedNumber]);
 
   // If an item sold out while they were checking out, reload the live stock.
   useEffect(() => {
@@ -133,6 +162,10 @@ export function Checkout({
   const reward = rewards.find((r) => r.id === rewardId);
   const usableRewards = member ? rewards.filter((r) => r.available > 0) : [];
 
+  if (placedNumber !== null && sent) {
+    return <Placed number={placedNumber} sent={sent} pickupLocation={pickupLocation} onDone={onClose} />;
+  }
+
   if (items.length === 0) {
     return (
       <div className="mx-auto max-w-md py-16 text-center">
@@ -149,8 +182,12 @@ export function Checkout({
   }
 
   return (
-    <div className="mx-auto max-w-xl">
-      <h1 className="font-heading text-5xl leading-[0.95] font-extrabold">Your order</h1>
+    <div className={inSidebar ? "" : "mx-auto max-w-xl"}>
+      {inSidebar ? (
+        <h2 className="font-heading text-4xl leading-[0.95] font-extrabold">Checkout</h2>
+      ) : (
+        <h1 className="font-heading text-5xl leading-[0.95] font-extrabold">Your order</h1>
+      )}
 
       {/* ---- Items ------------------------------------------------------- */}
       <ul className="mt-5 divide-y rounded-2xl border bg-card px-4 shadow-soft">
@@ -200,13 +237,18 @@ export function Checkout({
                 </p>
               )}
             </div>
-            <QuantityStepper
-              name={line.name}
-              quantity={line.quantity}
-              max={Math.min(Math.max(line.available, 1), maxItems)}
-              onChange={(q) => cart.setQuantity(line.id, q)}
-              className="w-32"
-            />
+            {inSidebar ? (
+              // At the counter the items are already bagged, so just the count.
+              <span className="shrink-0 font-heading text-xl font-extrabold tabular-nums">×{line.quantity}</span>
+            ) : (
+              <QuantityStepper
+                name={line.name}
+                quantity={line.quantity}
+                max={Math.min(Math.max(line.available, 1), maxItems)}
+                onChange={(q) => cart.setQuantity(line.id, q)}
+                className="w-32"
+              />
+            )}
           </li>
         ))}
 
@@ -269,9 +311,15 @@ export function Checkout({
           Orders are limited to {maxItems} items (bundles count each item inside).
         </p>
       )}
-      <Link href="/" className="mt-3 inline-block text-sm font-semibold text-ember-ink underline-offset-4 hover:underline">
-        + Add more items
-      </Link>
+      {inSidebar ? (
+        <button type="button" onClick={onClose} className="mt-3 inline-block text-sm font-semibold text-ember-ink underline-offset-4 hover:underline">
+          + Keep shopping
+        </button>
+      ) : (
+        <Link href="/" className="mt-3 inline-block text-sm font-semibold text-ember-ink underline-offset-4 hover:underline">
+          + Add more items
+        </Link>
+      )}
 
       {/* ---- Rewards ------------------------------------------------------ */}
       {rewardsEnabled && !member && (
@@ -342,7 +390,19 @@ export function Checkout({
           Online ordering is closed right now. Your cart is saved, so you can order once it opens again.
         </p>
       ) : (
-        <form action={formAction} className="mt-8 grid gap-7" noValidate>
+        <form
+          action={formAction}
+          onSubmit={() => {
+            const w = selectedDay?.windows.find((x) => x.window.id === windowId)?.window;
+            setSent({
+              lines: lines.map((l) => ({ id: l.id, name: l.name, quantity: l.quantity })),
+              total,
+              when: selectedDay ? `${relativeDay(selectedDay.date, today)}${w ? `, ${w.label.toLowerCase()} (${formatClock(w.starts_at)})` : ""}` : "",
+            });
+          }}
+          className="mt-8 grid gap-7"
+          noValidate
+        >
           <input type="hidden" name="items" value={JSON.stringify(splitCart(items).items)} />
           <input type="hidden" name="bundles" value={JSON.stringify(splitCart(items).bundles)} />
           <input type="hidden" name="reward_id" value={rewardId ?? ""} />
@@ -446,6 +506,72 @@ export function Checkout({
           )}
         </form>
       )}
+    </div>
+  );
+}
+
+/** Sidebar: the order went through. Its number, when to pick it up, and what's in it. */
+function Placed({
+  number,
+  sent,
+  pickupLocation,
+  onDone,
+}: {
+  number: number;
+  sent: { lines: { id: string; name: string; quantity: number }[]; total: number; when: string };
+  pickupLocation: string;
+  onDone?: () => void;
+}) {
+  return (
+    <div className="animate-in fade-in slide-in-from-bottom-2 duration-500">
+      <p className="flex items-center gap-2 font-semibold text-teal-ink">
+        <CheckCircle2Icon className="size-5" /> Order placed!
+      </p>
+      <p className="mt-3 text-sm text-muted-foreground">Your order number</p>
+      <p className="font-heading text-6xl leading-none font-extrabold tracking-wide tabular-nums">{formatOrderNumber(number)}</p>
+      <p className="mt-2 text-sm text-muted-foreground">Screenshot this, or remember your order number.</p>
+
+      <dl className="mt-6 grid gap-3 rounded-2xl border bg-card p-4 text-sm shadow-soft">
+        {sent.when && (
+          <div>
+            <dt className="text-muted-foreground">Pick up</dt>
+            <dd className="font-semibold">{sent.when}</dd>
+          </div>
+        )}
+        <div>
+          <dt className="text-muted-foreground">Where</dt>
+          <dd className="font-semibold">{pickupLocation}</dd>
+        </div>
+        <div>
+          <dt className="text-muted-foreground">Items</dt>
+          <dd>
+            <ul className="mt-1 grid gap-0.5">
+              {sent.lines.map((l) => (
+                <li key={l.id} className="flex justify-between gap-3">
+                  <span className="truncate">{l.name}</span>
+                  <span className="font-semibold tabular-nums">×{l.quantity}</span>
+                </li>
+              ))}
+            </ul>
+          </dd>
+        </div>
+        <div className="flex items-baseline justify-between border-t pt-3">
+          <dt className="font-semibold">Total</dt>
+          <dd className="font-heading text-3xl font-extrabold tabular-nums">{formatCents(sent.total)}</dd>
+        </div>
+      </dl>
+      <p className="mt-3 flex gap-2 text-sm">
+        <BanknoteIcon className="mt-0.5 size-4 shrink-0" /> Pay cash or debit when you pick it up.
+      </p>
+
+      <div className="mt-6 grid gap-2">
+        <Button asChild size="xl">
+          <Link href={`/order/${number}`}>See my order</Link>
+        </Button>
+        <Button type="button" variant="outline" size="xl" onClick={onDone}>
+          Done
+        </Button>
+      </div>
     </div>
   );
 }

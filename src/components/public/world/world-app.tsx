@@ -2,19 +2,22 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { useProgress } from "@react-three/drei";
-import { ListIcon, LockIcon, PlusIcon, ShoppingBagIcon, TagIcon, UserRoundIcon, XIcon } from "lucide-react";
+import { ArrowLeftIcon, ListIcon, LockIcon, PlusIcon, ShoppingBagIcon, TagIcon, UserRoundIcon, XIcon } from "lucide-react";
+import { quoteCart } from "@/app/(public)/actions";
+import { Checkout } from "@/app/(public)/cart/checkout";
+import type { CheckoutProps } from "@/app/(public)/cart/checkout-props";
 import { FlameMark } from "@/components/brand-mark";
-import { brand } from "@/config/brand";
+import { brand, formatOrderNumber } from "@/config/brand";
 import { buyGetLabel, bundleOpenTo, type Bundle, type Deals, type ShownPrice } from "@/lib/deals";
 import { formatCents } from "@/lib/format";
 import { productLook } from "@/lib/product-look";
 import type { MenuItem } from "@/lib/store-data";
 import { cn } from "@/lib/utils";
-import { cart, cartTotals, useCart } from "../cart-store";
+import { cart, cartTotals, splitCart, useCart, type CartItem } from "../cart-store";
 import { modelFor, sectionFor, unitFor, UNITS, type UnitKey } from "../store/catalog";
 import { unitLayout, type StoreItem } from "../store/layout";
+import type { TillDisplay, TillUnit } from "./checkout-scene";
 import type { BoardCard } from "./fixtures";
 import { LoadingScreen } from "./loading-screen";
 import { unitAt, type StationKey } from "./world-layout";
@@ -37,6 +40,27 @@ export type Priced = { item: MenuItem; shown: ShownPrice };
 export type WorldAccount = { signedIn: boolean; member: { initial: string; balance: number } | null };
 
 type Plus = { x: number; y: number; key: number };
+
+/**
+ * Checking out at lane 1:
+ *   walking  → the camera glides over to the counter
+ *   scanning → items go down the belt, get scanned and bagged
+ *   total    → the register shows the total; the sidebar asks for your info
+ *   paid     → the order went through; the sidebar shows its number
+ */
+type Till = {
+  phase: "walking" | "scanning" | "total" | "paid";
+  units: TillUnit[];
+  /** How many units have been scanned so far. */
+  scanned: number;
+  /** The real total from the database (deals taken off), once it's back. */
+  total: number | null;
+  saved: number;
+  orderNumber?: number;
+};
+
+/** At most this many things go down the belt (a big order still rings up in good time). */
+const MAX_UNITS = 14;
 
 /** Remembers that you're inside the store, so coming back from the cart doesn't make you walk in again. */
 const INSIDE_KEY = "nest:inside";
@@ -72,6 +96,7 @@ export default function WorldApp({
   maxPerOrder,
   openSign,
   rewards,
+  checkout: checkoutForm,
 }: {
   priced: Priced[];
   deals: Deals;
@@ -80,8 +105,9 @@ export default function WorldApp({
   maxPerOrder: number;
   openSign: { title: string; line: string };
   rewards: { enabled: boolean; pointsPerDollar: number };
+  /** Everything the checkout form in the sidebar needs. */
+  checkout: CheckoutProps;
 }) {
-  const router = useRouter();
   const cartItems = useCart();
   const totals = cartTotals(cartItems);
   const [webgl] = useState(hasWebGL);
@@ -97,11 +123,11 @@ export default function WorldApp({
   const [note, setNote] = useState<{ text: string; key: number } | null>(null);
   const [pluses, setPluses] = useState<Plus[]>([]);
   const [drawn, setDrawn] = useState(false);
-  // Checking out: the orange circle that grows from the button to fill the screen.
-  const [wipe, setWipe] = useState<{ x: number; y: number; grow: boolean } | null>(null);
-  const checkingOut = useRef(false);
+  const [till, setTill] = useState<Till | null>(null);
+  const [sidebar, setSidebar] = useState(false);
+  // Where you've walked from, for the Back button.
+  const [trail, setTrail] = useState<StationKey[]>([]);
   const counter = useRef(0);
-  const checkoutButton = useRef<HTMLButtonElement>(null);
   const { progress, active } = useProgress();
   // If a picture is slow to download, don't keep people waiting on the cover forever.
   const [waitedEnough, setWaitedEnough] = useState(false);
@@ -113,7 +139,7 @@ export default function WorldApp({
   const ready = drawn && (!active || waitedEnough);
 
   // ---- The products, arranged on their shelves -----------------------------------------------
-  const { items, layouts, byId } = useMemo(() => {
+  const { items, layouts, byId, poses } = useMemo(() => {
     const items: StoreItem[] = [];
     for (const { item, shown } of priced) {
       const unit = unitFor(item.category);
@@ -130,7 +156,10 @@ export default function WorldApp({
       });
     }
     const layouts = { drinks: unitLayout("drinks", items), snacks: unitLayout("snacks", items), candy: unitLayout("candy", items) };
-    return { items, layouts, byId: new Map(priced.map((p) => [p.item.id, p])) };
+    // How each product sits on its shelf, so it sits the same way on the checkout belt.
+    const poses = new Map<string, { tilt: number; turn: number }>();
+    for (const l of Object.values(layouts)) for (const p of l?.placements ?? []) if (!poses.has(p.id)) poses.set(p.id, { tilt: p.tilt, turn: p.turn });
+    return { items, layouts, byId: new Map(priced.map((p) => [p.item.id, p])), poses };
   }, [priced]);
 
   // ---- What's pinned on the deals board -------------------------------------------------------
@@ -156,15 +185,32 @@ export default function WorldApp({
   // ---- Moving around ------------------------------------------------------------------------
   // The spot you're at, readable inside callbacks without waiting for a re-render.
   const stationRef = useRef(station);
-  const go = useCallback((key: StationKey) => {
-    if (stationRef.current === key) return;
+  const moveTo = useCallback((key: StationKey) => {
+    if (stationRef.current === key) return false;
     stationRef.current = key;
     setStation(key);
     setMoving(true);
     setHovered(null);
     setHoveredUnit(null);
     document.body.style.cursor = "";
+    return true;
   }, []);
+
+  /** Walk to a spot (and remember where you came from, for Back). */
+  const go = useCallback(
+    (key: StationKey) => {
+      const from = stationRef.current;
+      if (moveTo(key) && from !== "outside") setTrail((t) => [...t, from].slice(-20));
+    },
+    [moveTo],
+  );
+
+  /** The Back button: to the spot you came from (or the middle of the store). */
+  const back = () => {
+    const prev = trail.at(-1) ?? (station === "center" ? "entrance" : "center");
+    setTrail((t) => t.slice(0, -1));
+    moveTo(prev);
+  };
 
   const openDoors = useCallback(() => {
     setDoorsOpen(true);
@@ -173,35 +219,65 @@ export default function WorldApp({
     setTimeout(() => go("entrance"), calm ? 0 : 650);
   }, [go, calm]);
 
-  const startWipe = useCallback(() => {
-    const r = checkoutButton.current?.getBoundingClientRect();
-    const at = r ? { x: r.left + r.width / 2, y: r.top + r.height / 2 } : { x: window.innerWidth / 2, y: window.innerHeight - 40 };
-    setWipe({ ...at, grow: false });
-    // Next frame: grow (so the browser animates from the small circle).
-    requestAnimationFrame(() => requestAnimationFrame(() => setWipe({ ...at, grow: true })));
-    setTimeout(() => router.push("/cart"), calm ? 50 : 750);
-  }, [router, calm]);
+  const onArrive = useCallback((key: StationKey) => {
+    setMoving(false);
+    // Got to the counter: start ringing up.
+    if (key === "checkout") setTill((t) => (t && t.phase === "walking" ? { ...t, phase: "scanning" } : t));
+  }, []);
 
-  const onArrive = useCallback(
-    (key: StationKey) => {
-      setMoving(false);
-      if (key === "checkout" && checkingOut.current) startWipe();
-    },
-    [startWipe],
-  );
+  // ---- Checking out -------------------------------------------------------------------------
+  /** Turns the cart into things to put on the belt (a few of each product at most). */
+  const unitsFor = (list: CartItem[]): TillUnit[] => {
+    const perLine = Math.max(1, Math.min(4, Math.floor(MAX_UNITS / Math.max(list.length, 1))));
+    const units: TillUnit[] = [];
+    for (const line of list) {
+      const item = line.kind === "bundle" ? null : (items.find((i) => i.id === line.id) ?? null);
+      const pose = poses.get(line.id) ?? { tilt: 0, turn: 0 };
+      const copies = Math.min(line.quantity, perLine);
+      for (let c = 0; c < copies; c++) {
+        // The last copy stands for the rest (so 10 Cokes don't each need a trip down the belt).
+        const stands = c === copies - 1 ? line.quantity - (copies - 1) : 1;
+        const unit = { key: `${line.id}-${c}`, name: stands > 1 ? `${line.name} x${stands}` : line.name, item, ...pose, color: line.kind === "bundle" ? "#13a8a0" : "#e0d6c6", cents: stands * line.price_cents };
+        if (units.length < MAX_UNITS) units.push(unit);
+        else {
+          // Too many different things: add the rest onto the last one.
+          const last = units[units.length - 1];
+          units[units.length - 1] = { ...last, name: "More items", cents: last.cents + unit.cents };
+        }
+      }
+    }
+    return units;
+  };
 
   const checkout = () => {
     if (totals.count === 0) return say("Your cart is empty. Tap something on the shelves first!");
-    if (checkingOut.current) return;
-    checkingOut.current = true;
+    if (till) return;
     setDealsOpen(false);
-    router.prefetch("/cart");
-    if (station === "checkout" && !moving) return startWipe();
-    if (!doorsOpen) {
+    setTill({ phase: "walking", units: unitsFor(cartItems), scanned: 0, total: null, saved: 0 });
+    // Ask the database for the real total (with deals) while we walk over.
+    quoteCart({ ...splitCart(cartItems), rewardId: null })
+      .then((r) => r.quote && setTill((t) => (t ? { ...t, total: r.quote!.total_cents, saved: r.quote!.discount_cents } : t)))
+      .catch(() => {});
+    if (station === "checkout" && !moving) {
+      setTill((t) => (t ? { ...t, phase: "scanning" } : t));
+    } else if (!doorsOpen) {
       setDoorsOpen(true);
       writeInside();
       setTimeout(() => go("checkout"), calm ? 0 : 650);
     } else go("checkout");
+  };
+
+  const onScanned = useCallback((i: number) => setTill((t) => (t ? { ...t, scanned: Math.max(t.scanned, i + 1) } : t)), []);
+  const onBagged = useCallback(() => {
+    setTill((t) => (t && t.phase === "scanning" ? { ...t, phase: "total", scanned: t.units.length } : t));
+    // Let them see the total for a moment, then slide in the sidebar.
+    setTimeout(() => setSidebar(true), calm ? 0 : 1400);
+  }, [calm]);
+
+  /** Close the sidebar ("Keep shopping" or "Done"). The bag goes away. */
+  const leaveCounter = () => {
+    setSidebar(false);
+    setTill(null);
   };
 
   // Lock the page behind the store so it can't scroll.
@@ -265,8 +341,12 @@ export default function WorldApp({
   if (!webgl) return <NoWebGL />;
 
   // ---- What the hint line at the bottom says ------------------------------------------------
-  const unit = moving ? null : unitAt(station);
-  const hint = moving
+  const unit = moving || till ? null : unitAt(station);
+  const hint = till
+    ? till.phase === "scanning"
+      ? "Ringing up your items…"
+      : null
+    : moving
     ? null
     : station === "outside"
       ? "Tap the doors to walk in · drag to fly around"
@@ -279,6 +359,24 @@ export default function WorldApp({
             : "Drag to look around · tap a floor arrow to walk";
   const status = note?.text ?? (hoveredUnit && !hovered ? `${UNITS.find((u) => u.key === hoveredUnit)!.title}: tap to walk over` : null);
   const visibleItems = unit ? items.filter((i) => i.unit === unit) : [];
+  const canGoBack = station !== "outside" && station !== "entrance" && !till && !moving;
+
+  // What the screen on the register says.
+  const subtotal = till ? till.units.slice(0, till.scanned).reduce((n, u) => n + u.cents, 0) : 0;
+  const lastScanned = till && till.scanned > 0 ? till.units[till.scanned - 1] : null;
+  const display: TillDisplay = !till
+    ? { top: ["Welcome to", ""], bottom: [brand.name, ""] }
+    : till.phase === "paid" && till.orderNumber
+      ? { top: ["Thank you!", ""], bottom: ["Order", formatOrderNumber(till.orderNumber)] }
+      : till.phase === "total" || till.phase === "paid"
+        ? {
+            top: [`${totals.count} item${totals.count === 1 ? "" : "s"}`, till.saved > 0 ? `saved ${formatCents(till.saved)}` : ""],
+            bottom: ["Total", formatCents(till.total ?? subtotal)],
+            big: true,
+          }
+        : lastScanned
+          ? { top: [lastScanned.name, formatCents(lastScanned.cents)], bottom: ["Subtotal", formatCents(subtotal)] }
+          : { top: ["Hi there!", ""], bottom: ["Subtotal", formatCents(0)] };
 
   return (
     <div role="application" aria-label={`${brand.name} 3D store`} className="fixed inset-0 z-[60] overflow-hidden bg-[#a9dcfb] text-black select-none">
@@ -300,6 +398,11 @@ export default function WorldApp({
           onHover={setHovered}
           onHoverUnit={setHoveredUnit}
           onReady={() => setDrawn(true)}
+          till={{ units: till?.units ?? [], running: Boolean(till && till.phase !== "walking") }}
+          display={display}
+          onScanned={onScanned}
+          onBagged={onBagged}
+          busy={Boolean(till)}
         />
       </div>
 
@@ -359,9 +462,9 @@ export default function WorldApp({
           )}
         </p>
         <button
-          ref={checkoutButton}
           type="button"
           onClick={checkout}
+          hidden={Boolean(till)}
           className="pointer-events-auto flex h-13 items-center gap-3 rounded-full bg-primary pr-2 pl-5 font-heading text-xl font-extrabold tracking-wide text-black uppercase shadow-[0_6px_0_#000] transition-transform hover:-translate-y-0.5 focus-visible:ring-4 focus-visible:ring-black/40 focus-visible:outline-none active:translate-y-1 active:shadow-[0_2px_0_#000]"
         >
           <ShoppingBagIcon className="size-5" />
@@ -374,15 +477,56 @@ export default function WorldApp({
         <p className="min-h-4 text-center text-xs font-semibold text-black/70 [text-shadow:0_1px_0_rgb(255_255_255/0.7)]">{hint}</p>
       </div>
 
-      {/* The deals button, once you're inside */}
-      {station !== "outside" && (
-        <button
-          type="button"
-          onClick={() => setDealsOpen(true)}
-          className="absolute top-18 left-3 flex h-10 items-center gap-1.5 rounded-full bg-[#ffd21f] px-4 font-heading text-base font-extrabold tracking-wide uppercase shadow-md transition-transform hover:-translate-y-0.5 focus-visible:ring-3 focus-visible:ring-black/40 focus-visible:outline-none sm:top-20 sm:left-4"
+      {/* Inside: Back (to where you came from) and Deals, top left */}
+      {station !== "outside" && !till && (
+        <div className="absolute top-18 left-3 flex items-center gap-2 sm:top-20 sm:left-4">
+          {canGoBack && (
+            <button
+              type="button"
+              onClick={back}
+              className="flex h-10 items-center gap-1.5 rounded-full bg-black px-4 font-heading text-base font-extrabold tracking-wide text-white uppercase shadow-md transition-transform hover:-translate-y-0.5 focus-visible:ring-3 focus-visible:ring-primary/60 focus-visible:outline-none animate-in fade-in slide-in-from-left-2 duration-300"
+            >
+              <ArrowLeftIcon className="size-4" /> Back
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={() => setDealsOpen(true)}
+            className="flex h-10 items-center gap-1.5 rounded-full bg-[#ffd21f] px-4 font-heading text-base font-extrabold tracking-wide uppercase shadow-md transition-transform hover:-translate-y-0.5 focus-visible:ring-3 focus-visible:ring-black/40 focus-visible:outline-none"
+          >
+            <TagIcon className="size-4" /> Deals
+          </button>
+        </div>
+      )}
+
+      {/* The checkout sidebar: your info, then your order number. Left side on
+          big screens (the register's screen stays in view on the right), a
+          sheet from the bottom on phones. */}
+      {sidebar && till && (
+        <aside
+          role="dialog"
+          aria-label="Checkout"
+          className="fixed inset-x-0 bottom-0 z-[85] flex max-h-[58dvh] flex-col rounded-t-3xl bg-background text-foreground shadow-[0_-10px_40px_rgb(0_0_0/0.25)] duration-500 animate-in slide-in-from-bottom sm:inset-y-0 sm:right-auto sm:left-0 sm:max-h-none sm:w-[26rem] sm:rounded-none sm:rounded-r-3xl sm:shadow-[10px_0_40px_rgb(0_0_0/0.25)] sm:slide-in-from-left sm:slide-in-from-bottom-0"
         >
-          <TagIcon className="size-4" /> Deals
-        </button>
+          <div className="flex justify-end p-3 pb-0">
+            <button
+              type="button"
+              onClick={leaveCounter}
+              aria-label={till.phase === "paid" ? "Close" : "Keep shopping"}
+              className="grid size-10 place-items-center rounded-full bg-muted transition-colors hover:bg-muted/70 focus-visible:ring-3 focus-visible:ring-ring/60 focus-visible:outline-none"
+            >
+              <XIcon className="size-5" />
+            </button>
+          </div>
+          <div className="flex-1 overflow-y-auto px-5 pb-8">
+            <Checkout
+              {...checkoutForm}
+              variant="sidebar"
+              onClose={leaveCounter}
+              onPlaced={(orderNumber) => setTill((t) => (t ? { ...t, phase: "paid", orderNumber } : t))}
+            />
+          </div>
+        </aside>
       )}
 
       {dealsOpen && (
@@ -425,18 +569,6 @@ export default function WorldApp({
           +1
         </span>
       ))}
-
-      {wipe && (
-        <div
-          aria-hidden
-          className="fixed inset-0 z-[95] grid place-items-center bg-primary transition-[clip-path] duration-700 ease-in"
-          style={{ clipPath: `circle(${wipe.grow ? "150%" : "0%"} at ${wipe.x}px ${wipe.y}px)` }}
-        >
-          <span className={cn("transition-transform delay-200 duration-500", wipe.grow ? "scale-100" : "scale-0")}>
-            <FlameMark size={96} />
-          </span>
-        </div>
-      )}
 
       <LoadingScreen progress={drawn ? progress : Math.min(progress, 90)} done={ready} />
     </div>

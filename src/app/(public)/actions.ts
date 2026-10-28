@@ -16,6 +16,8 @@ export type CheckoutState = {
   message?: string;
   /** Machine-readable reason from the database, e.g. "SOLD_OUT". */
   code?: string;
+  /** Set when the order went through (checkout inside the 3D store). */
+  placed?: { orderNumber: number };
 };
 
 /**
@@ -30,11 +32,29 @@ async function deviceHash() {
 }
 
 /**
- * Places an order. Called by the checkout form.
- * The database function place_order does the real checks (stock, cutoff,
- * limits); this just checks the form and passes it along.
+ * Places an order. Called by the checkout form on the cart page; when it works,
+ * it goes to the order's page.
  */
-export async function placeOrder(_prev: CheckoutState, formData: FormData): Promise<CheckoutState> {
+export async function placeOrder(prev: CheckoutState, formData: FormData): Promise<CheckoutState> {
+  const result = await submitOrder(formData);
+  if (!result.placed) return result;
+  redirect(`/order/${result.placed.orderNumber}?new=1`);
+}
+
+/**
+ * The same, for the checkout counter in the 3D store: stays on the page and
+ * hands back the order number, so the sidebar can show it.
+ */
+export async function placeOrderHere(prev: CheckoutState, formData: FormData): Promise<CheckoutState> {
+  return submitOrder(formData);
+}
+
+/**
+ * Checks the form and places the order. The database function place_order
+ * does the real checks (stock, cutoff, limits); this just checks the form and
+ * passes it along.
+ */
+async function submitOrder(formData: FormData): Promise<CheckoutState> {
   let items: unknown = [];
   let bundles: unknown = [];
   try {
@@ -83,8 +103,9 @@ export async function placeOrder(_prev: CheckoutState, formData: FormData): Prom
   }
 
   const orderNumber = (data as { order_number: number }).order_number;
+  // Remembered on this device, so the order page opens without asking for the last name.
   await saveOrder(orderNumber, o.last_name);
-  redirect(`/order/${orderNumber}?new=1`);
+  return { placed: { orderNumber } };
 }
 
 /** What the cart costs right now, from the database (deals, bundles, rewards). */

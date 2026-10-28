@@ -249,8 +249,10 @@ Run updates in order (they're numbered) and only once each. The SQL Editor files
 The home page **is** the store. It opens on a drone view of a cartoon shop with a parking lot; tapping the double doors
 swings them open and the camera flies inside. White floor arrows walk you around: the **deals board** (left, by the
 doors), the **drinks fridge**, the **snack shelf** and the **candy stand**, with three checkout lanes on the right. Drag
-to look around. Tap a fridge door to open just that door, then tap a drink to add it. The **Checkout** button at the
-bottom flies you to the registers, then opens the cart. Everything is also on **/menu** as a plain list (the list
+to look around (a **Back** button takes you to where you were). Tap a fridge door to open just that door, then tap a
+drink to add it. The **Checkout** button at the bottom glides you to lane 1: your items go down the belt, get scanned
+(the screen on the register shows each one) and dropped in the bag, the screen shows the total, and a sidebar asks for
+the pickup info. Once the order is placed, the sidebar shows its number. (`/cart` still works the old way too.) Everything is also on **/menu** as a plain list (the list
 button, top right), which is where browsers that can't show 3D go.
 
 Code: `src/components/public/world/` (the building, lot and camera) and `src/components/public/store/` (which product

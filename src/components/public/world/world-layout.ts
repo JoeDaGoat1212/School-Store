@@ -105,7 +105,8 @@ export function stations(places: Record<UnitKey, Place | null>, units: Record<Un
     drinks: { key: "drinks", label: "Drinks", x: drinks.x, z: drinks.z, look: middle("drinks", [-8.5, 4.5, -28]), next: ["snacks", "candy", "center"] },
     snacks: { key: "snacks", label: "Snacks", x: snacks.x, z: snacks.z, look: middle("snacks", [4.5, 3.5, -28]), next: ["drinks", "candy", "center"] },
     candy: { key: "candy", label: "Candy", x: candy.x, z: candy.z, look: middle("candy", [12.5, 4.4, -26]), next: ["snacks", "drinks", "center"] },
-    checkout: { key: "checkout", label: "Checkout", x: lane.x - 3.4, z: lane.front + 2.6, look: [lane.x, COUNTER + 0.6, lane.front - 1.6], next: ["center", "candy", "deals"] },
+    // Standing on the customer's side of lane 1, looking along the belt to the register.
+    checkout: { key: "checkout", label: "Checkout", x: lane.x - 5.2, z: lane.front - 2.4, look: [lane.x + 0.4, COUNTER + 0.5, lane.front - 2.3], next: ["center", "candy", "deals"] },
   };
 }
 

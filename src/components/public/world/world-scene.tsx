@@ -8,6 +8,7 @@ import { useFontsReady } from "../showcase/drink-scene";
 import type { UnitKey } from "../store/catalog";
 import type { Placement, StoreItem, UnitLayout } from "../store/layout";
 import { CameraRig } from "./camera";
+import { CheckoutCounter, type TillDisplay, type TillUnit } from "./checkout-scene";
 import { Building, Interior, Lot, Sky } from "./exterior";
 import { BulletinBoard, CandyStand, CheckoutLane, FloorMarker, WorldFridge, WorldShelf, YellowLetters, type BoardCard } from "./fixtures";
 import { PriceTag, ProductCopies } from "./products";
@@ -40,6 +41,14 @@ export type WorldSceneProps = {
   onHoverUnit: (unit: UnitKey | null) => void;
   /** Called once the first picture has been drawn. */
   onReady: () => void;
+  /** Ringing up at checkout lane 1: the items, and whether it has started. */
+  till: { units: TillUnit[]; running: boolean };
+  /** What the register's screen says. */
+  display: TillDisplay;
+  onScanned: (index: number) => void;
+  onBagged: () => void;
+  /** Checking out: no floor arrows. */
+  busy: boolean;
 };
 
 export default function WorldScene(props: WorldSceneProps) {
@@ -63,7 +72,7 @@ export default function WorldScene(props: WorldSceneProps) {
       <PerformanceMonitor onDecline={() => setShadows(false)} />
       <CameraRig stations={spots} current={station} calm={calm} onArrive={props.onArrive} />
       <FirstFrame onReady={props.onReady} />
-      {process.env.NODE_ENV !== "production" && <TestHook spots={spots} places={places} layouts={layouts} station={station} moving={moving} />}
+      {process.env.NODE_ENV !== "production" && <TestHook spots={spots} places={places} layouts={layouts} station={station} moving={moving} items={props.items} />}
 
       {/* Daylight: the sun (with shadows), sky light from above, and soft fill. */}
       <hemisphereLight args={["#e8f6ff", "#b9a98a", 1.1]} />
@@ -92,7 +101,17 @@ export default function WorldScene(props: WorldSceneProps) {
             return <Unit key={key} unitKey={key} layout={layout} place={place} active={unitAt(station) === key && !moving} {...props} />;
           })}
 
-          {LANES.map((lane) => (
+          {/* Lane 1 is where you check out; 2 and 3 are just for show. */}
+          <CheckoutCounter
+            lane={LANES[0]}
+            units={props.till.units}
+            running={props.till.running}
+            calm={calm}
+            display={props.display}
+            onScanned={props.onScanned}
+            onBagged={props.onBagged}
+          />
+          {LANES.slice(1).map((lane) => (
             <CheckoutLane key={lane.number} lane={lane} />
           ))}
 
@@ -108,6 +127,7 @@ export default function WorldScene(props: WorldSceneProps) {
           {/* Floor arrows to the next spots (hidden while you walk) */}
           {station !== "outside" &&
             !moving &&
+            !props.busy &&
             here.next.map((key) => {
               const at = spots[key].marker ?? spots[key];
               return <FloorMarker key={`${station}-${key}`} x={at.x} z={at.z} label={spots[key].label} from={here} onGo={() => props.onGo(key)} />;
@@ -135,12 +155,14 @@ function FirstFrame({ onReady }: { onReady: () => void }) {
  * screen (window.__world.project(x, y, z) → screen x, y), so they can click
  * the doors, arrows and products like a person would.
  */
-function TestHook(info: { spots: ReturnType<typeof stations>; places: ReturnType<typeof placeUnits>; layouts: Record<UnitKey, UnitLayout | null>; station: StationKey; moving: boolean }) {
+function TestHook(info: { spots: ReturnType<typeof stations>; places: ReturnType<typeof placeUnits>; layouts: Record<UnitKey, UnitLayout | null>; station: StationKey; moving: boolean; items: StoreItem[] }) {
   const get = useThree((s) => s.get);
   useEffect(() => {
     const w = window as unknown as { __world?: unknown };
     w.__world = {
       ...info,
+      scene: get().scene,
+      three: get,
       project(x: number, y: number, z: number) {
         const { camera, size } = get();
         const v = new THREE.Vector3(x, y, z).project(camera);

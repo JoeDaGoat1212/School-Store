@@ -58,8 +58,10 @@ export function CameraRig({
     yaw: 0,
     pitch: 0,
     // Outside: the drone's angle round the store, and how high up.
-    orbitYaw: 0.42,
-    orbitPitch: 0.5,
+    orbitYaw: 0,
+    orbitPitch: 0.42,
+    // A slow side-to-side drift while nobody's dragging (so the view feels alive).
+    sway: 0,
     flight: null as null | {
       from: THREE.Vector3;
       fromYaw: number;
@@ -92,6 +94,9 @@ export function CameraRig({
     const down = (e: PointerEvent) => {
       last = { x: e.clientX, y: e.clientY };
       r.current.dragging = true;
+      // Fold the slow drift into the drone's angle, so nothing jumps.
+      r.current.orbitYaw += Math.sin(r.current.sway) * 0.28;
+      r.current.sway = 0;
     };
     const move = (e: PointerEvent) => {
       if (!last || !r.current.dragging) return;
@@ -137,7 +142,7 @@ export function CameraRig({
     if (portrait && current !== "entrance" && current !== "center") {
       // Tall phone screen: step back from what you're looking at so more of it fits.
       const back = to.clone().sub(target).setY(0).normalize();
-      to.addScaledVector(back, 5);
+      to.addScaledVector(back, current === "checkout" ? 4 : 5);
       to.x = clamp(to.x, INSIDE.left + 1.5, INSIDE.right - 1.5);
       to.z = clamp(to.z, INSIDE.back + 1.5, INSIDE.front - 1.5);
     }
@@ -169,14 +174,15 @@ export function CameraRig({
 
     if (currentRef.current === "outside" && !s.flight) {
       // The drone circles slowly on its own until you drag.
-      if (!calm && !s.dragging && performance.now() - s.lastDrag > 2500) s.orbitYaw += delta * 0.045;
+      if (!calm && !s.dragging && performance.now() - s.lastDrag > 2500) s.sway += delta * 0.22;
+      const yaw = s.orbitYaw + Math.sin(s.sway) * 0.28;
       const p = s.orbitPitch;
       // Fly further out on tall phone screens, so the whole store fits across.
       const radius = ORBIT_RADIUS * (portrait ? 1.55 : 1);
       s.pos.set(
-        ORBIT_CENTER.x + Math.sin(s.orbitYaw) * Math.cos(p) * radius,
+        ORBIT_CENTER.x + Math.sin(yaw) * Math.cos(p) * radius,
         ORBIT_CENTER.y + Math.sin(p) * radius,
-        ORBIT_CENTER.z + Math.cos(s.orbitYaw) * Math.cos(p) * radius,
+        ORBIT_CENTER.z + Math.cos(yaw) * Math.cos(p) * radius,
       );
       const look = yawPitchOf(s.pos, ORBIT_CENTER);
       s.yaw = look.yaw;
