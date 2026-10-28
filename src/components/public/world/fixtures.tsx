@@ -432,8 +432,8 @@ export function CheckoutLane({
         </mesh>
       )}
       {/* Bagging shelf at the front */}
-      <mesh position={[0, COUNTER - 0.05, 0.6]} raycast={noRaycast}>
-        <boxGeometry args={[2.2, 0.08, 1.2]} />
+      <mesh position={[0.35, COUNTER - 0.05, 0.6]} raycast={noRaycast}>
+        <boxGeometry args={[1.5, 0.08, 1.2]} />
         <meshStandardMaterial color="#c9ced3" metalness={0.7} roughness={0.3} />
       </mesh>
 
@@ -451,7 +451,7 @@ export function CheckoutLane({
 
       {/* The register, on its own stand on the cashier's side, past where the
           cashier stands: cash drawer, the cashier's screen and the receipt printer. */}
-      <group position={[1.95, 0, 1.0]}>
+      <group position={[1.95, 0, 1.15]}>
         <mesh position={[0, COUNTER / 2, 0]}>
           <boxGeometry args={[1.0, COUNTER, 1.1]} />
           {white}

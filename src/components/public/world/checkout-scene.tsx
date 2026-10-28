@@ -59,15 +59,21 @@ const CASHIER = REACH + SCAN + TO_BAG + DROP;
 const ITEM_SCALE = 1.6;
 const BELT_Y = COUNTER + 0.02;
 const SCANNER = new THREE.Vector3(0.15, COUNTER + 0.012, -0.35);
-const BAG = new THREE.Vector3(0.25, COUNTER - 0.01, 0.62);
-const BAG_H = 1.1;
+/**
+ * The plastic shopping bag hangs from a rack at the end of the bagging tray.
+ * BAG is the middle of its opening, level with the top of the tray.
+ */
+const BAG = new THREE.Vector3(-0.2, COUNTER - 0.01, 1.8);
+const BAG_W = 1.0; // along the counter
+const BAG_D = 0.62; // front to back
+const BAG_DEPTH = 1.35; // how far it hangs down
 
 /**
  * Where the cashier stands: behind the counter, across from you, at the end of
  * the belt with the scanner right in front (the register stand is past them,
  * on their left).
  */
-const CASHIER_AT = new THREE.Vector3(1.8, 0, -0.55);
+const CASHIER_AT = new THREE.Vector3(1.75, 0, 0);
 
 const ease = (t: number) => (t < 0.5 ? 2 * t * t : 1 - (-2 * t + 2) ** 2 / 2);
 const clamp01 = (t: number) => Math.min(1, Math.max(0, t));
@@ -97,6 +103,8 @@ export function CheckoutCounter({
   const progress = useRef({ start: -1, scanned: -1, bagged: false });
   // How fast the belt runs this moment (read by the belt every frame).
   const beltSpeed = useRef(0);
+  // How full the bag is (0 empty, 1 full).
+  const fill = useRef(0);
   // Where the cashier's hands should go this frame (the Cashier works out the arms).
   const hands = useRef(new CashierHands());
   const onScannedRef = useRef(onScanned);
@@ -130,6 +138,7 @@ export function CheckoutCounter({
     h.reset();
     if (!running || calm || units.length === 0) {
       beltSpeed.current = 0;
+      fill.current = 0;
       for (const g of groups.current) if (g) g.visible = false;
       return;
     }
@@ -141,6 +150,7 @@ export function CheckoutCounter({
     h.wave = t < PLACE + RIDE - 0.4 ? t : -1;
 
     let riding = false;
+    let bagged = 0;
     units.forEach((_, i) => {
       const g = groups.current[i];
       if (!g) return;
@@ -183,22 +193,27 @@ export function CheckoutCounter({
         // 3c. Over to the bag on the other side.
         const e = ease((u - REACH - SCAN) / TO_BAG);
         tmp.a.set(SCANNER.x, BELT_Y + 0.75, SCANNER.z);
-        tmp.b.set(BAG.x, BAG.y + BAG_H + 0.6, BAG.z);
+        tmp.b.set(BAG.x, BAG.y + 0.75, BAG.z);
         lerpV(tmp.a, tmp.b, e, h.right);
         h.right.y += Math.sin(e * Math.PI) * 0.3;
         h.rightPull = 1;
         g.position.copy(h.rightHand).setY(h.rightHand.y - 0.35);
       } else if (u < CASHIER) {
         // 3d. Let go: it drops into the bag.
+        // It shrinks a little to fit the opening and is gone once it's below
+        // the rim (inside the bag, so nothing pokes out of the sides).
         const e = clamp01((u - REACH - SCAN - TO_BAG) / DROP);
-        h.right.set(BAG.x, BAG.y + BAG_H + 0.6, BAG.z);
+        h.right.set(BAG.x, BAG.y + 0.75, BAG.z);
         h.rightPull = 1 - e;
-        g.position.set(BAG.x, THREE.MathUtils.lerp(BAG.y + BAG_H + 0.25, BAG.y + 0.08, e * e), BAG.z);
-        g.scale.setScalar(1 - e * 0.1);
+        const y = THREE.MathUtils.lerp(BAG.y + 0.4, BAG.y - 0.7, e * e);
+        g.position.set(BAG.x, y, BAG.z);
+        g.rotation.y = 0;
+        g.scale.setScalar(1 - e * 0.45);
+        g.visible = y > BAG.y - 0.05;
       } else {
         // In the bag.
-        g.position.set(BAG.x + x * 0.4, BAG.y + 0.08, BAG.z);
-        g.scale.setScalar(0.9);
+        g.visible = false;
+        bagged++;
         if (i === units.length - 1 && !p.bagged) {
           p.bagged = true;
           onBaggedRef.current();
@@ -215,6 +230,8 @@ export function CheckoutCounter({
     }
     // The belt only runs while something is riding on it.
     beltSpeed.current = riding ? SPEED : 0;
+    // The bag fills out a little with each thing that goes in.
+    fill.current = Math.min(1, bagged / 6);
   });
 
   return (
@@ -233,7 +250,7 @@ export function CheckoutCounter({
         <meshStandardMaterial ref={flash} color="#400" emissive="#ff2a2a" emissiveIntensity={0.4} toneMapped={false} />
       </mesh>
 
-      <BagOnRack position={[BAG.x, BAG.y, BAG.z]} />
+      <HangingBag fill={fill} />
       <Cashier hands={hands} calm={calm} />
       <PoleDisplay display={display} />
 
@@ -295,47 +312,125 @@ function BundleBox({ color }: { color: string }) {
 
 // ---- The bag --------------------------------------------------------------------------------
 
-/** A white shopping bag held open on a little metal rack, with the store's orange print. */
-function BagOnRack({ position }: { position: [number, number, number] }) {
+/**
+ * The bag's shape: a soft, slightly crumpled plastic tube with a gathered
+ * bottom, open at the top. Made once from a cylinder whose points are pushed
+ * in and out a little (the wrinkles).
+ */
+function bagGeometry() {
+  const g = new THREE.CylinderGeometry(1, 1, 1, 56, 18, true);
+  const pos = g.attributes.position;
+  const p = new THREE.Vector3();
+  for (let i = 0; i < pos.count; i++) {
+    p.fromBufferAttribute(pos, i);
+    const v = p.y + 0.5; // 0 at the bottom, 1 at the top
+    const a = Math.atan2(p.z, p.x);
+    // A rounded-rectangle outline (plastic bags are flatter than they are round).
+    const c = Math.cos(a);
+    const sn = Math.sin(a);
+    let x = Math.sign(c) * Math.abs(c) ** 0.65 * (BAG_D / 2);
+    let z = Math.sign(sn) * Math.abs(sn) ** 0.65 * (BAG_W / 2);
+    // Wider in the middle, gathered in at the bottom, a little pinched at the top.
+    const shape = 0.82 + 0.2 * Math.sin(Math.min(1, v * 1.15) * Math.PI * 0.95) - (v > 0.92 ? (v - 0.92) * 0.8 : 0);
+    // Wrinkles: a few overlapping ripples, stronger lower down where the plastic sags.
+    const w =
+      0.05 * (Math.sin(a * 7 + v * 9) + 0.6 * Math.sin(a * 13 - v * 17) + 0.4 * Math.sin(a * 23 + v * 31)) * (1.15 - v * 0.6) +
+      // A few long creases running down from where the handles pull.
+      0.03 * Math.sin(a * 4 + Math.sin(v * 5) * 0.6) * v;
+    x *= shape * (1 + w);
+    z *= shape * (1 + w);
+    // The rim isn't perfectly straight.
+    const y = (v - 1) * BAG_DEPTH + (v > 0.97 ? Math.sin(a * 3) * 0.03 : 0) + (v < 0.03 ? Math.sin(a * 5) * 0.03 : 0);
+    pos.setXYZ(i, x, y, z);
+  }
+  g.computeVertexNormals();
+  return g;
+}
+
+/** One handle: a flat plastic loop from the front of the bag, over the hook, to the back. */
+function handleGeometry(side: number) {
+  const z = side * BAG_W * 0.36;
+  const curve = new THREE.CatmullRomCurve3([
+    new THREE.Vector3(-BAG_D * 0.38, -0.02, z),
+    new THREE.Vector3(-BAG_D * 0.3, 0.28, z * 1.04),
+    new THREE.Vector3(0, 0.5, z * 1.08),
+    new THREE.Vector3(BAG_D * 0.3, 0.28, z * 1.04),
+    new THREE.Vector3(BAG_D * 0.38, -0.02, z),
+  ]);
+  const g = new THREE.TubeGeometry(curve, 24, 0.03, 6, false);
+  g.scale(1, 1, 2.2); // flatter, like a strip of plastic
+  return g;
+}
+
+/**
+ * A plastic shopping bag hanging open from a metal rack at the end of the
+ * bagging tray: its top is level with the tray, its handles over the hooks,
+ * the store's orange "Thank you!" on the side facing you. It fills out a
+ * little as things go in.
+ */
+function HangingBag({ fill }: { fill: React.RefObject<number> }) {
+  const body = useMemo(() => bagGeometry(), []);
+  const handles = useMemo(() => [handleGeometry(-1), handleGeometry(1)], []);
+  useEffect(
+    () => () => {
+      body.dispose();
+      handles.forEach((h) => h.dispose());
+    },
+    [body, handles],
+  );
+  const bag = useRef<THREE.Group>(null);
+  useFrame((_, delta) => {
+    const g = bag.current;
+    if (!g) return;
+    const f = fill.current ?? 0;
+    // Fuller: rounder and sagging a touch lower.
+    g.scale.x = THREE.MathUtils.damp(g.scale.x, 1 + f * 0.22, 5, delta);
+    g.scale.z = THREE.MathUtils.damp(g.scale.z, 1 + f * 0.08, 5, delta);
+    g.scale.y = THREE.MathUtils.damp(g.scale.y, 1 + f * 0.06, 5, delta);
+  });
+
   const print = signTexture("Thank you!", { bg: "transparent", fg: ORANGE, height: 96, pad: 0.2, upper: false });
+  const plastic = <meshStandardMaterial color="#f5f5f2" roughness={0.42} metalness={0} side={THREE.DoubleSide} />;
   const metal = <meshStandardMaterial color="#c9ced3" metalness={0.8} roughness={0.3} />;
-  const plastic = <meshStandardMaterial color="#fbfbf8" roughness={0.55} side={THREE.DoubleSide} />;
-  const rx = 0.42; // half its width (front to back as you look at it)
-  const rz = 0.55; // half its length along the counter
+  const hookY = 0.5;
+  const postX = BAG_D / 2 + 0.2;
+
   return (
-    <group position={position}>
-      {/* The rack: two posts and a bar the handles hang from */}
-      {[-1, 1].map((s) => (
-        <mesh key={s} position={[0.15, BAG_H / 2 + 0.25, s * (rz + 0.08)]} raycast={noRaycast}>
-          <cylinderGeometry args={[0.03, 0.03, BAG_H + 0.5, 8]} />
-          {metal}
-        </mesh>
-      ))}
-      <mesh position={[0.15, BAG_H + 0.5, 0]} rotation-x={Math.PI / 2} raycast={noRaycast}>
-        <cylinderGeometry args={[0.03, 0.03, rz * 2 + 0.16, 8]} />
+    <group position={[BAG.x, BAG.y, BAG.z]}>
+      {/* The rack: a post from the floor behind the bag, a bar across the top with two hooks */}
+      <mesh position={[postX, (hookY - BAG.y) / 2, 0]} raycast={noRaycast}>
+        <cylinderGeometry args={[0.045, 0.06, BAG.y + hookY, 10]} />
         {metal}
       </mesh>
-      {/* The bag: an open tube with a bottom, a bit narrower at the base */}
-      <mesh position-y={BAG_H / 2} scale={[1, 1, rz / rx]} raycast={noRaycast}>
-        <cylinderGeometry args={[rx, rx * 0.92, BAG_H, 28, 1, true]} />
-        {plastic}
+      <mesh position={[postX / 2, hookY, 0]} rotation-z={Math.PI / 2} raycast={noRaycast}>
+        <cylinderGeometry args={[0.035, 0.035, postX, 8]} />
+        {metal}
       </mesh>
-      <mesh position-y={0.01} rotation-x={-Math.PI / 2} scale={[1, rz / rx, 1]} raycast={noRaycast}>
-        <circleGeometry args={[rx * 0.92, 28]} />
-        {plastic}
+      <mesh position={[0, hookY + 0.01, 0]} rotation-x={Math.PI / 2} raycast={noRaycast}>
+        <cylinderGeometry args={[0.03, 0.03, BAG_W * 0.9, 8]} />
+        {metal}
       </mesh>
-      {/* Handles, pulled up over the rack bar */}
-      {[-1, 1].map((s) => (
-        <mesh key={s} position={[0.15, BAG_H + 0.25, s * rz * 0.5]} rotation-y={Math.PI / 2} raycast={noRaycast}>
-          <torusGeometry args={[0.24, 0.035, 8, 20, Math.PI]} />
+      {/* The bag itself */}
+      <group ref={bag}>
+        <mesh geometry={body} raycast={noRaycast}>
+          {plastic}
+        </mesh>
+        {/* The bottom, gathered shut */}
+        <mesh position-y={-BAG_DEPTH + 0.01} rotation-x={Math.PI / 2} scale={[BAG_D * 0.42, BAG_W * 0.42, 1]} raycast={noRaycast}>
+          <circleGeometry args={[1, 24]} />
+          {plastic}
+        </mesh>
+        {/* "Thank you!" printed on the side facing you */}
+        <mesh position={[-BAG_D / 2 - 0.035, -BAG_DEPTH * 0.45, 0]} rotation-y={-Math.PI / 2} raycast={noRaycast}>
+          <planeGeometry args={[0.75, 0.75 / print.aspect]} />
+          <meshBasicMaterial map={print.texture} transparent depthWrite={false} toneMapped={false} />
+        </mesh>
+      </group>
+      {handles.map((g, i) => (
+        <mesh key={i} geometry={g} raycast={noRaycast}>
           {plastic}
         </mesh>
       ))}
-      {/* "Thank you!" printed on the side facing you */}
-      <mesh position={[-rx - 0.005, BAG_H * 0.55, 0]} rotation-y={-Math.PI / 2} raycast={noRaycast}>
-        <planeGeometry args={[0.9, 0.9 / print.aspect]} />
-        <meshBasicMaterial map={print.texture} transparent toneMapped={false} />
-      </mesh>
     </group>
   );
 }
@@ -362,7 +457,7 @@ class CashierHands {
 const UP = new THREE.Vector3(0, 1, 0);
 const SHOULDER_Y = 4.5;
 const SHOULDER_HALF = 0.5;
-const ARM = 1.2; // each half of the arm
+const ARM = 1.35; // each half of the arm
 
 /** Puts a 1-tall cylinder between two points. */
 function stretch(mesh: THREE.Object3D | null | undefined, a: THREE.Vector3, b: THREE.Vector3, dir: THREE.Vector3) {
@@ -427,7 +522,7 @@ function Cashier({ hands, calm }: { hands: React.RefObject<CashierHands>; calm: 
     let yaw = -Math.PI / 2;
     if (h.rightPull > 0.01) {
       const toward = Math.atan2(h.right.x - CASHIER_AT.x, h.right.z - CASHIER_AT.z);
-      yaw += THREE.MathUtils.clamp(((toward - yaw + Math.PI * 3) % (Math.PI * 2)) - Math.PI, -0.7, 0.7) * 0.6;
+      yaw += THREE.MathUtils.clamp(((toward - yaw + Math.PI * 3) % (Math.PI * 2)) - Math.PI, -1.2, 1.2) * 0.75;
     }
     st.yaw = THREE.MathUtils.damp(st.yaw, yaw, 8, delta);
     if (body.current) {
@@ -624,7 +719,7 @@ function PoleDisplay({ display }: { display: TillDisplay }) {
   const w = 2.1;
   const h = (w * LCD_H) / LCD_W;
   return (
-    <group position={[1.7, COUNTER + 2.55, 1.25]} rotation-y={-Math.PI / 2 - 0.35}>
+    <group position={[1.75, COUNTER + 2.55, 1.45]} rotation-y={-Math.PI / 2 - 0.35}>
       {/* The pole down to the register stand */}
       <mesh position={[0, -1.35, -0.1]} raycast={noRaycast}>
         <cylinderGeometry args={[0.05, 0.07, 2.4, 10]} />
