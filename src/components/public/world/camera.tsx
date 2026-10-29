@@ -5,7 +5,7 @@ import { useFrame, useThree } from "@react-three/fiber";
 import * as THREE from "three";
 import { inStore, parkedSpots, player, walkBlocked } from "./bump";
 import { drive, input, moving } from "./drive";
-import { doors, EYE, eyeAt, INSIDE, nearestStation, type Blocker, type Station, type StationKey } from "./world-layout";
+import { doors, EYE_HEIGHT, INSIDE_WORLD, nearestStation, STORE_SCALE, type Blocker, type Station, type StationKey } from "./world-layout";
 
 /*
  * The camera, like a person (or a drone) in the store.
@@ -20,18 +20,18 @@ import { doors, EYE, eyeAt, INSIDE, nearestStation, type Blocker, type Station, 
  * Driving a car: the camera follows behind it.
  */
 
-const WALK_SPEED = 8;
-const RUN_SPEED = 14;
+const WALK_SPEED = 6.5;
+const RUN_SPEED = 12;
 const TURN_SPEED = 1.9;
 /** The doors open when someone's this close to them, and shut again past SHUT. */
-const OPEN = 8;
-const SHUT = 10;
+const OPEN = 7;
+const SHUT = 9;
 /** How close you need to be to a car to get in. */
 const REACH = 6.5;
 
 /** Where the drone circles: around this point, this far out. */
-const ORBIT_CENTER = new THREE.Vector3(0, 4, -14);
-const ORBIT_RADIUS = 74;
+const ORBIT_CENTER = new THREE.Vector3(0, 2, -5);
+const ORBIT_RADIUS = 47;
 
 const ease = (t: number) => (t < 0.5 ? 4 * t * t * t : 1 - (-2 * t + 2) ** 3 / 2);
 const clamp = (v: number, a: number, b: number) => Math.min(b, Math.max(a, v));
@@ -55,6 +55,7 @@ export function CameraRig({
   blockers = [],
   onWalk,
   onNearCar,
+  onInside,
 }: {
   stations: Record<StationKey, Station>;
   current: StationKey;
@@ -67,6 +68,8 @@ export function CameraRig({
   onWalk?: (station: StationKey) => void;
   /** Walked up to a parked car (its number), or away from it (null). */
   onNearCar?: (car: number | null) => void;
+  /** Went into the store (true) or out of it (false). */
+  onInside?: (inside: boolean) => void;
 }) {
   const size = useThree((s) => s.size);
   const portrait = size.width < size.height;
@@ -74,12 +77,14 @@ export function CameraRig({
   const onArriveRef = useRef(onArrive);
   const onWalkRef = useRef(onWalk);
   const onNearCarRef = useRef(onNearCar);
+  const onInsideRef = useRef(onInside);
   const blockersRef = useRef(blockers);
   const stationsRef = useRef(stations);
   useEffect(() => {
     onArriveRef.current = onArrive;
     onWalkRef.current = onWalk;
     onNearCarRef.current = onNearCar;
+    onInsideRef.current = onInside;
     blockersRef.current = blockers;
     stationsRef.current = stations;
   });
@@ -113,6 +118,8 @@ export function CameraRig({
     walkedTo: null as StationKey | null,
     /** The car we last said you were next to. */
     nearCar: null as number | null,
+    /** Whether we last said you were in the store. */
+    inside: null as boolean | null,
     /** The normal field of view (it widens a little at high speed). */
     fov: 56,
   });
@@ -178,18 +185,18 @@ export function CameraRig({
     if (current === "outside") return;
     // Got here by walking with the keys: you're already here, no need to fly.
     if (current === "walk" || current === s.walkedTo) return;
-    const to = new THREE.Vector3(st.x, eyeAt(st.x, st.z), st.z);
+    const to = new THREE.Vector3(st.x, EYE_HEIGHT, st.z);
     const target = new THREE.Vector3(...st.look);
     if (portrait && current !== "entrance" && current !== "center" && current !== "lot") {
       // Tall phone screen: step back from what you're looking at so more of it fits.
       const back = to.clone().sub(target).setY(0).normalize();
-      to.addScaledVector(back, current === "checkout" ? 4 : 5);
-      to.x = clamp(to.x, INSIDE.left + 1.5, INSIDE.right - 1.5);
-      to.z = clamp(to.z, INSIDE.back + 1.5, INSIDE.front - 1.5);
+      to.addScaledVector(back, (current === "checkout" ? 4 : 5) * STORE_SCALE);
+      to.x = clamp(to.x, INSIDE_WORLD.left + 0.9, INSIDE_WORLD.right - 0.9);
+      to.z = clamp(to.z, INSIDE_WORLD.back + 0.9, INSIDE_WORLD.front - 0.9);
     }
     if (current === "lot") {
       // Dropped in the parking lot: stand still and look straight at the doors.
-      target.set(0, 4.2, -10);
+      target.set(0, 3.8, -10);
     }
     const look = yawPitchOf(to, target);
     if (!s.started) {
@@ -202,20 +209,20 @@ export function CameraRig({
     }
     const from = s.pos.clone();
     let curve: THREE.CatmullRomCurve3 | null = null;
-    let duration = Math.min(2.4, 0.9 + from.distanceTo(to) * 0.045);
+    let duration = Math.min(2.4, 0.9 + from.distanceTo(to) * 0.08);
     const goingIn = to.z < 0 && !inStore(from.x, from.z);
     if (prev === "outside" && current === "lot") {
       // From the sky, swoop down into the parking lot in front of the doors.
-      curve = new THREE.CatmullRomCurve3([from, new THREE.Vector3(from.x * 0.4, 26, 52), new THREE.Vector3(0, eyeAt(0, 22) + 2, 22), to], false, "centripetal");
+      curve = new THREE.CatmullRomCurve3([from, new THREE.Vector3(from.x * 0.4, 26, 52), new THREE.Vector3(0, EYE_HEIGHT + 2, 22), to], false, "centripetal");
       duration = 3.4;
     } else if (prev === "outside") {
       // Down from the sky, through the doors, and in.
-      curve = new THREE.CatmullRomCurve3([from, new THREE.Vector3(0, 14, 34), new THREE.Vector3(0, EYE + 0.4, 9), new THREE.Vector3(0, EYE, 1.5), to], false, "centripetal");
+      curve = new THREE.CatmullRomCurve3([from, new THREE.Vector3(0, 14, 34), new THREE.Vector3(0, EYE_HEIGHT + 0.4, 8), new THREE.Vector3(0, EYE_HEIGHT, 1.2), to], false, "centripetal");
       duration = 4.2;
     } else if (goingIn) {
       // From outside: walk up to the doors, through them, and on.
       const near = Math.max(6, Math.min(from.z, 14));
-      const pts = [from, new THREE.Vector3(0, eyeAt(0, near), near), new THREE.Vector3(0, eyeAt(0, 1.5), 1.5), new THREE.Vector3(0, eyeAt(0, -3), -3), to];
+      const pts = [from, new THREE.Vector3(0, EYE_HEIGHT, near), new THREE.Vector3(0, EYE_HEIGHT, 1.2), new THREE.Vector3(0, EYE_HEIGHT, -2), to];
       curve = new THREE.CatmullRomCurve3(pts, false, "centripetal");
       duration = clamp(1.6 + from.distanceTo(pts[1]) * 0.02, 2.2, 5);
     }
@@ -229,6 +236,13 @@ export function CameraRig({
     const now = state.clock.elapsedTime;
     // (Capped, so a long pause between frames doesn't teleport you.)
     const dt = Math.min(delta, 0.1);
+
+    // In the store or not? (Tell the page when that changes.)
+    const inside = !drive.active && s.started && inStore(s.pos.x, s.pos.z);
+    if (inside !== s.inside) {
+      s.inside = inside;
+      onInsideRef.current?.(inside);
+    }
 
     // ---- Driving: follow the car from behind and a little above ----
     if (drive.active) {
@@ -259,7 +273,7 @@ export function CameraRig({
     // ---- Just got out of a car: hop down beside it ----
     if (player.hop) {
       player.hop = false;
-      const to = new THREE.Vector3(player.x, eyeAt(player.x, player.z), player.z);
+      const to = new THREE.Vector3(player.x, EYE_HEIGHT, player.z);
       s.flight = { from: s.pos.clone(), fromYaw: s.yaw, fromPitch: s.pitch, to, toYaw: player.yaw, toPitch: -0.05, start: -1, duration: calm ? 0.01 : 0.9, curve: null, key: "walk" };
     }
 
@@ -278,8 +292,7 @@ export function CameraRig({
         s.pos.z += mz;
       } else if (!walkBlocked(s.pos.x + mx, s.pos.z, b)) s.pos.x += mx;
       else if (!walkBlocked(s.pos.x, s.pos.z + mz, b)) s.pos.z += mz;
-      // Person-sized outside, shopping height inside.
-      s.pos.y = THREE.MathUtils.damp(s.pos.y, eyeAt(s.pos.x, s.pos.z), 8, dt);
+      s.pos.y = THREE.MathUtils.damp(s.pos.y, EYE_HEIGHT, 8, dt);
       // Level the view a little while walking.
       s.pitch = THREE.MathUtils.damp(s.pitch, Math.min(s.pitch, 0.05), 2, dt);
       // Tell the page when you've walked up to a spot (or away from one).

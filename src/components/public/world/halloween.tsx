@@ -715,7 +715,7 @@ export function SpookyWords({ text, size, position }: { text: string; size: numb
 
 // ---- Putting it all up --------------------------------------------------------------------------
 
-/** All the decorations outside the store. */
+/** The decorations on the store front (drawn with the store, in store units). */
 export function HalloweenOutside() {
   const { halfWidth: HW, height: H, windowX: [w0, w1], windowY: [, y1] } = BUILDING;
   return (
@@ -753,7 +753,14 @@ export function HalloweenOutside() {
         // Bats circle over the roof (wider for a bigger store).
         <Bat key={i} position={[0, y, -BUILDING.depth / 2]} size={1.6} fly={{ radius: radius * (BUILDING.halfWidth / 20), speed }} phase={phase} />
       ))}
-      {/* A little graveyard on each lawn */}
+    </group>
+  );
+}
+
+/** A little graveyard on each lawn, either side of the parking lot (world units, like the lot). */
+export function HalloweenLawn() {
+  return (
+    <group>
       {[
         [-32, 8, 0.5, "RIP", 0.05],
         [-34.5, 12.5, 0.3, "BOO", -0.08],
@@ -763,11 +770,11 @@ export function HalloweenOutside() {
         [34.5, 14, -0.3, "BOO", 0.06],
         [31.8, 18.5, -0.6, "RIP", 0],
       ].map(([x, z, turn, text, lean], i) => (
-        // (Placed for the old 20-wide store; pushed out by however much wider it is now.)
-        <Tombstone key={i} position={[Number(x) + Math.sign(Number(x)) * (BUILDING.halfWidth - 20), 0, Number(z)]} turn={Number(turn) + (Number(x) < 0 ? Math.PI / 2 : -Math.PI / 2)} text={String(text)} lean={Number(lean)} />
+        // Just past the edges of the parking lot.
+        <Tombstone key={i} position={[Number(x) + Math.sign(Number(x)) * 8, 0, Number(z)]} turn={Number(turn) + (Number(x) < 0 ? Math.PI / 2 : -Math.PI / 2)} text={String(text)} lean={Number(lean)} />
       ))}
-      <Pumpkin position={[-30 - (BUILDING.halfWidth - 20), 0, 11]} size={1.1} face={2} turn={1.2} />
-      <Pumpkin position={[30.5 + (BUILDING.halfWidth - 20), 0, 12]} size={1} face={0} turn={-1.2} />
+      <Pumpkin position={[-38, 0, 11]} size={0.7} face={2} turn={1.2} />
+      <Pumpkin position={[38.5, 0, 12]} size={0.65} face={0} turn={-1.2} />
     </group>
   );
 }

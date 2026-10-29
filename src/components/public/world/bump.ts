@@ -1,6 +1,6 @@
 import { LAMPS, PARKED_CARS, TREES } from "./exterior";
 import { hitsBox, townObstaclesNear, WORLD, type Box } from "./town-layout";
-import { BUILDING, doors, type Blocker } from "./world-layout";
+import { doors, STORE, STORE_SCALE, type Blocker } from "./world-layout";
 
 /*
  * Who is where, and what you can bump into. Plain numbers (no 3D code), shared
@@ -43,7 +43,8 @@ export function carCircles(c: CarSpot) {
   ];
 }
 
-const { halfWidth: HW, depth: D, wall: T, doorHalf } = BUILDING;
+// The store's size in world units (it's drawn shrunk; see STORE_SCALE).
+const { halfWidth: HW, depth: D, wall: T, doorHalf } = STORE;
 const box = (x0: number, x1: number, z0: number, z1: number): Box => ({ x: (x0 + x1) / 2, z: (z0 + z1) / 2, hw: (x1 - x0) / 2, hd: (z1 - z0) / 2, turn: 0 });
 
 /** The store's walls (with a gap for the doors), as seen by someone on foot. */
@@ -56,9 +57,8 @@ const WALLS: Box[] = [
 ];
 const DOORWAY = box(-doorHalf, doorHalf, -T, 0);
 /** The planters with shrubs under the front windows. */
-const w0 = BUILDING.windowX[0];
-const w1 = BUILDING.windowX[1];
-const PLANTERS: Box[] = [-1, 1].map((s) => ({ x: (s * (w0 + w1)) / 2, z: 1.4, hw: (w1 - w0) / 2, hd: 0.8, turn: 0 }));
+const [w0, w1] = STORE.windowX;
+const PLANTERS: Box[] = [-1, 1].map((s) => ({ x: (s * (w0 + w1)) / 2, z: 1.4 * STORE_SCALE, hw: (w1 - w0) / 2, hd: 0.8 * STORE_SCALE, turn: 0 }));
 
 /** Is the point inside the store's walls? */
 export function inStore(x: number, z: number) {

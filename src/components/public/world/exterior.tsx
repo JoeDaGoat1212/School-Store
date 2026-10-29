@@ -7,7 +7,7 @@ import * as THREE from "three";
 import { brand } from "@/config/brand";
 import { CREAM, ORANGE, TEAL, TEAL_DEEP, canvasTexture, seededRandom, noRaycast, signTexture, toonRamp } from "./paint";
 import { advanceOf, flameGeometry, letterGeometry } from "./text3d";
-import { BUILDING, INSIDE, doors } from "./world-layout";
+import { BUILDING, INSIDE, STORE, doors } from "./world-layout";
 
 /*
  * Everything outside: the tan store with its sign, side windows and double
@@ -68,11 +68,13 @@ export function Building({ onDoors, canEnter, openSign }: { onDoors: () => void;
       <Wall size={[T, H, D]} position={[HW - T / 2, H / 2, -D / 2]} outside="+x" />
       <Wall size={[HW * 2, H, T]} position={[0, H / 2, -D + T / 2]} outside="-z" />
 
-      {/* A darker band along the bottom, and the roof ledge (parapet) on top */}
-      <mesh position={[0, 0.7, 0.02]} raycast={noRaycast}>
-        <boxGeometry args={[HW * 2 + 0.1, 1.4, 0.06]} />
-        <Toon color={TAN_DARK} />
-      </mesh>
+      {/* A darker band along the bottom (either side of the doors, not across them), and the roof ledge (parapet) on top */}
+      {[-1, 1].map((s) => (
+        <mesh key={s} position={[(s * (HW + doorHalf)) / 2, 0.7, 0.02]} raycast={noRaycast}>
+          <boxGeometry args={[HW - doorHalf + 0.05, 1.4, 0.06]} />
+          <Toon color={TAN_DARK} />
+        </mesh>
+      ))}
       {[
         [0, H + 0.7, 0.05, HW * 2 + 0.6, 1.4, 0.8],
         [0, H + 0.7, -D + 0.3, HW * 2 + 0.6, 1.4, 0.8],
@@ -429,8 +431,8 @@ function LampPost({ position }: { position: [number, number, number] }) {
   );
 }
 
-/** Half the width of the parking lot (it's a bit wider than the store). */
-export const LOT_HALF = BUILDING.halfWidth + 8;
+/** Half the width of the parking lot (world units, like everything in the lot). */
+export const LOT_HALF = 36;
 const STALL_W = 4.4;
 /** The left edge of each parking stall. */
 const STALLS = Array.from({ length: Math.floor((LOT_HALF * 2 - 4) / STALL_W) }, (_, i) => -LOT_HALF + 2 + i * STALL_W);
@@ -453,10 +455,10 @@ export const TREES: [number, number, number][] = [
   [-LOT_HALF - 12, 24, 1],
   [LOT_HALF + 10, 12, 1.1],
   [LOT_HALF + 13, 27, 1.3],
-  [-BUILDING.halfWidth - 8, -10, 1.2],
-  [BUILDING.halfWidth + 8, -18, 1],
-  [-BUILDING.halfWidth - 9, -34, 1.3],
-  [BUILDING.halfWidth + 10, -38, 1.1],
+  [-STORE.halfWidth - 7, -6, 1.2],
+  [STORE.halfWidth + 7, -12, 1],
+  [-STORE.halfWidth - 8, -20, 1.3],
+  [STORE.halfWidth + 9, -26, 1.1],
   [-16, 42, 1],
   [12, 43, 1.2],
   [-LOT_HALF - 18, 0, 1.4],
@@ -507,7 +509,7 @@ export function Lot() {
       </mesh>
       {/* Sidewalk and curb along the front of the store */}
       <mesh position={[0, 0.15, 1.75]} receiveShadow raycast={noRaycast}>
-        <boxGeometry args={[BUILDING.halfWidth * 2 + 8, 0.3, 3.5]} />
+        <boxGeometry args={[STORE.halfWidth * 2 + 8, 0.3, 3.5]} />
         <Toon color="#d9d5cc" />
       </mesh>
       {/* Painted stall lines */}

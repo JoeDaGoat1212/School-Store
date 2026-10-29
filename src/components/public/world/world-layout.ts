@@ -4,9 +4,18 @@ import type { UnitLayout } from "../store/layout";
 /*
  * The floor plan of the 3D store world. Plain numbers only (no 3D code).
  *
- * Scene units: a soda can is 0.68 tall. The building's front wall is at z = 0
- * and the parking lot is in front of it (+z); inside, the store goes back into
- * -z. x runs left to right as you face the store. The floor is y = 0.
+ * The building's front wall is at z = 0 and the parking lot is in front of
+ * it (+z); inside, the store goes back into -z. x runs left to right as you
+ * face the store. The floor is y = 0.
+ *
+ * Two kinds of units:
+ *   - Store units: everything about the store itself (BUILDING, INSIDE, the
+ *     shelves, products, people inside) is measured in these. A soda can is
+ *     0.68 tall.
+ *   - World units: the parking lot, cars and town (about a metre each).
+ * The whole store is drawn shrunk by STORE_SCALE, so a person is the same
+ * size inside the store as out in the street. To turn a store measurement
+ * into a world one, multiply it by STORE_SCALE.
  */
 
 export const BUILDING = {
@@ -29,27 +38,33 @@ export const INSIDE = {
   right: BUILDING.halfWidth - BUILDING.wall,
 };
 
+/** How high your eyes are, in world units: a person next to a real-size car (eyes just above its roof). */
+export const EYE_HEIGHT = 3;
+/** The same eye height in store units (the store's views were designed around it). */
+export const EYE = 5.4;
+/** How much the store is shrunk to fit the world (a person's eyes are at EYE inside the store's own units). */
+export const STORE_SCALE = EYE_HEIGHT / EYE;
+/** The store's size out in the world, after shrinking. */
+export const STORE = {
+  halfWidth: BUILDING.halfWidth * STORE_SCALE,
+  depth: BUILDING.depth * STORE_SCALE,
+  wall: BUILDING.wall * STORE_SCALE,
+  doorHalf: BUILDING.doorHalf * STORE_SCALE,
+  windowX: [BUILDING.windowX[0] * STORE_SCALE, BUILDING.windowX[1] * STORE_SCALE] as [number, number],
+};
+/** The inside faces of the walls, in world units. */
+export const INSIDE_WORLD = {
+  front: INSIDE.front * STORE_SCALE,
+  back: INSIDE.back * STORE_SCALE,
+  left: INSIDE.left * STORE_SCALE,
+  right: INSIDE.right * STORE_SCALE,
+};
+
 /** The front doors: open while someone is close to them (camera.tsx decides, exterior.tsx swings them). */
 export const doors = { open: false };
 
 /** Where "Click to enter" drops you: in the parking lot, a few steps from the doors. */
 export const DROP = { x: 0, z: 12 };
-
-/** How high your eyes are when you walk around inside (the store is built big, for shopping). */
-export const EYE = 5.4;
-/**
- * How high your eyes are outside: a person the same size as the people
- * walking round town, next to a real-size car (eyes just above its roof).
- */
-export const EYE_OUT = 3;
-
-/** Your eye height at (x, z): person-sized outside, shopping height inside, easing from one to the other through the doors. */
-export function eyeAt(x: number, z: number) {
-  if (Math.abs(x) > BUILDING.halfWidth + 2) return EYE_OUT;
-  // From just outside the doors (z = 2) to a few steps inside (z = -6).
-  const t = Math.min(1, Math.max(0, (2 - z) / 8));
-  return EYE_OUT + (EYE - EYE_OUT) * t * t * (3 - 2 * t);
-}
 
 export type Place = { x: number; z: number; turn: number };
 
@@ -150,6 +165,25 @@ export function stations(places: Record<UnitKey, Place | null>, units: Record<Un
   };
 }
 
+/** The same spots in world units (for walking and the camera). The drone and parking-lot spots are already in world units. */
+export function worldStations(local: Record<StationKey, Station>): Record<StationKey, Station> {
+  const k = STORE_SCALE;
+  const out = {} as Record<StationKey, Station>;
+  for (const st of Object.values(local)) {
+    out[st.key] =
+      st.key === "outside" || st.key === "lot"
+        ? st
+        : {
+            ...st,
+            x: st.x * k,
+            z: st.z * k,
+            marker: st.marker && { x: st.marker.x * k, z: st.marker.z * k },
+            look: [st.look[0] * k, st.look[1] * k, st.look[2] * k],
+          };
+  }
+  return out;
+}
+
 /** Which unit's products you can tap from a spot (only when you're standing at that unit). */
 export function unitAt(station: StationKey): UnitKey | null {
   return station === "drinks" || station === "snacks" || station === "candy" ? station : null;
@@ -160,7 +194,7 @@ export function unitAt(station: StationKey): UnitKey | null {
 /** A box you can't walk through: centre, half-width, half-depth, and which way it's turned. */
 export type Blocker = { x: number; z: number; hw: number; hd: number; turn: number };
 
-/** Everything on the shop floor you'd bump into, for walking with the arrow keys. */
+/** Everything on the shop floor you'd bump into, for walking with the arrow keys (in world units). */
 export function blockers(places: Record<UnitKey, Place | null>, units: Record<UnitKey, UnitLayout | null>): Blocker[] {
   const list: Blocker[] = [];
   for (const key of ["drinks", "snacks", "candy"] as UnitKey[]) {
@@ -172,11 +206,12 @@ export function blockers(places: Record<UnitKey, Place | null>, units: Record<Un
   for (const lane of LANES) list.push({ x: lane.x + 0.6, z: lane.front - lane.length / 2, hw: 1.6, hd: lane.length / 2 + 0.4, turn: 0 });
   list.push({ x: BULLETIN.x, z: BULLETIN.z, hw: BULLETIN.width / 2 + 0.3, hd: 0.6, turn: BULLETIN.turn });
   list.push({ x: REQUEST_DESK.x - Math.sin(REQUEST_DESK.turn) * 0.8, z: REQUEST_DESK.z - Math.cos(REQUEST_DESK.turn) * 0.8, hw: 2.6, hd: 2.2, turn: REQUEST_DESK.turn });
-  return list;
+  const k = STORE_SCALE;
+  return list.map((b) => ({ ...b, x: b.x * k, z: b.z * k, hw: b.hw * k, hd: b.hd * k }));
 }
 
-/** The nearest spot to stand within `radius` of a point (or null), for walking up to things with the keys. */
-export function nearestStation(spots: Record<StationKey, Station>, x: number, z: number, radius = 3.2): StationKey | null {
+/** The nearest spot (world units) within `radius` of a point (or null), for walking up to things with the keys. */
+export function nearestStation(spots: Record<StationKey, Station>, x: number, z: number, radius = 3.2 * STORE_SCALE): StationKey | null {
   let best: StationKey | null = null;
   let bestD = radius;
   for (const s of Object.values(spots)) {

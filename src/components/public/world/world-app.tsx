@@ -144,6 +144,8 @@ export default function WorldApp({
   const [driving, setDriving] = useState<number | null>(null);
   /** The parked car you're standing next to (press E to get in), or null. */
   const [nearCar, setNearCar] = useState<number | null>(null);
+  /** Are you in the store? (The Checkout button only shows in there.) */
+  const [inside, setInside] = useState(startInside);
   const counter = useRef(0);
   const sidebarScroll = useRef<HTMLDivElement>(null);
   const { progress, active } = useProgress();
@@ -469,6 +471,7 @@ export default function WorldApp({
           driving={driving}
           nearCar={nearCar}
           onNearCar={setNearCar}
+          onInside={setInside}
           onPickCar={(car) => {
             setDriving(car);
             say("You're driving! Press E to get out.");
@@ -593,7 +596,7 @@ export default function WorldApp({
         <button
           type="button"
           onClick={checkout}
-          hidden={Boolean(till)}
+          hidden={Boolean(till) || !inside}
           className="pointer-events-auto flex h-13 items-center gap-3 rounded-full bg-primary pr-2 pl-5 font-heading text-xl font-extrabold tracking-wide text-black uppercase shadow-[0_6px_0_#000] transition-transform hover:-translate-y-0.5 focus-visible:ring-4 focus-visible:ring-black/40 focus-visible:outline-none active:translate-y-1 active:shadow-[0_2px_0_#000]"
         >
           <ShoppingBagIcon className="size-5" />

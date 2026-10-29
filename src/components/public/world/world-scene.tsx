@@ -9,7 +9,7 @@ import type { UnitKey } from "../store/catalog";
 import type { Placement, StoreItem, UnitLayout } from "../store/layout";
 import { CameraRig } from "./camera";
 import { CheckoutCounter, type TillDisplay, type TillUnit } from "./checkout-scene";
-import { HalloweenInside, HalloweenOutside } from "./halloween";
+import { HalloweenInside, HalloweenLawn, HalloweenOutside } from "./halloween";
 import type { Season } from "@/lib/seasons";
 import { Building, Interior, Lot, Sky } from "./exterior";
 import { BulletinBoard, CandyStand, CheckoutLane, FloorMarker, WorldFridge, WorldShelf, YellowLetters, type BoardCard } from "./fixtures";
@@ -20,11 +20,13 @@ import { Cars, drive, input } from "./drive";
 import { Town } from "./town";
 import { Smoke } from "./smoke";
 import { Traffic } from "./traffic";
-import { BULLETIN, BUILDING, LANES, blockers, doors, placeUnits, stations, unitAt, type Place, type StationKey } from "./world-layout";
+import { BULLETIN, BUILDING, LANES, STORE_SCALE, blockers, doors, placeUnits, stations, unitAt, worldStations, type Place, type StationKey } from "./world-layout";
 
 /*
- * The whole 3D world in one <Canvas>: sky, parking lot, the store building and
- * everything inside it. React Three Fiber lets us write three.js as React
+ * The whole 3D world in one <Canvas>: sky, town, parking lot, the store
+ * building and everything inside it. The store is built in its own (bigger)
+ * units and drawn shrunk by STORE_SCALE, so people are the same size inside
+ * and out (see world-layout.ts). React Three Fiber lets us write three.js as React
  * components. This file only puts things in place and passes taps up to
  * world-app.tsx, which decides what happens.
  */
@@ -67,6 +69,8 @@ export type WorldSceneProps = {
   /** The parked car you're standing next to (you can tap it to get in), or null. */
   nearCar: number | null;
   onNearCar: (car: number | null) => void;
+  /** Went into the store, or out of it. */
+  onInside: (inside: boolean) => void;
   onPickCar: (car: number) => void;
   /** Your car hit something ("Bonk!" / "Crash!"). */
   onBump: (text: string) => void;
@@ -78,7 +82,9 @@ export default function WorldScene(props: WorldSceneProps) {
   const [shadows, setShadows] = useState(true);
   const fontsReady = useFontsReady();
   const places = useMemo(() => placeUnits(layouts), [layouts]);
+  // Spots to stand: in store units (for the floor arrows, drawn with the store) and in world units (for the camera).
   const spots = useMemo(() => stations(places, layouts), [places, layouts]);
+  const worldSpots = useMemo(() => worldStations(spots), [spots]);
   const walls = useMemo(() => blockers(places, layouts), [places, layouts]);
   const here = spots[station];
   const spooky = props.season === "halloween";
@@ -94,17 +100,14 @@ export default function WorldScene(props: WorldSceneProps) {
       {/* Haze in the distance, so the far end of town fades softly into the sky */}
       <fog attach="fog" args={[spooky ? "#ffd8b0" : "#d9effc", 180, 720]} />
       <PerformanceMonitor onDecline={() => setShadows(false)} />
-      <CameraRig stations={spots} current={station} calm={calm} onArrive={props.onArrive} blockers={walls} onWalk={props.onWalk} onNearCar={props.onNearCar} />
+      <CameraRig stations={worldSpots} current={station} calm={calm} onArrive={props.onArrive} blockers={walls} onWalk={props.onWalk} onNearCar={props.onNearCar} onInside={props.onInside} />
       <FirstFrame onReady={props.onReady} />
-      {process.env.NODE_ENV !== "production" && <TestHook spots={spots} places={places} layouts={layouts} station={station} moving={moving} items={props.items} />}
+      {process.env.NODE_ENV !== "production" && <TestHook spots={worldSpots} places={places} layouts={layouts} station={station} moving={moving} items={props.items} />}
 
       {/* Daylight: the sun (with shadows), sky light from above, and soft fill. */}
       <hemisphereLight args={[spooky ? "#f1defa" : "#e8f6ff", "#b9a98a", 1.1]} />
       <ambientLight intensity={0.35} />
       <Sun shadows={shadows} warm={spooky} />
-      {/* Inside: warm ceiling light over the shop floor. */}
-      <pointLight position={[-13, BUILDING.height - 1, -20]} intensity={105} distance={46} decay={1.2} color="#fff4e6" />
-      <pointLight position={[13, BUILDING.height - 1, -20]} intensity={105} distance={46} decay={1.2} color="#fff4e6" />
       <Environment resolution={128} frames={1}>
         <Lightformer intensity={2} position={[0, 10, 0]} rotation-x={Math.PI / 2} scale={[20, 20, 1]} />
         <Lightformer intensity={1.2} color="#ffe2c4" position={[-10, 3, 6]} rotation-y={Math.PI / 4} scale={[10, 4, 1]} />
@@ -121,58 +124,66 @@ export default function WorldScene(props: WorldSceneProps) {
           <Smoke />
           {/* The parked cars: walk up to one and press E (or tap it) to drive it */}
           <Cars driving={props.driving} canPick={props.driving === null && !moving ? props.nearCar : null} calm={calm} onPick={props.onPickCar} onBump={props.onBump} />
-          <Building onDoors={props.onDoors} canEnter={station === "outside" && !moving} openSign={props.openSign} />
-          <Interior />
-          {spooky && <HalloweenOutside />}
-          {spooky && <HalloweenInside fridgeX={places.drinks?.x ?? -8.5} />}
+          {spooky && <HalloweenLawn />}
 
-          {(["drinks", "snacks", "candy"] as UnitKey[]).map((key) => {
-            const layout = layouts[key];
-            const place = places[key];
-            if (!layout || !place) return null;
-            return <Unit key={key} unitKey={key} layout={layout} place={place} active={unitAt(station) === key && !moving} {...props} />;
-          })}
+          {/* ---- The store, shrunk to the world's size ---- */}
+          <group scale={STORE_SCALE}>
+            {/* Inside: warm ceiling light over the shop floor (a light's reach doesn't shrink with the group, so it's set by hand). */}
+            <pointLight position={[-13, BUILDING.height - 1, -20]} intensity={105 * STORE_SCALE ** 1.2} distance={46 * STORE_SCALE} decay={1.2} color="#fff4e6" />
+            <pointLight position={[13, BUILDING.height - 1, -20]} intensity={105 * STORE_SCALE ** 1.2} distance={46 * STORE_SCALE} decay={1.2} color="#fff4e6" />
+            <Building onDoors={props.onDoors} canEnter={station === "outside" && !moving} openSign={props.openSign} />
+            <Interior />
+            {spooky && <HalloweenOutside />}
+            {spooky && <HalloweenInside fridgeX={places.drinks?.x ?? -8.5} />}
 
-          {/* Lane 1 is where you check out; 2 and 3 are just for show. */}
-          <CheckoutCounter
-            lane={LANES[0]}
-            units={props.till.units}
-            running={props.till.running}
-            calm={calm}
-            halloween={spooky}
-            display={props.display}
-            onScanned={props.onScanned}
-            onBagged={props.onBagged}
-          />
-          {LANES.slice(1).map((lane) => (
-            <CheckoutLane key={lane.number} lane={lane} />
-          ))}
-
-          {/* The request table, front left: someone at a computer takes requests */}
-          <RequestDesk
-            near={station === "requests" && !moving}
-            calm={calm}
-            halloween={spooky}
-            onOpen={() => (station === "requests" ? props.onOpenRequests() : props.onGo("requests"))}
-          />
-
-          <BulletinBoard cards={props.cards} near={station === "deals" && !moving} onOpen={() => (station === "deals" ? props.onOpenDeals() : props.onGo("deals"))} />
-          {/* Big yellow letters over the board, with an arrow bouncing down at it */}
-          <group position={[BULLETIN.x, BULLETIN.bottom + BULLETIN.height + 2.1, BULLETIN.z]} rotation-y={BULLETIN.turn}>
-            <group position-y={1.15}>
-              <YellowLetters text="HOT DEALS!" size={1.15} arrow={false} />
-            </group>
-            <YellowLetters text="COUPONS + REWARDS + BUNDLES" size={0.5} />
-          </group>
-
-          {/* Floor arrows to the next spots (hidden while you walk) */}
-          {station !== "outside" &&
-            !moving &&
-            !props.busy &&
-            here.next.map((key) => {
-              const at = spots[key].marker ?? spots[key];
-              return <FloorMarker key={`${station}-${key}`} x={at.x} z={at.z} label={spots[key].label} from={here} onGo={() => props.onGo(key)} />;
+            {(["drinks", "snacks", "candy"] as UnitKey[]).map((key) => {
+              const layout = layouts[key];
+              const place = places[key];
+              if (!layout || !place) return null;
+              return <Unit key={key} unitKey={key} layout={layout} place={place} active={unitAt(station) === key && !moving} {...props} />;
             })}
+
+            {/* Lane 1 is where you check out; 2 and 3 are just for show. */}
+            <CheckoutCounter
+              lane={LANES[0]}
+              units={props.till.units}
+              running={props.till.running}
+              calm={calm}
+              halloween={spooky}
+              display={props.display}
+              onScanned={props.onScanned}
+              onBagged={props.onBagged}
+            />
+            {LANES.slice(1).map((lane) => (
+              <CheckoutLane key={lane.number} lane={lane} />
+            ))}
+
+            {/* The request table, front left: someone at a computer takes requests */}
+            <RequestDesk
+              near={station === "requests" && !moving}
+              calm={calm}
+              halloween={spooky}
+              onOpen={() => (station === "requests" ? props.onOpenRequests() : props.onGo("requests"))}
+            />
+
+            <BulletinBoard cards={props.cards} near={station === "deals" && !moving} onOpen={() => (station === "deals" ? props.onOpenDeals() : props.onGo("deals"))} />
+            {/* Big yellow letters over the board, with an arrow bouncing down at it */}
+            <group position={[BULLETIN.x, BULLETIN.bottom + BULLETIN.height + 2.1, BULLETIN.z]} rotation-y={BULLETIN.turn}>
+              <group position-y={1.15}>
+                <YellowLetters text="HOT DEALS!" size={1.15} arrow={false} />
+              </group>
+              <YellowLetters text="COUPONS + REWARDS + BUNDLES" size={0.5} />
+            </group>
+
+            {/* Floor arrows to the next spots (hidden while you walk) */}
+            {station !== "outside" &&
+              !moving &&
+              !props.busy &&
+              here.next.map((key) => {
+                const at = spots[key].marker ?? spots[key];
+                return <FloorMarker key={`${station}-${key}`} x={at.x} z={at.z} label={spots[key].label} from={here} onGo={() => props.onGo(key)} />;
+              })}
+          </group>
         </>
       )}
     </Canvas>

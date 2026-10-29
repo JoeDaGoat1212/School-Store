@@ -330,8 +330,9 @@ way to straighten up. A speedometer in the corner goes up to 100 mph; the brake 
 brake, reverse lights when you back up, and traffic brakes for you (and for anyone walking in the road). Phones get
 on-screen arrows for walking and driving.
 
-You're person-sized outside (the same size as the people walking about, eyes just above a car's roof); inside, the
-camera rises to the store's bigger shopping height as you walk through the doors.
+Everything is to the same scale: you're the size of the people walking about, with your eyes just above a car's roof,
+and the store is a real-size shop next to the cars. (The store is built in its own bigger units and drawn shrunk by
+`STORE_SCALE` in `world-layout.ts`.) The **Checkout** button only shows while you're inside the store.
 
 Where things are: the store's size and what stands where is in `src/components/public/world/world-layout.ts`; the town
 (streets, houses, trees, people, traffic routes) is in `town-layout.ts` and drawn by `town.tsx`; the car physics
