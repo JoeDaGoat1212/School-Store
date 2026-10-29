@@ -216,12 +216,10 @@ const wallH = (i: number) => HOUSES[i].h * (styleOf(i) === 1 ? 1.75 : styleOf(i)
 const GABLED = HOUSE_IDS.filter((i) => [0, 1, 4].includes(styleOf(i)));
 const FLAT = HOUSE_IDS.filter((i) => styleOf(i) === 2);
 const HIPPED = HOUSE_IDS.filter((i) => styleOf(i) === 3);
-const TWO_STOREY = HOUSE_IDS.filter((i) => styleOf(i) === 1);
 const PORCHED = HOUSE_IDS.filter((i) => styleOf(i) === 4);
 const SHUTTERED = HOUSE_IDS.filter((i) => styleOf(i) === 0);
 const GARAGED = HOUSE_IDS.filter(hasGarage);
 const WITH_CHIMNEY = HOUSE_IDS.filter((i) => HOUSES[i].chimney && styleOf(i) !== 2);
-const windowSide = (i: number) => (i % 2 ? 1 : -1);
 const WOOD = ["#a87a45", "#8b5a3c", "#c49a6c"];
 
 const placeWall: Place = (i, o) => {

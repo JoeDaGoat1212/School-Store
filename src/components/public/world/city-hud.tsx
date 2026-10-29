@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { HeartIcon, LandmarkIcon, MapPinIcon, NavigationIcon, StarIcon, UtensilsIcon, Volume2Icon, VolumeXIcon, WalletIcon, XIcon } from "lucide-react";
+import { CameraIcon, HeartIcon, LandmarkIcon, MapPinIcon, NavigationIcon, StarIcon, UtensilsIcon, Volume2Icon, VolumeXIcon, WalletIcon, XIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { player } from "./bump";
 import { BANK } from "./city-layout";
@@ -69,6 +69,12 @@ export function CityHud({
   const [arrow, setArrow] = useState(0);
   const [stats, setStats] = useState({ hunger: 100, health: 100 });
   const [fade, setFade] = useState(0);
+  const [view, setView] = useState(player.view);
+  const toggleView = () => {
+    player.view = player.view === "first" ? "third" : "first";
+    player.zoom = player.view === "third" ? 7 : 0;
+    setView(player.view);
+  };
   const [cell, setCell] = useState(0);
 
   // The cash counter rolls up (or down) to the new amount.
@@ -90,6 +96,7 @@ export function CityHud({
   useEffect(() => {
     const t = setInterval(() => {
       setStats({ hunger: Math.round(life.hunger), health: Math.round(life.health) });
+      setView(player.view);
       if (game.wanted) {
         const dx = DROP_ZONE.x - player.x;
         const dz = DROP_ZONE.z - player.z;
@@ -280,6 +287,19 @@ export function CityHud({
             <ActionButton key={`${a.key}${a.text}`} action={a} />
           ))}
         </div>
+      )}
+
+      {/* ---- Your eyes, or from behind you (V) ---- */}
+      {!life.dead && !panel && (
+        <button
+          type="button"
+          onClick={toggleView}
+          aria-pressed={view === "third"}
+          title="Switch camera (V, or scroll the mouse wheel)"
+          className="absolute top-[13.8rem] right-3 flex h-10 items-center gap-1.5 rounded-full bg-black/80 px-4 font-heading text-base font-extrabold tracking-wide text-white uppercase shadow-md backdrop-blur transition-transform hover:-translate-y-0.5 sm:top-[7.6rem] sm:right-4"
+        >
+          <CameraIcon className="size-4" /> {view === "third" ? "1st person" : "3rd person"} <kbd className="rounded bg-white/20 px-1.5 text-xs">V</kbd>
+        </button>
       )}
 
       {/* ---- Quick trips round the map ---- */}

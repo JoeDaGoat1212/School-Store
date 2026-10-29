@@ -460,8 +460,8 @@ export default function WorldApp({
           : "W / ↑ gas · S / ↓ brake & reverse · A D or ← → steer · Space + steer to drift · E get out"
       : station === "outside"
       ? "Click to enter, or drag to fly around"
-      : station === "lot" || (station === "walk" && nearCar !== null)
-      ? "Walk with WASD / arrow keys (Shift to run) · walk up to a car and press E to drive"
+      : station === "lot" || station === "walk"
+      ? "WASD to walk (Shift runs, Space jumps) · V for 3rd person · E near a car to drive · I for your wallet"
       : unit === "drinks"
         ? "Tap a fridge door to open it, then tap a drink"
         : unit

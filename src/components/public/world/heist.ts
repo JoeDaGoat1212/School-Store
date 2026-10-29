@@ -6,6 +6,7 @@ import { kill, life } from "./life";
 import { earn, profile, saveProfile, usd } from "./profile";
 import { hitsBox } from "./town-layout";
 import { BASE } from "./world-map";
+import { player } from "./you";
 
 export { usd, profile };
 
@@ -349,7 +350,8 @@ export function tick(now: number, dt: number, you: { x: number; z: number; y: nu
   for (const key of ["bank", "jewelry"] as SiteKey[]) {
     const s = game.sites[key];
     const inside = key === "bank" ? inBank(you.x, you.z) : inJewelry(you.x, you.z);
-    if (s.alarm && !inside && !isClosed(key) && LOOT.some((l) => l.site === key && isTaken(l.id))) {
+    const out = outside(key === "bank" ? BANK : JEWELRY, you.x, you.z);
+    if (s.alarm && out && !isClosed(key) && LOOT.some((l) => l.site === key && isTaken(l.id))) {
       closeSite(key);
       dirty = true;
     }
@@ -441,10 +443,17 @@ export function heistBlocks(x: number, z: number, r: number) {
   if (Math.abs(x - BANK.x) < 40 && Math.abs(z - BANK.z) < 50) {
     if (!vaultOpen() && hitsBox(x, z, r, VAULT_DOOR_BOX)) return true;
     for (const id in LOOT_BOXES) if (!isTaken(id) && hitsBox(x, z, r, LOOT_BOXES[id])) return true;
-    if (isClosed("bank") && !inBank(x, z) && hitsBox(x, z, r, BANK_DOORWAY)) return true;
+    // Closed: the doors are locked to anyone outside (never to someone still inside: you can always get out).
+    if (isClosed("bank") && outside(BANK, player.x, player.z) && hitsBox(x, z, r, BANK_DOORWAY)) return true;
   }
-  if (isClosed("jewelry") && Math.abs(x - JEWELRY.x) < 30 && Math.abs(z - JEWELRY.z) < 30 && !inJewelry(x, z) && hitsBox(x, z, r, JEWELRY_DOORWAY)) return true;
+  if (isClosed("jewelry") && Math.abs(x - JEWELRY.x) < 30 && Math.abs(z - JEWELRY.z) < 30 && outside(JEWELRY, player.x, player.z) && hitsBox(x, z, r, JEWELRY_DOORWAY)) return true;
   return false;
+}
+/** Properly outside a building: out past its front doors (or nowhere near it). */
+function outside(site: typeof BANK, x: number, z: number) {
+  if (Math.abs(x - site.x) > 60 || Math.abs(z - site.z) > 60) return true;
+  const { lx, lz } = toLocal(site, x, z);
+  return lz > 1.2 || Math.abs(lx) > 30;
 }
 const doorway = (site: typeof BANK, half: number, wall: number) => {
   const p = toWorld(site, 0, -wall / 2);
