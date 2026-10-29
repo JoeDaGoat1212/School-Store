@@ -21,11 +21,12 @@ import { cart, cartTotals, splitCart, useCart, type CartItem } from "../cart-sto
 import { modelFor, sectionFor, unitFor, UNITS, type UnitKey } from "../store/catalog";
 import { unitLayout, type StoreItem } from "../store/layout";
 import type { TillDisplay, TillUnit } from "./checkout-scene";
-import { TouchPad, useMovementKeys } from "./drive";
+import { TouchPad, drive, useMovementKeys } from "./drive";
 import { CityHud } from "./city-hud";
+import { fleet } from "./fleet";
 import { useGameVersion } from "./game-events";
 import { life } from "./life";
-import { police } from "./police";
+import { police } from "./police-state";
 import { loadProfile, profile, refreshProfile, type ServerPlayer } from "./profile";
 import { refreshGame, saveGame } from "@/app/(public)/game-actions";
 import { Speedometer } from "./speedometer";
@@ -174,7 +175,7 @@ export default function WorldApp({
     return () => clearInterval(t);
   }, []);
   // Passing out in a car: you're out of the car.
-  useGameVersion();
+  const gameVersion = useGameVersion();
   useEffect(() => {
     if (life.dead && driving !== null) setDriving(null);
     // The police pulled you out of your car.
@@ -182,7 +183,7 @@ export default function WorldApp({
       police.forceOut = false;
       if (driving !== null) setDriving(null);
     }
-  });
+  }, [gameVersion, driving]);
   const counter = useRef(0);
   const sidebarScroll = useRef<HTMLDivElement>(null);
   const { progress, active } = useProgress();
@@ -384,7 +385,7 @@ export default function WorldApp({
       if (driving !== null) setDriving(null);
       else if (nearCar !== null && !moving) {
         setDriving(nearCar);
-        say("You're driving! Press E to get out.");
+        say(boardLine(fleet[nearCar ?? -1]?.body));
       }
     };
     window.addEventListener("keydown", onKey);
@@ -443,7 +444,11 @@ export default function WorldApp({
     : moving
     ? null
     : driving !== null
-      ? "W / ↑ gas · S / ↓ brake & reverse · A D or ← → steer · Space + steer to drift · E get out"
+      ? fleet[driving]?.body === "plane"
+        ? "W / S throttle · A D or ← → bank · Space pull up · Shift dive · E jump out (Space opens your parachute)"
+        : fleet[driving]?.body === "heli"
+          ? "Space climb · Shift descend · W / S forward / back · A D or ← → turn · E jump out (Space opens your parachute)"
+          : "W / ↑ gas · S / ↓ brake & reverse · A D or ← → steer · Space + steer to drift · E get out"
       : station === "outside"
       ? "Click to enter, or drag to fly around"
       : station === "lot" || (station === "walk" && nearCar !== null)
@@ -511,9 +516,10 @@ export default function WorldApp({
           onInside={setInside}
           onPickCar={(car) => {
             setDriving(car);
-            say("You're driving! Press E to get out.");
+            say(boardLine(fleet[car]?.body));
           }}
           onBump={say}
+          onBail={() => setDriving(null)}
         />
       </div>
 
@@ -543,7 +549,7 @@ export default function WorldApp({
             </button>
           </div>
           <div className="absolute top-18 right-3 sm:top-20 sm:right-4">
-            <Speedometer />
+            <Speedometer max={drive.top} />
           </div>
           <TouchPad mode="drive" />
         </>
@@ -558,12 +564,12 @@ export default function WorldApp({
                 type="button"
                 onClick={() => {
                   setDriving(nearCar);
-                  say("You're driving! Press E to get out.");
+                  say(boardLine(fleet[nearCar]?.body));
                 }}
                 className="pointer-events-auto flex items-center gap-2 rounded-full bg-black/85 px-5 py-3 font-heading text-xl font-extrabold tracking-wide text-white uppercase shadow-lg backdrop-blur transition-transform hover:-translate-y-0.5 focus-visible:ring-3 focus-visible:ring-primary/60 focus-visible:outline-none animate-in fade-in zoom-in-95 duration-200"
               >
                 <kbd className="grid size-8 place-items-center rounded-lg bg-primary font-heading text-lg text-black">E</kbd>
-                Drive this car
+                {fleet[nearCar]?.body === "plane" ? "Fly this plane" : fleet[nearCar]?.body === "heli" ? "Fly this helicopter" : fleet[nearCar]?.body === "moto" ? "Ride this bike" : "Drive this car"}
               </button>
             </div>
           )}
@@ -973,4 +979,12 @@ function RequestsPanel({ popular, onClose }: { popular: PopularRequest[]; onClos
       </div>
     </div>
   );
+}
+
+/** What to say when you get in. */
+function boardLine(body: string | undefined) {
+  if (body === "plane") return "Ready for take-off! W for throttle, Space to pull up. E to jump out.";
+  if (body === "heli") return "Rotors spinning! Space to climb. E to jump out.";
+  if (body === "moto") return "You're riding! Press E to get off.";
+  return "You're driving! Press E to get out.";
 }

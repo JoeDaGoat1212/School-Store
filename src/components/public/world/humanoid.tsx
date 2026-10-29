@@ -330,6 +330,9 @@ export function randomLook(seed: number, extra: Partial<Look> = {}): Look {
   };
 }
 
+/** You (the player). */
+export const PLAYER_LOOK: Look = { skin: "#e0ac83", hair: "#2a1a12", hairStyle: "short", shirt: "#3d6fe0", pants: "#2b2f36", shoes: "#f2f2f2" };
+
 /** Uniforms. */
 export const COP_LOOK: Look = { skin: "#c98e62", hair: "#1b1410", hairStyle: "buzz", shirt: "#26385e", pants: "#1d2b4f", outfit: "cop", accent: "#1d2b4f" };
 export const GUARD_LOOK: Look = { skin: "#e0ac83", hair: "#2a1a12", hairStyle: "buzz", shirt: "#4a4f57", pants: "#2f3338", outfit: "guard" };

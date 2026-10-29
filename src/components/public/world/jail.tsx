@@ -4,7 +4,7 @@ import { useMemo, useRef } from "react";
 import { useFrame } from "@react-three/fiber";
 import * as THREE from "three";
 import { GUARD_LOOK, Humanoid, newPose } from "./humanoid";
-import { jail, type Guard } from "./jail";
+import { jail, type Guard } from "./jail-state";
 import { CELL_ROW, CORRIDOR, JAIL_BOX, JAIL_DOORS, JAIL_ROOMS, JAIL_SOLID, YARD, YARD_FENCE, doorOpen, type JailDoor } from "./jail-layout";
 import { canvasTexture, noRaycast, signTexture } from "./paint";
 import { Instances, type Place } from "./town";

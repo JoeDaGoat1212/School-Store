@@ -5,6 +5,7 @@ import { useFrame, useThree } from "@react-three/fiber";
 import * as THREE from "three";
 import { inStore, parkedSpots, player, viewBlocked, walkBlocked } from "./bump";
 import { groundAt } from "./terrain";
+import { kill } from "./life";
 import { drive, input, moving } from "./drive";
 import { game } from "./heist";
 import { doors, EYE_HEIGHT, INSIDE_WORLD, nearestStation, STORE_SCALE, type Blocker, type Station, type StationKey } from "./world-layout";
@@ -40,6 +41,9 @@ const REACH = 6.5;
 /** Where the drone circles: around this point, this far out. */
 const ORBIT_CENTER = new THREE.Vector3(0, 2, -5);
 const ORBIT_RADIUS = 47;
+
+/** Skydiving: the view you had before (it switches to third person while you fall), and the Space key's last state. */
+const skydive = { on: false, view: "first" as "first" | "third", zoom: 0, space: false };
 
 /** Screenshot scripts (development only) can park the camera anywhere with this. */
 export const testView = { on: false, pos: [0, 50, 50] as [number, number, number], look: [0, 0, 0] as [number, number, number] };
@@ -310,6 +314,19 @@ export function CameraRig({
     }
     widen(cam as THREE.PerspectiveCamera, s.fov, dt);
 
+    // ---- Jumped out of a plane: straight there, no flight ----
+    if (player.place) {
+      player.place = false;
+      s.pos.set(player.x, player.y + EYE_HEIGHT, player.z);
+      s.yaw = player.yaw;
+      s.flight = null;
+      skydive.view = player.view;
+      skydive.zoom = player.zoom;
+      player.view = "third";
+      player.zoom = 9;
+      skydive.on = true;
+    }
+
     // ---- Just got out of a car: hop down beside it ----
     if (player.hop) {
       player.hop = false;
@@ -361,20 +378,44 @@ export function CameraRig({
       }
     }
 
-    // ---- Jumping, falling, and walking up and down hills ----
+    // ---- Jumping, falling (and parachuting), and walking up and down hills ----
     if (walking) {
       const ground = groundAt(s.pos.x, s.pos.z);
-      if (input.brake && player.grounded && !player.frozen) {
+      const high = player.y - ground;
+      const space = input.brake && !skydive.space;
+      skydive.space = input.brake;
+      if (space && player.grounded && !player.frozen) {
         player.vy = JUMP;
         player.grounded = false;
+      } else if (space && !player.grounded && high > 5 && !player.chute) {
+        // Pop the parachute.
+        player.chute = true;
       }
-      player.vy -= GRAVITY * dt;
+      if (player.chute) {
+        // Floating down, gliding the way you face; ← → (or A D) to steer.
+        player.vy += (-4.5 - player.vy) * Math.min(1, dt * 3);
+        s.yaw += (Number(input.turnRight || input.strafeRight) - Number(input.turnLeft || input.strafeLeft)) * 1.1 * dt;
+        const gx = Math.sin(s.yaw) * 8 * dt;
+        const gz = -Math.cos(s.yaw) * 8 * dt;
+        if (!walkBlocked(s.pos.x + gx, s.pos.z + gz, blockersRef.current)) {
+          s.pos.x += gx;
+          s.pos.z += gz;
+        }
+      } else player.vy = Math.max(-55, player.vy - GRAVITY * dt);
       player.y += player.vy * dt;
       // On the ground (and stepping down small drops without leaving it).
       if (player.y <= ground || (player.grounded && player.y - ground < 0.9)) {
+        // Hitting the ground hard without a parachute is the end of you.
+        if (!player.grounded && !player.chute && player.vy < -27) kill("fall");
         player.y = ground;
         player.vy = 0;
         player.grounded = true;
+        player.chute = false;
+        if (skydive.on) {
+          skydive.on = false;
+          player.view = skydive.view;
+          player.zoom = skydive.zoom;
+        }
       } else player.grounded = false;
       s.pos.y = player.y + EYE_HEIGHT;
     }

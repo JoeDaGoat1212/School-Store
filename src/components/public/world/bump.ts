@@ -1,5 +1,6 @@
 import { hitsCity } from "./city-layout";
-import { LAMPS, PARKED_CARS, TREES } from "./exterior";
+import { LAMPS, TREES } from "./exterior";
+import { parkedSpots } from "./fleet";
 import { heistBlocks } from "./heist";
 import { hitsBaseRock, hitsPine } from "./terrain";
 import { jailBlocks } from "./jail-layout";
@@ -44,6 +45,10 @@ export const player = {
   showBody: false,
   /** Hidden completely (in the back of a police car, at the dealership's screen…). */
   hidden: false,
+  /** Put the camera straight on (x, y, z) with no flight (bailing out of a plane mid-air). */
+  place: false,
+  /** Your parachute is open. */
+  chute: false,
 };
 
 // (The doors' open/shut state lives in world-layout.ts, so the doors in exterior.tsx can read it.)
@@ -52,8 +57,8 @@ export { doors };
 /** A car's position and which way it faces (its front is toward -z when heading is 0). */
 export type CarSpot = { x: number; z: number; heading: number };
 
-/** Where each parked (drivable) car is now. They stay wherever you leave them. */
-export const parkedSpots: CarSpot[] = PARKED_CARS.map((c) => ({ x: c.x, z: c.z, heading: c.turn }));
+/** Where each parked (drivable) vehicle is now (fleet.ts). They stay wherever you leave them. */
+export { parkedSpots };
 /** Where each traffic car is now (traffic.tsx keeps this up to date). */
 export const trafficSpots: CarSpot[] = [];
 /** Where each police car is now (city-police.tsx keeps this up to date; far away while they're not out). */

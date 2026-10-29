@@ -24,6 +24,7 @@ import { Police } from "./police";
 import { Bank, ClosedSign, Jewelry } from "./city-sites";
 import { game } from "./heist";
 import { Mountains } from "./mountains";
+import { Aircraft } from "./flight";
 import { Jail } from "./jail";
 import { PlayerAvatar } from "./player-avatar";
 import { Smoke } from "./smoke";
@@ -83,6 +84,8 @@ export type WorldSceneProps = {
   onPickCar: (car: number) => void;
   /** Your car hit something ("Bonk!" / "Crash!"). */
   onBump: (text: string) => void;
+  /** The aircraft you're flying crashed (you're out of it). */
+  onBail: () => void;
 };
 
 export default function WorldScene(props: WorldSceneProps) {
@@ -147,6 +150,8 @@ export default function WorldScene(props: WorldSceneProps) {
           <Smoke />
           {/* The parked cars: walk up to one and press E (or tap it) to drive it */}
           <Cars driving={props.driving} canPick={props.driving === null && !moving ? props.nearCar : null} calm={calm} onPick={props.onPickCar} onBump={props.onBump} />
+          {/* The planes and helicopters at the airport (fly them!) */}
+          <Aircraft driving={props.driving} onBail={props.onBail} />
           {spooky && <HalloweenLawn />}
 
           {/* ---- The store, shrunk to the world's size ---- */}

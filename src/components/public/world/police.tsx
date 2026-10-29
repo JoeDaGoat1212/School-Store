@@ -10,7 +10,7 @@ import { carOnGround, drive } from "./drive";
 import { game } from "./heist";
 import { COP_LOOK, Humanoid, newPose } from "./humanoid";
 import { noRaycast, signTexture } from "./paint";
-import { police, type Unit } from "./police";
+import { police, type Unit } from "./police-state";
 
 /*
  * Draws the police from police.ts: squad cars with flashing red and blue

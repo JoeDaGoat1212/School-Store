@@ -5,7 +5,7 @@ import { useFrame } from "@react-three/fiber";
 import * as THREE from "three";
 import { player } from "./bump";
 import { drive } from "./drive";
-import { Humanoid, PRISONER_LOOK, newPose, type Look } from "./humanoid";
+import { Humanoid, PLAYER_LOOK, PRISONER_LOOK, newPose } from "./humanoid";
 import { life } from "./life";
 
 /*
@@ -15,7 +15,7 @@ import { life } from "./life";
  * orange.
  */
 
-export const PLAYER_LOOK: Look = { skin: "#e0ac83", hair: "#2a1a12", hairStyle: "short", shirt: "#3d6fe0", pants: "#2b2f36", shoes: "#f2f2f2" };
+export { PLAYER_LOOK };
 
 export function PlayerAvatar() {
   const g = useRef<THREE.Group>(null);
@@ -23,6 +23,7 @@ export function PlayerAvatar() {
   const prisoner = useMemo(() => PRISONER_LOOK(PLAYER_LOOK), []);
   const normal = useRef<THREE.Group>(null);
   const orange = useRef<THREE.Group>(null);
+  const chute = useRef<THREE.Group>(null);
 
   useFrame((_, delta) => {
     const group = g.current;
@@ -42,6 +43,10 @@ export function PlayerAvatar() {
     pose.down = life.dead ? Math.min(1, pose.down + delta * 2) : a.down;
     pose.sit = a.sit;
     pose.reach = a.reach;
+    if (chute.current) {
+      chute.current.visible = player.chute;
+      chute.current.rotation.z = Math.sin(performance.now() / 600) * 0.06;
+    }
     if (normal.current) normal.current.visible = !life.inJail;
     if (orange.current) orange.current.visible = life.inJail;
   });
@@ -53,6 +58,28 @@ export function PlayerAvatar() {
       </group>
       <group ref={orange} visible={false}>
         <Humanoid look={prisoner} pose={pose} />
+      </group>
+      {/* The parachute: a striped canopy on lines */}
+      <group ref={chute} visible={false} position-y={3.4}>
+        <mesh position-y={5.2} scale={[4.6, 1.6, 3]}>
+          <sphereGeometry args={[1, 16, 8, 0, Math.PI * 2, 0, Math.PI / 2]} />
+          <meshStandardMaterial color="#ff5a1f" roughness={0.7} side={THREE.DoubleSide} />
+        </mesh>
+        <mesh position-y={5.21} scale={[4.62, 1.61, 3.02]}>
+          <sphereGeometry args={[1, 16, 8, 0, Math.PI * 2, 0, Math.PI / 2]} />
+          <meshStandardMaterial color="#ffd21f" roughness={0.7} wireframe />
+        </mesh>
+        {[
+          [-4, -2.6],
+          [4, -2.6],
+          [-4, 2.6],
+          [4, 2.6],
+        ].map(([x, z], i) => (
+          <mesh key={i} position={[x / 2, 2.6, z / 2]} rotation={[z > 0 ? 0.6 : -0.6, 0, x > 0 ? -0.65 : 0.65]}>
+            <cylinderGeometry args={[0.02, 0.02, 6.4, 4]} />
+            <meshBasicMaterial color="#333" />
+          </mesh>
+        ))}
       </group>
     </group>
   );

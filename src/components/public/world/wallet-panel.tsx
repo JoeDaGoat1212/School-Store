@@ -4,7 +4,7 @@ import { useEffect, useRef } from "react";
 import { BriefcaseIcon, CarFrontIcon, HomeIcon, KeyRoundIcon, LandmarkIcon, ShieldCheckIcon, XIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useGameVersion } from "./game-events";
-import { PLAYER_LOOK } from "./player-avatar";
+import { PLAYER_LOOK } from "./humanoid";
 import { JOB_LEVELS, pockets, profile, usd } from "./profile";
 import { SHOPS } from "./world-map";
 import { carName, houseName } from "./wallet-names";

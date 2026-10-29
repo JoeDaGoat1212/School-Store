@@ -135,10 +135,11 @@ describe("robbing the city", () => {
 
   it("kills you if you walk into a vault laser", () => {
     revive();
-    const beam = vaultLasers(0)[0];
-    game.sites.bank = { alarm: true, alarmAt: 0, vaultAt: -10, closedUntil: 0 };
+    // The vault's been open a while (it started opening at 0; it's now 10 seconds later).
+    const beam = vaultLasers(10)[0];
+    game.sites.bank = { alarm: true, alarmAt: 0, vaultAt: 0, closedUntil: 0 };
     game.taken.clear();
-    tick(0, 0.016, you(B(0, beam.lz)));
+    tick(10, 0.016, you(B(0, beam.lz)));
     expect(life.dead).toBe(true);
     revive();
   });

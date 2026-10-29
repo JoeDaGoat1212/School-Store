@@ -3,7 +3,7 @@ import { newLook, type CarLook } from "./car-model";
 import { drive } from "./drive";
 import { notify } from "./game-events";
 import { banner, busted, game } from "./heist";
-import { lockUp } from "./jail";
+import { lockUp } from "./jail-state";
 import { JAIL_SPAWN } from "./jail-layout";
 import { life } from "./life";
 import { ROADS } from "./town-layout";
