@@ -7,7 +7,7 @@ import * as THREE from "three";
 import { useFontsReady } from "../showcase/drink-scene";
 import type { UnitKey } from "../store/catalog";
 import type { Placement, StoreItem, UnitLayout } from "../store/layout";
-import { CameraRig } from "./camera";
+import { CameraRig, testView } from "./camera";
 import { CheckoutCounter, type TillDisplay, type TillUnit } from "./checkout-scene";
 import { HalloweenInside, HalloweenLawn, HalloweenOutside } from "./halloween";
 import type { Season } from "@/lib/seasons";
@@ -22,6 +22,7 @@ import { City } from "./city";
 import { CityGame } from "./city-fx";
 import { Police } from "./city-police";
 import { Bank, Jewelry } from "./city-sites";
+import { game } from "./heist";
 import { Smoke } from "./smoke";
 import { Traffic } from "./traffic";
 import { BULLETIN, BUILDING, LANES, STORE_SCALE, blockers, doors, placeUnits, stations, unitAt, worldStations, type Place, type StationKey } from "./world-layout";
@@ -225,7 +226,7 @@ function TestHook(info: { spots: ReturnType<typeof stations>; places: ReturnType
     w.__world = {
       ...info,
       // Live positions: you, the car you're driving, the doors, the cars.
-      live: { player, drive, doors, parkedSpots, trafficSpots, input },
+      live: { player, drive, doors, parkedSpots, trafficSpots, input, game, testView },
       scene: get().scene,
       three: get,
       project(x: number, y: number, z: number) {

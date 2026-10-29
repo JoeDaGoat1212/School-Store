@@ -34,6 +34,9 @@ const REACH = 6.5;
 const ORBIT_CENTER = new THREE.Vector3(0, 2, -5);
 const ORBIT_RADIUS = 47;
 
+/** Screenshot scripts (development only) can park the camera anywhere with this. */
+export const testView = { on: false, pos: [0, 50, 50] as [number, number, number], look: [0, 0, 0] as [number, number, number] };
+
 const ease = (t: number) => (t < 0.5 ? 4 * t * t * t : 1 - (-2 * t + 2) ** 3 / 2);
 const clamp = (v: number, a: number, b: number) => Math.min(b, Math.max(a, v));
 /** The shortest way round from one angle to another. */
@@ -234,6 +237,12 @@ export function CameraRig({
   useFrame((state, delta) => {
     const s = r.current;
     const cam = state.camera;
+    // Only for screenshot scripts while developing: put the camera exactly here.
+    if (testView.on) {
+      cam.position.set(...testView.pos);
+      cam.lookAt(...testView.look);
+      return;
+    }
     const now = state.clock.elapsedTime;
     // (Capped, so a long pause between frames doesn't teleport you.)
     const dt = Math.min(delta, 0.1);
