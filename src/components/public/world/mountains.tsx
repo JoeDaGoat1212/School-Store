@@ -240,7 +240,7 @@ function SecretBase() {
   const floorY = BASE_VALLEY.y;
   // The hollow mountain: a lumpy dome with a hole where the entrance is.
   const dome = useMemo(() => {
-    const g = new THREE.IcosahedronGeometry(1, 5).toNonIndexed();
+    const g = new THREE.IcosahedronGeometry(1, 5);
     const p = g.attributes.position;
     const rand = seededRandom(5);
     const bumps = Array.from({ length: 30 }, () => new THREE.Vector3(rand() * 2 - 1, rand(), rand() * 2 - 1).normalize());

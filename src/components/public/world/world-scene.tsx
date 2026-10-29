@@ -9,6 +9,7 @@ import type { UnitKey } from "../store/catalog";
 import type { Placement, StoreItem, UnitLayout } from "../store/layout";
 import { CameraRig, testView } from "./camera";
 import { Effects, QUALITY, slowDown, useQuality } from "./effects";
+import { Prewarm } from "./near";
 import { CheckoutCounter, type TillDisplay, type TillUnit } from "./checkout-scene";
 import { HalloweenInside, HalloweenLawn, HalloweenOutside } from "./halloween";
 import type { Season } from "@/lib/seasons";
@@ -131,6 +132,7 @@ export default function WorldScene(props: WorldSceneProps) {
       <fog attach="fog" args={[spooky ? "#ffd8b0" : "#c8dbea", 320, 1300]} />
       <PerformanceMonitor onDecline={slowDown} flipflops={2} />
       <Effects />
+      <Prewarm />
       <CameraRig stations={worldSpots} current={station} calm={calm} onArrive={props.onArrive} blockers={walls} onWalk={props.onWalk} onNearCar={props.onNearCar} onInside={props.onInside} />
       <FirstFrame onReady={props.onReady} />
       {process.env.NODE_ENV !== "production" && <TestHook spots={worldSpots} places={places} layouts={layouts} station={station} moving={moving} items={props.items} />}
