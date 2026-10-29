@@ -16,7 +16,7 @@
 
 import { CITY_AVENUES_Z, CITY_KEEP_CLEAR, CITY_SPAN_X, CITY_SPAN_Z, CITY_STREETS_X, inCity } from "./city-plan";
 import { seededRandom } from "./paint";
-import { AIRPORT_ROAD, ESTATES_ROAD, JAIL_ROAD, WORLD_BOUNDS } from "./world-map";
+import { AIRPORT_ROAD, CROSS_DRIVE, ESTATE_DRIVE, ESTATES_ROAD, JAIL_ROAD, WORLD_BOUNDS } from "./world-map";
 
 export const ROAD_HALF = 8; // half a road's width (two lanes)
 export const LANE = 4; // how far a lane's middle is from the road's middle
@@ -51,13 +51,15 @@ export const ROADS: Road[] = [
   // The main road carries on west to the airport and east to the jail, and a road runs south to Crescent Heights.
   { axis: "x", at: AIRPORT_ROAD.z, from: AIRPORT_ROAD.from, to: AIRPORT_ROAD.to },
   { axis: "x", at: JAIL_ROAD.z, from: JAIL_ROAD.from, to: JAIL_ROAD.to },
-  { axis: "z", at: ESTATES_ROAD.x, from: ESTATES_ROAD.from, to: ESTATES_ROAD.to },
+  { axis: "z", at: ESTATES_ROAD.x, from: ESTATES_ROAD.from, to: ESTATE_DRIVE.to },
+  { axis: "x", at: CROSS_DRIVE.z, from: CROSS_DRIVE.from, to: CROSS_DRIVE.to },
 ];
 
 /** Where the roads running the other way cross this one (including at its very ends). */
 function crossingsOf(road: Road) {
   return ROADS.filter((r) => r.axis !== road.axis && r.at >= road.from && r.at <= road.to && road.at >= r.from && road.at <= r.to)
     .map((r) => r.at)
+    .filter((at, i, all) => all.indexOf(at) === i)
     .sort((a, b) => a - b);
 }
 

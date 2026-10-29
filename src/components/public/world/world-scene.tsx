@@ -26,6 +26,15 @@ import { game } from "./heist";
 import { Mountains } from "./mountains";
 import { Aircraft } from "./flight";
 import { Jail } from "./jail";
+import { Airport } from "./airport";
+import { RestaurantRow } from "./buildings";
+import { Homes } from "./home-models";
+import { RealtyOffice, Showroom } from "./showroom";
+import { clockIn, jobs } from "./jobs";
+import { dealer } from "./dealer";
+import { realty, startTour } from "./realty";
+import { profile } from "./profile";
+import { notify } from "./game-events";
 import { PlayerAvatar } from "./player-avatar";
 import { Smoke } from "./smoke";
 import { Traffic } from "./traffic";
@@ -143,6 +152,11 @@ export default function WorldScene(props: WorldSceneProps) {
           <CityGame calm={calm} />
           {/* The jail, east of the city */}
           <Jail />
+          <RestaurantRow />
+          <Showroom />
+          <RealtyOffice />
+          <Homes />
+          <Airport />
           {/* The mountains to the north, with the road up to the secret base */}
           <Mountains />
           {/* You, seen in third person */}
@@ -242,7 +256,7 @@ function TestHook(info: { spots: ReturnType<typeof stations>; places: ReturnType
     w.__world = {
       ...info,
       // Live positions: you, the car you're driving, the doors, the cars.
-      live: { player, drive, doors, parkedSpots, trafficSpots, input, game, testView },
+      live: { player, drive, doors, parkedSpots, trafficSpots, input, game, testView, jobs, dealer, realty, profile, notify, clockIn, startTour },
       scene: get().scene,
       three: get,
       project(x: number, y: number, z: number) {

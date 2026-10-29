@@ -19,9 +19,11 @@ const at = (deg: number, r: number) => {
   return { x: 60 + Math.cos(a) * r, y: 60 - Math.sin(a) * r };
 };
 
+const angleOf = (mph: number, max: number) => START - (Math.min(mph, max) / max) * SWEEP;
+
 export function Speedometer({ max: top = 100 }: { max?: number }) {
   const MAX = dialFor(top);
-  const angleFor = (mph: number) => START - (Math.min(mph, MAX) / MAX) * SWEEP;
+  const angleFor = (mph: number) => angleOf(mph, MAX);
   const needle = useRef<SVGGElement>(null);
   const digits = useRef<HTMLSpanElement>(null);
   const gear = useRef<HTMLSpanElement>(null);
@@ -35,7 +37,7 @@ export function Speedometer({ max: top = 100 }: { max?: number }) {
       const mph = Math.abs(drive.speed) * MPH_PER_UNIT;
       // A touch of smoothing, like a real needle.
       shown += (mph - shown) * 0.25;
-      needle.current?.setAttribute("transform", `rotate(${-angleFor(shown) + 90} 60 60)`);
+      needle.current?.setAttribute("transform", `rotate(${-angleOf(shown, MAX) + 90} 60 60)`);
       if (digits.current) digits.current.textContent = String(Math.round(mph));
       if (gear.current) gear.current.textContent = drive.gear;
       if (brake.current) brake.current.style.opacity = drive.braking ? "1" : "0.15";
@@ -44,7 +46,7 @@ export function Speedometer({ max: top = 100 }: { max?: number }) {
     };
     frame = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(frame);
-  }, []);
+  }, [MAX]);
 
   const ticks = Array.from({ length: 21 }, (_, i) => (i * MAX) / 20);
   const arcFrom = at(START, 46);

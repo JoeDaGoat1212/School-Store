@@ -128,6 +128,8 @@ export function rawHeight(x: number, z: number) {
     const k = smooth(28, ROAD_HALF_W + 3, road.d);
     h = h + (road.y - h) * k;
   }
+  // Under the hangar's floor (so the grass doesn't poke through it).
+  if (Math.abs(x - BASE.x) < BASE.halfW + 4 && z < BASE.doorZ - 2 && z > BASE.doorZ - BASE.depth - 4) h = Math.min(h, BASE_VALLEY.y - 1.5);
   return h;
 }
 

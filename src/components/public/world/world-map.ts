@@ -79,6 +79,9 @@ export const ESTATES = {
 };
 /** The road down to the gate from the town's southern avenue (z = 220). */
 export const ESTATES_ROAD = { x: 0, from: 220, to: 580 };
+/** Crescent Heights' own roads: the drive in from the gate, and the cross drive. */
+export const ESTATE_DRIVE = { x: 0, from: 580, to: 900 };
+export const CROSS_DRIVE = { z: 770, from: -400, to: 400 };
 
 // ---- The mountains (north) ------------------------------------------------------------------
 

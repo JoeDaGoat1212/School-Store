@@ -9,6 +9,8 @@ import { sound } from "./city-audio";
 import { banner, game, pop, tick, type Fx } from "./heist";
 import { homeSpot } from "./homes";
 import { tickInteract } from "./interact";
+import { tickJobs } from "./jobs";
+import { tickRealty } from "./realty";
 import { tickJail } from "./jail-state";
 import { tickPolice } from "./police-state";
 import { life, revive, tickLife } from "./life";
@@ -33,7 +35,9 @@ export function CityGame({ calm }: { calm: boolean }) {
     tick(state.clock.elapsedTime, dt, { ...you, onFoot: player.onFoot, driving: drive.active });
     tickPolice(state.clock.elapsedTime, dt);
     tickJail(state.clock.elapsedTime, dt);
-    tickInteract({ ...you, yaw: player.yaw, onFoot: player.onFoot, driving: drive.active }, life.dead || player.frozen || !player.onFoot);
+    tickJobs(state.clock.elapsedTime, dt);
+    tickRealty(state.clock.elapsedTime, you);
+    tickInteract({ ...you, yaw: player.yaw, onFoot: player.onFoot, driving: drive.active }, life.dead || player.frozen || (!player.onFoot && !drive.active));
     if (calm) game.shake = 0;
 
     // Hunger and health (paused while you're in a cutscene or the menus).

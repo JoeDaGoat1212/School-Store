@@ -6,6 +6,7 @@ import * as THREE from "three";
 import { player } from "./bump";
 import { drive } from "./drive";
 import { Humanoid, PLAYER_LOOK, PRISONER_LOOK, newPose } from "./humanoid";
+import { jobs } from "./jobs";
 import { life } from "./life";
 
 /*
@@ -23,6 +24,8 @@ export function PlayerAvatar() {
   const prisoner = useMemo(() => PRISONER_LOOK(PLAYER_LOOK), []);
   const normal = useRef<THREE.Group>(null);
   const orange = useRef<THREE.Group>(null);
+  const apron = useRef<THREE.Group>(null);
+  const worker = useMemo(() => ({ ...PLAYER_LOOK, shirt: "#f2f0ea", outfit: "worker" as const, accent: "#e01e37" }), []);
   const chute = useRef<THREE.Group>(null);
 
   useFrame((_, delta) => {
@@ -47,7 +50,9 @@ export function PlayerAvatar() {
       chute.current.visible = player.chute;
       chute.current.rotation.z = Math.sin(performance.now() / 600) * 0.06;
     }
-    if (normal.current) normal.current.visible = !life.inJail;
+    const working = Boolean(jobs.shift) && !life.inJail;
+    if (normal.current) normal.current.visible = !life.inJail && !working;
+    if (apron.current) apron.current.visible = working;
     if (orange.current) orange.current.visible = life.inJail;
   });
 
@@ -55,6 +60,9 @@ export function PlayerAvatar() {
     <group ref={g} visible={false}>
       <group ref={normal}>
         <Humanoid look={PLAYER_LOOK} pose={pose} />
+      </group>
+      <group ref={apron} visible={false}>
+        <Humanoid look={worker} pose={pose} />
       </group>
       <group ref={orange} visible={false}>
         <Humanoid look={prisoner} pose={pose} />

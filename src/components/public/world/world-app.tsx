@@ -23,12 +23,13 @@ import { unitLayout, type StoreItem } from "../store/layout";
 import type { TillDisplay, TillUnit } from "./checkout-scene";
 import { TouchPad, drive, useMovementKeys } from "./drive";
 import { CityHud } from "./city-hud";
-import { fleet } from "./fleet";
+import { fleet, syncOwned } from "./fleet";
 import { useGameVersion } from "./game-events";
 import { life } from "./life";
 import { police } from "./police-state";
 import { loadProfile, profile, refreshProfile, type ServerPlayer } from "./profile";
-import { refreshGame, saveGame } from "@/app/(public)/game-actions";
+import { applyForJob, leaveJob, recordJobLevel, refreshGame, saveGame } from "@/app/(public)/game-actions";
+import { jobs } from "./jobs";
 import { Speedometer } from "./speedometer";
 import type { BoardCard } from "./fixtures";
 import { LoadingScreen } from "./loading-screen";
@@ -166,6 +167,14 @@ export default function WorldApp({
   // Your city game: from your account if you're signed in, else this browser.
   useEffect(() => {
     loadProfile(gamePlayer, { save: saveGame, refresh: refreshGame as () => Promise<ServerPlayer | null> });
+    // The cars you own wait where you left them (or in Apex Motors' lot).
+    syncOwned(profile.cars);
+    jobs.remote = {
+      apply: applyForJob,
+      leave: leaveJob,
+      level: recordJobLevel,
+      refresh: refreshProfile,
+    };
   }, [gamePlayer]);
   // Waiting to hear about a job? Check now and then.
   useEffect(() => {

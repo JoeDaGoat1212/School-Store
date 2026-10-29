@@ -5,6 +5,7 @@ import { useFrame } from "@react-three/fiber";
 import * as THREE from "three";
 import { carCircles, copSpots, parkedSpots, player, trafficSpots, type CarSpot } from "./bump";
 import { CarModel, newLook } from "./car-model";
+import type { Body } from "./vehicles";
 import { drive } from "./drive";
 import { noRaycast, signTexture } from "./paint";
 import { LOOPS, TOWN_LOOPS } from "./town-layout";
@@ -30,7 +31,8 @@ const LOOK_AHEAD = 20; // how far ahead drivers watch the road
 
 const COLORS = ["#e5483b", "#3d6fe0", "#f2f2f2", "#2f3338", "#13a8a0", "#ffd21f", "#9aa3ad", "#7b5cd6", "#ff7a2a", "#5aa84a", "#b8323a", "#1d4f91"];
 
-type Driver = { loop: number; s: number; speed: number; spot: CarSpot; look: ReturnType<typeof newLook>; color: string; stuck: number; squeeze: number };
+type Driver = { loop: number; s: number; speed: number; spot: CarSpot; look: ReturnType<typeof newLook>; color: string; body: Body; stuck: number; squeeze: number };
+const BODIES: Body[] = ["sedan", "hatch", "suv", "sedan", "pickup", "hatch", "suv", "sports"];
 
 const TAXI = "#ffcc00";
 const CITY_COLORS = [TAXI, TAXI, TAXI, ...COLORS];
@@ -39,7 +41,7 @@ const CITY_COLORS = [TAXI, TAXI, TAXI, ...COLORS];
 function TaxiSign() {
   const sign = useMemo(() => signTexture("Taxi", { bg: "#1b1d21", fg: "#ffcc00", height: 64 }), []);
   return (
-    <mesh position={[0, 3.28, 0.5]} raycast={noRaycast}>
+    <mesh position={[0, 2.78, 0.55]} raycast={noRaycast}>
       <boxGeometry args={[1.5, 0.5, 0.6]} />
       <meshBasicMaterial map={sign.texture} toneMapped={false} />
     </mesh>
@@ -68,7 +70,8 @@ const DRIVERS: Driver[] = LOOPS.flatMap((pts, loop) => {
     trafficSpots.push(spot);
     const i = trafficSpots.length - 1;
     const color = city ? CITY_COLORS[(i * 7 + loop) % CITY_COLORS.length] : COLORS[i % COLORS.length];
-    return { loop, s, speed: CRUISE * 0.8, spot, look: newLook(), color, stuck: 0, squeeze: 0 };
+    const body: Body = color === TAXI ? "sedan" : BODIES[(i * 5 + loop * 3) % BODIES.length];
+    return { loop, s, speed: CRUISE * 0.8, spot, look: newLook(), color, body, stuck: 0, squeeze: 0 };
   });
 });
 
@@ -164,7 +167,7 @@ export function Traffic({ calm }: { calm: boolean }) {
             groups.current[i] = g;
           }}
         >
-          <CarModel color={d.color} look={d.look} />
+          <CarModel color={d.color} look={d.look} body={d.body} />
           {d.color === TAXI && <TaxiSign />}
         </group>
       ))}

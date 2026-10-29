@@ -2,7 +2,7 @@ import { banner } from "./heist";
 import { notify } from "./game-events";
 import { provide } from "./interact";
 import { life } from "./life";
-import { player } from "./bump";
+import { player } from "./you";
 import { pockets } from "./profile";
 import { CELL_SECONDS, GUARD_ROUTES, JAIL_BOX, JAIL_DOORS, JAIL_SPAWN, MY_CELL, doorOpen, inJailBuilding, inMyCell, inYard } from "./jail-layout";
 

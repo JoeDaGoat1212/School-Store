@@ -156,7 +156,7 @@ function Roads() {
       ))}
       {/* Plain squares where roads cross (no lines through the middle) */}
       {INTERSECTIONS.map((p) => (
-        <mesh key={`${p.x}${p.z}`} geometry={patch} position={[p.x, 0.03, p.z]} receiveShadow raycast={noRaycast}>
+        <mesh key={`${p.x},${p.z}`} geometry={patch} position={[p.x, 0.03, p.z]} receiveShadow raycast={noRaycast}>
           {plain}
         </mesh>
       ))}

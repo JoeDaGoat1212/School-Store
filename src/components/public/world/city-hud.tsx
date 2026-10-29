@@ -12,6 +12,14 @@ import { life } from "./life";
 import { police } from "./police-state";
 import { pockets, profile, transfer, usd } from "./profile";
 import { WalletPanel } from "./wallet-panel";
+import { cutscene } from "./cutscene";
+import { DealerPanel } from "./dealer-panel";
+import { dealer } from "./dealer";
+import { JobPanels, ShiftCard } from "./job-panels";
+import { jobs } from "./jobs";
+import { RealtyPanels, TourCaption } from "./realty-panel";
+import { realty } from "./realty";
+import { REALTOR, SHOPS } from "./world-map";
 import { AIRPORT, ESTATES, MAIN_ROAD_Z } from "./world-map";
 import { DROP } from "./world-layout";
 
@@ -29,6 +37,9 @@ const TRIPS = [
   { key: "store", label: "The store", x: DROP.x, z: DROP.z, yaw: 0 },
   { key: "city", label: "The city (bank)", x: BANK.x, z: BANK.z + 15, yaw: 0 },
   { key: "airport", label: "The airport", x: AIRPORT.terminal.x, z: MAIN_ROAD_Z + 4, yaw: Math.PI },
+  { key: "food", label: "Restaurant Row (jobs)", x: SHOPS.icecream.x, z: SHOPS.icecream.z + 8, yaw: 0 },
+  { key: "dealer", label: "Apex Motors (cars)", x: 640, z: 64, yaw: Math.PI },
+  { key: "realty", label: "Keystone Realty (homes)", x: REALTOR.x, z: REALTOR.z - 8, yaw: Math.PI },
   { key: "estates", label: "Crescent Heights gate", x: ESTATES.gate.x + 6, z: ESTATES.gate.z - 18, yaw: Math.PI },
 ];
 
@@ -88,7 +99,7 @@ export function CityHud({
     }, 250);
     // The fade to black on the way to jail, and the cell door countdown (more often, so the fade is smooth).
     const f = setInterval(() => {
-      setFade(police.fade);
+      setFade(Math.max(police.fade, cutscene.fade));
       setCell(life.inJail ? jail.left : 0);
     }, 50);
     return () => {
@@ -97,7 +108,7 @@ export function CityHud({
     };
   }, []);
 
-  const panel = g.teller || walletOpen;
+  const panel = g.teller || walletOpen || Boolean(jobs.panel) || dealer.open || Boolean(realty.panel) || Boolean(realty.tour);
   useEffect(() => onPanel(panel), [panel, onPanel]);
 
   // Keys: E / R / F / Q do what's on offer here, I opens your wallet, Escape closes things.
@@ -116,7 +127,7 @@ export function CityHud({
         setWalletOpen((o) => !o);
         return;
       }
-      if (game.teller || walletOpen || player.frozen) return;
+      if (game.teller || walletOpen || player.frozen || jobs.panel || dealer.open || realty.panel) return;
       if (e.code === "KeyR") press("R");
       else if (e.code === "KeyF") press("F");
       else if (e.code === "KeyQ") press("Q");
@@ -255,6 +266,11 @@ export function CityHud({
       )}
       {w && !calm && <div aria-hidden className="alarm-wash pointer-events-none absolute inset-0" />}
       {fade > 0 && <div aria-hidden className="pointer-events-none fixed inset-0 z-[90] bg-black" style={{ opacity: fade }} />}
+      {!panel && <ShiftCard />}
+      <JobPanels />
+      <DealerPanel />
+      <RealtyPanels />
+      <TourCaption />
       {life.dead && <div aria-hidden className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_center,transparent_30%,rgb(120_0_0/0.55))] duration-700 animate-in fade-in" />}
 
       {/* ---- What you can do here ---- */}

@@ -8,6 +8,7 @@ import { groundAt } from "./terrain";
 import { kill } from "./life";
 import { drive, input, moving } from "./drive";
 import { game } from "./heist";
+import { cutscene } from "./cutscene";
 import { doors, EYE_HEIGHT, INSIDE_WORLD, nearestStation, STORE_SCALE, type Blocker, type Station, type StationKey } from "./world-layout";
 
 /*
@@ -273,6 +274,12 @@ export function CameraRig({
     if (testView.on) {
       cam.position.set(...testView.pos);
       cam.lookAt(...testView.look);
+      return;
+    }
+    // A cinematic shot (a house tour…).
+    if (cutscene.on) {
+      cam.position.set(...cutscene.pos);
+      cam.lookAt(...cutscene.look);
       return;
     }
     const now = state.clock.elapsedTime;

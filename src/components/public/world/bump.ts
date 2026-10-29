@@ -1,9 +1,11 @@
 import { hitsCity } from "./city-layout";
+import { player } from "./you";
 import { LAMPS, TREES } from "./exterior";
 import { parkedSpots } from "./fleet";
 import { heistBlocks } from "./heist";
 import { hitsBaseRock, hitsPine } from "./terrain";
 import { jailBlocks } from "./jail-layout";
+import { roomsBlock, roomWallsBlock } from "./rooms";
 import { hitsBox, townObstaclesNear, type Box } from "./town-layout";
 import { WORLD_BOUNDS as WORLD } from "./world-map";
 import { doors, STORE, STORE_SCALE, type Blocker } from "./world-layout";
@@ -14,42 +16,8 @@ import { doors, STORE, STORE_SCALE, type Blocker } from "./world-layout";
  * walls, houses, trees or each other.
  */
 
-/** You, on foot (the camera moves this). */
-export const player = {
-  x: 0,
-  z: 11,
-  /** Which way you face (0 = toward the store, -z). */
-  yaw: 0,
-  /** Walking around (not in the drone view, not driving). */
-  onFoot: false,
-  /** Just got out of a car: the camera should hop to (x, z) and face `yaw`. */
-  hop: false,
-  /** With `hop`: jump straight there, no flight (respawning, being taken to jail…). */
-  snap: false,
-  /** Your feet: how high off the ground you are (jumping, falling, the mountains). */
-  y: 0,
-  /** Falling or jumping speed (up is +). */
-  vy: 0,
-  grounded: true,
-  /** Seeing through your own eyes, or from behind yourself. */
-  view: "first" as "first" | "third",
-  /** How far back the camera is in third person (0 = through your eyes). */
-  zoom: 0,
-  /** Can't move: cutscenes, working a shift, handcuffed, dead. */
-  frozen: false,
-  /** How fast you're walking right now (units a second), for your character's legs. */
-  speed: 0,
-  /** What your body is doing (0…1 each), for your character in third person and cutscenes. */
-  anim: { handsUp: 0, cuffed: 0, down: 0, sit: 0, reach: 0 },
-  /** Your character is drawn even in first person (cutscenes: being cuffed, put in the car…). */
-  showBody: false,
-  /** Hidden completely (in the back of a police car, at the dealership's screen…). */
-  hidden: false,
-  /** Put the camera straight on (x, y, z) with no flight (bailing out of a plane mid-air). */
-  place: false,
-  /** Your parachute is open. */
-  chute: false,
-};
+/** You, on foot (the camera moves this). It lives in you.ts, so plain-number modules can use it without the scenery. */
+export { player };
 
 // (The doors' open/shut state lives in world-layout.ts, so the doors in exterior.tsx can read it.)
 export { doors };
@@ -102,6 +70,7 @@ export function inStore(x: number, z: number) {
 function hitsScenery(x: number, z: number, r: number) {
   if (x > 470 && (hitsCity(x, z, r) || heistBlocks(x, z, r))) return true;
   if (hitsPine(x, z, r)) return true;
+  if (roomsBlock(x, z, r)) return true;
   if (x > 1200 && jailBlocks(x, z, r)) return true;
   if (z < -700 && hitsBaseRock(x, z, r)) return true;
   for (const [lx, lz] of LAMPS) if (Math.hypot(x - lx, z - lz) < r + 0.35) return true;
@@ -149,6 +118,7 @@ export function viewBlocked(x: number, z: number, inside: Blocker[]) {
     return false;
   }
   if (x > 470 && hitsCity(x, z, 0.25)) return true;
+  if (roomWallsBlock(x, z, 0.25)) return true;
   for (const b of townObstaclesNear(x, z).boxes) if (hitsBox(x, z, 0.25, b)) return true;
   return false;
 }
