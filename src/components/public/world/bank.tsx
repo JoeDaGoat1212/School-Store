@@ -11,6 +11,7 @@ import { VAULT, game, vaultLasers, vaultLasersOn, vaultTime } from "./heist";
 import { COP_LOOK, Humanoid, newPose } from "./humanoid";
 import { noRaycast, signTexture } from "./paint";
 import { Near } from "./near";
+import { Static } from "./static-merge";
 import { puff } from "./smoke";
 import { letterGeometry } from "./text3d";
 
@@ -86,6 +87,7 @@ export function Bank() {
 
   return (
     <group position={[BANK.x, 0, BANK.z]}>
+      <Static>
       {/* ---- The podium: rusticated stone all round, and the porch on top ---- */}
       <Block x0={-W} x1={W} y0={0} y1={PODIUM} z0={-T} z1={P.porch} m={podiumMat} cast />
       <Block x0={-W} x1={-W + T} y0={0} y1={PODIUM} z0={-D} z1={-T} m={podiumMat} cast />
@@ -113,8 +115,10 @@ export function Bank() {
         </group>
       ))}
 
+      </Static>
       {/* ---- The hall: ashlar walls with tall arched windows ---- */}
       <group position-y={PODIUM}>
+        <Static>
         <Block x0={-W} x1={-P.doorHalf} y0={0} y1={H} z0={-T} z1={0} m={wallMat} cast />
         <Block x0={P.doorHalf} x1={W} y0={0} y1={H} z0={-T} z1={0} m={wallMat} cast />
         <Block x0={-P.doorHalf} x1={P.doorHalf} y0={P.doorHeight} y1={H} z0={-T} z1={0} m={wallMat} cast />
@@ -187,6 +191,7 @@ export function Bank() {
             <primitive object={gold} attach="material" />
           </mesh>
         </group>
+        </Static>
         <group position-z={0}>
           <SlidingDoors site={BANK} half={P.doorHalf} height={P.doorHeight} />
         </group>
@@ -196,7 +201,9 @@ export function Bank() {
           <Hall floorMat={floorMat} />
         </Near>
       </group>
-      <FireStairs />
+      <Static>
+        <FireStairs />
+      </Static>
       <Near x={BANK.x} z={BANK.z - D / 2} dist={110}>
         <VaultLevel />
       </Near>

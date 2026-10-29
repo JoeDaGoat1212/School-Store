@@ -118,14 +118,17 @@ export default function WorldScene(props: WorldSceneProps) {
 
   return (
     <Canvas
-      shadows={shadows ? "soft" : false}
+      shadows={shadows ? "percentage" : false}
       dpr={q.dpr}
       camera={{ fov: 56, near: 0.2, far: 2600, position: [40, 40, 60] }}
       gl={{ antialias: true, powerPreference: "high-performance" }}
+      onCreated={({ gl }) => {
+        gl.toneMappingExposure = 0.92;
+      }}
     >
       <color attach="background" args={[spooky ? "#ffd2a4" : "#a8d2f2"]} />
       {/* Haze in the distance, so the far end of town fades softly into the sky (far enough out that the city's skyline shows from the store) */}
-      <fog attach="fog" args={[spooky ? "#ffd8b0" : "#d6e8f4", 260, 1250]} />
+      <fog attach="fog" args={[spooky ? "#ffd8b0" : "#c8dbea", 320, 1300]} />
       <PerformanceMonitor onDecline={slowDown} flipflops={2} />
       <Effects />
       <CameraRig stations={worldSpots} current={station} calm={calm} onArrive={props.onArrive} blockers={walls} onWalk={props.onWalk} onNearCar={props.onNearCar} onInside={props.onInside} />
@@ -136,7 +139,7 @@ export default function WorldScene(props: WorldSceneProps) {
       <hemisphereLight args={[spooky ? "#f1defa" : "#dcefff", "#8f8466", 0.85]} />
       <ambientLight intensity={0.22} />
       <Sun key={q.shadowMap} shadows={shadows} warm={spooky} mapSize={q.shadowMap} />
-      <Environment resolution={256} frames={1}>
+      <Environment resolution={256} frames={1} environmentIntensity={0.42}>
         <Lightformer intensity={2} position={[0, 10, 0]} rotation-x={Math.PI / 2} scale={[20, 20, 1]} />
         <Lightformer intensity={1.2} color="#ffe2c4" position={[-10, 3, 6]} rotation-y={Math.PI / 4} scale={[10, 4, 1]} />
         <Lightformer intensity={1} color="#c4f2ee" position={[10, 3, 6]} rotation-y={-Math.PI / 4} scale={[10, 4, 1]} />

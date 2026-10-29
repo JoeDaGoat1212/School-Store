@@ -197,9 +197,19 @@ export function CameraRig({
         const oy = getComputedStyle(n).overflowY;
         if ((oy === "auto" || oy === "scroll") && n.scrollHeight > n.clientHeight + 2) return;
       }
+      // Scroll out of your own eyes straight to the third-person view (one notch is enough), then further out; scroll back in to your eyes.
+      if (player.view === "first") {
+        if (e.deltaY > 0) {
+          player.view = "third";
+          player.zoom = 4;
+        }
+        return;
+      }
       player.zoom = clamp(player.zoom + e.deltaY * 0.012, 0, MAX_ZOOM);
-      player.view = player.zoom > 1.2 ? "third" : "first";
-      if (player.view === "first") player.zoom = 0;
+      if (player.zoom < 2) {
+        player.view = "first";
+        player.zoom = 0;
+      }
     };
     // V: switch between your own eyes and third person.
     const key = (e: KeyboardEvent) => {

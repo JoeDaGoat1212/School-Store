@@ -9,6 +9,7 @@ import { drive } from "./drive";
 import { HOMES, ESTATE_WALL, access, doorOpenFor, homePlan, ownsHome, type Home } from "./houses-layout";
 import { Humanoid, newPose, randomLook } from "./humanoid";
 import { Near } from "./near";
+import { Static } from "./static-merge";
 import { noRaycast, signTexture } from "./paint";
 import { usd } from "./profile";
 
@@ -464,6 +465,8 @@ function HomeModel({ h }: { h: Home }) {
   const S = h.storey;
   return (
     <group position={[h.site.x, 0, h.site.z]} rotation-y={h.site.turn}>
+      {/* Everything that never moves, merged into a few meshes (a house is hundreds of boxes) */}
+      <Static>
       {/* The ground floor's walls (outside face, inside face) */}
       {P.walls.slice(0, 5).map((b, i) => (
         <Block key={i} x0={b.lx0} x1={b.lx1} y0={0} y1={S} z0={b.lz0} z1={b.lz1} m={h.style === "aframe" ? inside : wall} cast />
@@ -482,12 +485,15 @@ function HomeModel({ h }: { h: Home }) {
       <Block x0={-P.doorHalf} x1={P.doorHalf} y0={2.95} y1={S} z0={-P.t} z1={0} m={h.style === "aframe" ? inside : wall} />
       <Block x0={-P.doorHalf - 0.15} x1={P.doorHalf + 0.15} y0={2.9} y1={3.05} z0={-P.t - 0.05} z1={0.1} m={trim} />
       <Block x0={-P.W} x1={P.W} y0={S - 0.05} y1={S} z0={-P.D} z1={0} m={inside} />
+        <Upper h={h} />
+        <Grounds h={h} />
+      </Static>
       <FrontDoor h={h} />
-      <Upper h={h} />
-      <Grounds h={h} />
       <ForSale h={h} />
       <group ref={inner}>
-        <Interior h={h} />
+        <Static shadows={false}>
+          <Interior h={h} />
+        </Static>
       </group>
     </group>
   );

@@ -13,6 +13,7 @@ import { roomOf, shopPlan, type Room } from "./rooms";
 import { SHOPS, type ShopKey } from "./world-map";
 import { toWorld } from "./city-layout";
 import { Near } from "./near";
+import { Static } from "./static-merge";
 
 /*
  * The walk-in buildings on Restaurant Row (the five places you can work),
@@ -189,6 +190,7 @@ export function Shell({ room, style, children }: { room: Room; style: ShellStyle
 
   return (
     <group position={[room.site.x, 0, room.site.z]} rotation-y={room.site.turn}>
+      <Static>
       {/* Floor and ceiling */}
       <mesh material={floorMat} position={[0, 0.06, -D / 2]} rotation-x={-Math.PI / 2} receiveShadow raycast={noRaycast}>
         <planeGeometry args={[W * 2 - 0.1, D - 0.1]} />
@@ -221,7 +223,6 @@ export function Shell({ room, style, children }: { room: Room; style: ShellStyle
       <Block x0={-W} x1={W} y0={glassTop} y1={H} z0={-t} z1={0} m={outside} cast />
       <Block x0={-room.doorHalf} x1={room.doorHalf} y0={doorH} y1={glassTop} z0={-t} z1={0} m={trim} />
       <Block x0={-W - 0.2} x1={W + 0.2} y0={glassTop - 0.12} y1={glassTop + 0.05} z0={-t - 0.05} z1={0.12} m={trim} />
-      <SlideDoors room={room} height={doorH} />
       {/* Roof with a parapet and some machinery */}
       <Block x0={-W - 0.3} x1={W + 0.3} y0={H} y1={H + 0.8} z0={-D - 0.3} z1={0.3} m={trim} cast />
       <Block x0={-W * 0.5} x1={-W * 0.5 + 3} y0={H + 0.8} y1={H + 2.2} z0={-D * 0.6} z1={-D * 0.6 + 2.4} m={mat("#9aa3ad", 0.5, 0.6)} />
@@ -240,6 +241,8 @@ export function Shell({ room, style, children }: { room: Room; style: ShellStyle
           ))}
         </group>
       )}
+      </Static>
+      <SlideDoors room={room} height={doorH} />
       {/* Inside: only drawn when you're nearby. */}
       <Near x={room.site.x} z={room.site.z} dist={Math.max(110, room.halfW * 2.5)}>
         {children}
