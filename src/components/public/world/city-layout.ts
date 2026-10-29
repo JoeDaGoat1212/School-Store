@@ -10,6 +10,7 @@
  */
 
 import { BANK_SITE, CITY_AVENUES_Z, CITY_STREETS_X, JEWELRY_SITE, inCity } from "./city-plan";
+import { BANK_LOOT, BANK_LOOT_BOXES, BANK_PLAN, VAULT_DOOR_BOX, inBank, inVault } from "./bank-layout";
 import { seededRandom } from "./paint";
 import { DEALERSHIP, REALTOR, SHOPS } from "./world-map";
 import { AVENUES_Z, CURB, INTERSECTIONS, ROAD_HALF, ROADS, hitsBox, type Box, type Circle } from "./town-layout";
@@ -60,30 +61,8 @@ function siteBox(s: Site, lx0: number, lx1: number, lz0: number, lz1: number): B
   return { x: p.x, z: p.z, hw: (lx1 - lx0) / 2, hd: (lz1 - lz0) / 2, turn: s.turn };
 }
 
-/** The bank, in its own frame (lx: -22…22, lz: 0 at the front wall back to -34). */
-export const BANK_PLAN = {
-  halfW: BANK_SITE.w / 2,
-  depth: BANK_SITE.d,
-  height: BANK_SITE.h,
-  wall: 1,
-  doorHalf: 4,
-  doorHeight: 8,
-  /** The teller counter: across the hall, with gaps at both ends to walk round. */
-  counter: { lx0: -12, lx1: 12, lz0: -15, lz1: -13, height: 1.45 },
-  tellers: [-7, 0, 7],
-  tellerZ: -16.6,
-  /** The wall in front of the vault, with the big round door in the middle. */
-  vaultWall: { lz0: -23, lz1: -22 },
-  vaultDoor: { radius: 4.6, y: 5.1 },
-  pillars: [
-    [-16, -7],
-    [16, -7],
-  ] as [number, number][],
-  /** The columns along the front porch. */
-  columns: [-16, -11, -6, 6, 11, 16],
-  columnZ: 2.6,
-  steps: { halfW: 14, depth: 4.6 },
-};
+// The bank's plan (it's big: a podium with the vault level underneath) is in bank-layout.ts.
+export { BANK_PLAN, VAULT_DOOR_BOX, inBank, inVault };
 /** The jewelry shop, in its own frame (lx: -15…15, lz: 0 at the front wall back to -24). */
 export const JEWELRY_PLAN = {
   halfW: JEWELRY_SITE.w / 2,
@@ -102,15 +81,7 @@ export const JEWELRY_PLAN = {
   keeperZ: -22,
 };
 
-/** Is (x, z) inside the bank's walls? Inside its vault? */
-export function inBank(x: number, z: number) {
-  const { lx, lz } = toLocal(BANK, x, z);
-  return Math.abs(lx) < BANK_PLAN.halfW - BANK_PLAN.wall && lz < -BANK_PLAN.wall * 0.5 && lz > -BANK_PLAN.depth + BANK_PLAN.wall;
-}
-export function inVault(x: number, z: number) {
-  const { lx, lz } = toLocal(BANK, x, z);
-  return Math.abs(lx) < BANK_PLAN.halfW && lz < BANK_PLAN.vaultWall.lz0 + 0.5 && lz > -BANK_PLAN.depth;
-}
+/** Is (x, z) inside the jewelry shop? */
 export function inJewelry(x: number, z: number) {
   const { lx, lz } = toLocal(JEWELRY, x, z);
   return Math.abs(lx) < JEWELRY_PLAN.halfW - JEWELRY_PLAN.wall && lz < -JEWELRY_PLAN.wall * 0.5 && lz > -JEWELRY_PLAN.depth + JEWELRY_PLAN.wall;
@@ -125,7 +96,7 @@ export function inLasers(x: number, z: number) {
 // ---- Things to rob ----------------------------------------------------------------------------
 
 export type SiteKey = "bank" | "jewelry";
-export type LootKind = "gold" | "cash" | "case" | "rock";
+export type LootKind = "gold" | "cash" | "boxes" | "case" | "rock";
 export type Loot = {
   id: string;
   site: SiteKey;
@@ -141,16 +112,10 @@ export type Loot = {
   label: string;
 };
 
-const bankLoot = (id: string, kind: LootKind, lx: number, lz: number, value: number, label: string): Loot => ({ id, site: "bank", kind, lx, lz, ...toWorld(BANK, lx, lz), reach: 4.2, value, label });
+const bankLoot = (l: (typeof BANK_LOOT)[number]): Loot => ({ id: l.id, site: "bank", kind: l.kind === "gold" ? "gold" : l.kind === "boxes" ? "boxes" : "cash", lx: l.lx, lz: l.lz, ...toWorld(BANK, l.lx, l.lz), reach: 3.8, value: l.value, label: l.label });
 
 export const LOOT: Loot[] = [
-  bankLoot("gold-l", "gold", -13, -29.5, 120000, "gold bars"),
-  bankLoot("gold-r", "gold", 13, -29.5, 120000, "gold bars"),
-  bankLoot("cash-1", "cash", -6, -31, 45000, "stacks of cash"),
-  bankLoot("cash-2", "cash", 0, -31, 45000, "stacks of cash"),
-  bankLoot("cash-3", "cash", 6, -31, 45000, "stacks of cash"),
-  bankLoot("cart-l", "cash", -14.5, -25.6, 28500, "a cash cart"),
-  bankLoot("cart-r", "cash", 14.5, -25.6, 28500, "a cash cart"),
+  ...BANK_LOOT.map(bankLoot),
   ...JEWELRY_PLAN.cases.map((c, i): Loot => ({
     id: `case-${i}`,
     site: "jewelry",
@@ -183,9 +148,9 @@ export const SITE_CENTER: Record<SiteKey, { x: number; z: number }> = {
 
 /** Getaway cars: parked beside the bank, ready to go (they join the town's drivable cars). */
 export const CITY_PARKED: { color: string; x: number; z: number; turn: number }[] = [
-  { color: "#2f3338", x: 583, z: 15, turn: Math.PI },
-  { color: "#5aa84a", x: 591, z: 28, turn: Math.PI },
-  { color: "#ff8fab", x: 655, z: 22, turn: Math.PI },
+  { color: "#2f3338", x: 577, z: -4, turn: 0 },
+  { color: "#5aa84a", x: 577, z: 10, turn: 0 },
+  { color: "#ff8fab", x: 577, z: 24, turn: Math.PI },
 ];
 
 // ---- Skyscrapers ------------------------------------------------------------------------------
@@ -352,30 +317,8 @@ export const ZEBRA: { x: number; z: number; alongX: boolean }[] = (() => {
 
 // ---- Things to bump into ------------------------------------------------------------------------
 
-const bankWalls = (() => {
-  const P = BANK_PLAN;
-  const t = P.wall;
-  const boxes: Box[] = [
-    siteBox(BANK, -P.halfW, -P.doorHalf, -t, 0),
-    siteBox(BANK, P.doorHalf, P.halfW, -t, 0),
-    siteBox(BANK, -P.halfW, -P.halfW + t, -P.depth, 0),
-    siteBox(BANK, P.halfW - t, P.halfW, -P.depth, 0),
-    siteBox(BANK, -P.halfW, P.halfW, -P.depth, -P.depth + t),
-    siteBox(BANK, P.counter.lx0, P.counter.lx1, P.counter.lz0, P.counter.lz1),
-    siteBox(BANK, -P.halfW, -P.vaultDoor.radius - 0.4, P.vaultWall.lz0, P.vaultWall.lz1),
-    siteBox(BANK, P.vaultDoor.radius + 0.4, P.halfW, P.vaultWall.lz0, P.vaultWall.lz1),
-    ...P.pillars.map(([lx, lz]) => siteBox(BANK, lx - 1, lx + 1, lz - 1, lz + 1)),
-  ];
-  const circles: Circle[] = P.columns.map((lx) => ({ ...toWorld(BANK, lx, P.columnZ), r: 0.9 }));
-  return { boxes, circles };
-})();
-
-/** The bank's vault door, while it's shut. */
-export const VAULT_DOOR_BOX = siteBox(BANK, -BANK_PLAN.vaultDoor.radius - 0.4, BANK_PLAN.vaultDoor.radius + 0.4, BANK_PLAN.vaultWall.lz0 - 0.4, BANK_PLAN.vaultWall.lz1);
 /** Each pile of loot in the vault, while it's still there. */
-export const LOOT_BOXES: Record<string, Box> = Object.fromEntries(
-  LOOT.filter((l) => l.site === "bank").map((l) => [l.id, siteBox(BANK, l.lx - 1.7, l.lx + 1.7, l.lz - 1.3, l.lz + 1.3)]),
-);
+export const LOOT_BOXES: Record<string, Box> = BANK_LOOT_BOXES;
 
 const jewelryWalls = (() => {
   const P = JEWELRY_PLAN;
@@ -411,8 +354,8 @@ for (const t of TOWERS) {
   const base = t.tiers[0];
   addBox({ x: base.x, z: base.z, hw: base.w / 2, hd: base.d / 2, turn: 0 });
 }
-for (const b of [...bankWalls.boxes, ...jewelryWalls.boxes]) addBox(b);
-for (const c of [...bankWalls.circles, ...jewelryWalls.circles]) addCircle(c);
+for (const b of jewelryWalls.boxes) addBox(b);
+for (const c of jewelryWalls.circles) addCircle(c);
 for (const t of PARK_TREES) addCircle({ x: t.x, z: t.z, r: 0.55 * t.s });
 addCircle(FOUNTAIN);
 for (const b of BENCHES) addBox({ x: b.x, z: b.z, hw: 1.6, hd: 0.6, turn: b.turn });

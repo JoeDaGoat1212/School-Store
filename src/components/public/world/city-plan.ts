@@ -27,7 +27,7 @@ export const inCity = (x: number, z: number, pad = 0) =>
  * front (and the steps up to its doors) facing the road (+z). x is the middle
  * of its front, `front` the z of its front wall; it goes back `d` into -z.
  */
-export const BANK_SITE = { x: 620, front: 36, w: 44, d: 34, h: 15 };
+export const BANK_SITE = { x: 620, front: 28, w: 76, d: 42, h: 14 };
 /**
  * The jewelry shop: on the far side of the city from the bank (the south-east
  * corner), its front facing the avenue to its north (-z); it goes back `d` into +z.
@@ -36,7 +36,7 @@ export const JEWELRY_SITE = { x: 980, front: 244, w: 30, d: 24, h: 10 };
 
 /** Bits of sidewalk kept free of trees: in front of the bank, the dealership and the jewelry shop, so cars can pull in. */
 export const CITY_KEEP_CLEAR = [
-  { x: 606, z: 48, hw: 36, hd: 4 },
+  { x: 620, z: 48, hw: 40, hd: 4 },
   { x: 610, z: 68, hw: 48, hd: 4 },
   { x: 980, z: 232, hw: 22, hd: 4 },
 ];

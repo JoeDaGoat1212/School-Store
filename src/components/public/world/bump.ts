@@ -6,6 +6,7 @@ import { heistBlocks } from "./heist";
 import { hitsBaseRock, hitsPine } from "./terrain";
 import { jailBlocks } from "./jail-layout";
 import { roomsBlock, roomWallsBlock } from "./rooms";
+import { bankBlocks, bankViewBlocked } from "./bank-layout";
 import { hitsBox, townObstaclesNear, type Box } from "./town-layout";
 import { WORLD_BOUNDS as WORLD } from "./world-map";
 import { doors, STORE, STORE_SCALE, type Blocker } from "./world-layout";
@@ -30,7 +31,7 @@ export { parkedSpots };
 /** Where each traffic car is now (traffic.tsx keeps this up to date). */
 export const trafficSpots: CarSpot[] = [];
 /** Where each police car is now (city-police.tsx keeps this up to date; far away while they're not out). */
-export const copSpots: CarSpot[] = Array.from({ length: 4 }, () => ({ x: -9999, z: -9999, heading: 0 }));
+export const copSpots: CarSpot[] = Array.from({ length: 6 }, () => ({ x: -9999, z: -9999, heading: 0 }));
 
 export const CAR_RADIUS = 1.8;
 
@@ -68,7 +69,7 @@ export function inStore(x: number, z: number) {
 
 /** Trees, lamp posts, houses, street lights and the city's buildings: does a circle of radius r at (x, z) touch one? */
 function hitsScenery(x: number, z: number, r: number) {
-  if (x > 470 && (hitsCity(x, z, r) || heistBlocks(x, z, r))) return true;
+  if (x > 470 && (hitsCity(x, z, r) || heistBlocks(x, z, r) || bankBlocks(x, z, r))) return true;
   if (hitsPine(x, z, r)) return true;
   if (roomsBlock(x, z, r)) return true;
   if (x > 1200 && jailBlocks(x, z, r)) return true;
@@ -117,7 +118,7 @@ export function viewBlocked(x: number, z: number, inside: Blocker[]) {
     for (const b of inside) if (hitsBox(x, z, 0.1, b)) return true;
     return false;
   }
-  if (x > 470 && hitsCity(x, z, 0.25)) return true;
+  if (x > 470 && (hitsCity(x, z, 0.25) || bankViewBlocked(x, z))) return true;
   if (roomWallsBlock(x, z, 0.25)) return true;
   for (const b of townObstaclesNear(x, z).boxes) if (hitsBox(x, z, 0.25, b)) return true;
   return false;

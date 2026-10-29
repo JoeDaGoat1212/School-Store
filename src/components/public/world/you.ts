@@ -37,4 +37,6 @@ export const player = {
   place: false,
   /** Your parachute is open. */
   chute: false,
+  /** Which floor you're on, where there's more than one (the bank: 1 = the banking hall, 0 = the street and the vault level). */
+  level: 0,
 };

@@ -4,12 +4,17 @@ import { useEffect, useLayoutEffect, useRef } from "react";
 import { useFrame, useThree } from "@react-three/fiber";
 import * as THREE from "three";
 import { inStore, parkedSpots, player, viewBlocked, walkBlocked } from "./bump";
+import { bankFloor, inFootprint, PODIUM, trackLevel } from "./bank-layout";
 import { groundAt } from "./terrain";
+
 import { kill } from "./life";
 import { drive, input, moving } from "./drive";
 import { game } from "./heist";
 import { cutscene } from "./cutscene";
 import { doors, EYE_HEIGHT, INSIDE_WORLD, nearestStation, STORE_SCALE, type Blocker, type Station, type StationKey } from "./world-layout";
+
+/** The floor under you: the bank's floors (which level you're on), or the ground. */
+const floorUnder = (x: number, z: number) => trackLevel(x, z) ?? groundAt(x, z);
 
 /*
  * The camera, like a person (or a drone) in the store.
@@ -185,6 +190,9 @@ export function CameraRig({
     // Mouse wheel: zoom out to third person (and back in to your own eyes).
     const wheel = (e: WheelEvent) => {
       if (currentRef.current === "outside" || drive.active) return;
+      // Not while scrolling a panel or a list on screen.
+      const t = e.target as HTMLElement | null;
+      if (t && t !== el && t.closest?.("[role=dialog], [data-scroll], .overflow-y-auto, .overflow-auto, aside, nav")) return;
       player.zoom = clamp(player.zoom + e.deltaY * 0.012, 0, MAX_ZOOM);
       player.view = player.zoom > 1.2 ? "third" : "first";
       if (player.view === "first") player.zoom = 0;
@@ -197,14 +205,15 @@ export function CameraRig({
       player.view = player.view === "first" ? "third" : "first";
       player.zoom = player.view === "third" ? THIRD_ZOOM : 0;
     };
-    el.addEventListener("wheel", wheel, { passive: true });
+    // (On the whole window: the buttons over the world would otherwise swallow the wheel.)
+    window.addEventListener("wheel", wheel, { passive: true });
     window.addEventListener("keydown", key);
     el.addEventListener("pointerdown", down);
     window.addEventListener("pointermove", move);
     window.addEventListener("pointerup", up);
     window.addEventListener("pointercancel", up);
     return () => {
-      el.removeEventListener("wheel", wheel);
+      window.removeEventListener("wheel", wheel);
       window.removeEventListener("keydown", key);
       el.removeEventListener("pointerdown", down);
       window.removeEventListener("pointermove", move);
@@ -337,7 +346,8 @@ export function CameraRig({
     // ---- Just got out of a car: hop down beside it ----
     if (player.hop) {
       player.hop = false;
-      const ground = groundAt(player.x, player.z);
+      player.level = 0;
+      const ground = floorUnder(player.x, player.z);
       const to = new THREE.Vector3(player.x, ground + EYE_HEIGHT, player.z);
       const from = s.pos.clone();
       const far = from.distanceTo(to);
@@ -387,7 +397,7 @@ export function CameraRig({
 
     // ---- Jumping, falling (and parachuting), and walking up and down hills ----
     if (walking) {
-      const ground = groundAt(s.pos.x, s.pos.z);
+      const ground = floorUnder(s.pos.x, s.pos.z);
       const high = player.y - ground;
       const space = input.brake && !skydive.space;
       skydive.space = input.brake;
@@ -472,7 +482,7 @@ export function CameraRig({
       }
       if (t >= 1) {
         s.flight = null;
-        player.y = Math.max(groundAt(s.pos.x, s.pos.z), s.pos.y - EYE_HEIGHT);
+        player.y = Math.max(floorUnder(s.pos.x, s.pos.z), s.pos.y - EYE_HEIGHT);
         player.vy = 0;
         onArriveRef.current(f.key);
       }
@@ -523,7 +533,9 @@ export function CameraRig({
           break;
         }
       const want = new THREE.Vector3(s.pos.x + back.x * reach, s.pos.y + lift * (reach / zoom), s.pos.z + back.z * reach);
-      want.y = Math.max(want.y, groundAt(want.x, want.z) + 0.8);
+      want.y = Math.max(want.y, (bankFloor(want.x, want.z)?.y ?? groundAt(want.x, want.z)) + 0.8);
+      // Under the banking hall (the vault level), keep the camera below its ceiling.
+      if (player.level === 0 && inFootprint(want.x, want.z, 1)) want.y = Math.min(want.y, PODIUM - 0.6);
       if (s.view.distanceTo(want) > 30) s.view.copy(want);
       s.view.lerp(want, 1 - Math.exp(-14 * dt));
       cam.position.copy(s.view);

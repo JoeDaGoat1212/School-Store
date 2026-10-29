@@ -35,7 +35,7 @@ import { DROP } from "./world-layout";
 /** Places the quick-trip menu can take you (not the secret base: that's secret). */
 const TRIPS = [
   { key: "store", label: "The store", x: DROP.x, z: DROP.z, yaw: 0 },
-  { key: "city", label: "The city (bank)", x: BANK.x, z: BANK.z + 15, yaw: 0 },
+  { key: "city", label: "The city (bank)", x: BANK.x, z: BANK.z + 21, yaw: 0 },
   { key: "airport", label: "The airport", x: AIRPORT.terminal.x, z: MAIN_ROAD_Z + 4, yaw: Math.PI },
   { key: "food", label: "Restaurant Row (jobs)", x: SHOPS.icecream.x, z: SHOPS.icecream.z + 8, yaw: 0 },
   { key: "dealer", label: "Apex Motors (cars)", x: 640, z: 64, yaw: Math.PI },

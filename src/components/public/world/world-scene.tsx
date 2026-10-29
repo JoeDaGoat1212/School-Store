@@ -21,7 +21,8 @@ import { Town } from "./town";
 import { City } from "./city";
 import { CityGame } from "./city-fx";
 import { Police } from "./police";
-import { Bank, ClosedSign, Jewelry } from "./city-sites";
+import { ClosedSign, Jewelry } from "./city-sites";
+import { Bank } from "./bank";
 import { game } from "./heist";
 import { Mountains } from "./mountains";
 import { Aircraft } from "./flight";
@@ -146,7 +147,7 @@ export default function WorldScene(props: WorldSceneProps) {
           <City />
           <Bank />
           <Jewelry />
-          <ClosedSign site="bank" height={30} />
+          <ClosedSign site="bank" height={44} />
           <ClosedSign site="jewelry" height={22} />
           <Police />
           <CityGame calm={calm} />

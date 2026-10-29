@@ -133,6 +133,11 @@ export const drive = {
 
 /** The driven car's motion: velocity (it can slide sideways a little) and steering. */
 const motion: Motion = { vx: 0, vz: 0, steer: 0 };
+/** Something's slowing the car down (a squad car ramming it): multiply its speed by k. */
+export function slowCar(k: number) {
+  motion.vx *= k;
+  motion.vz *= k;
+}
 
 /**
  * The parked cars and bikes (fleet.ts). Walk up to one and press E (or tap

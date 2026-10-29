@@ -1,33 +1,37 @@
 import { carBlocked, copSpots, player, walkBlocked } from "./bump";
 import { newLook, type CarLook } from "./car-model";
-import { drive } from "./drive";
+import { drive, MPH_PER_UNIT, slowCar } from "./drive";
 import { notify } from "./game-events";
 import { banner, busted, game } from "./heist";
 import { lockUp } from "./jail-state";
 import { JAIL_SPAWN } from "./jail-layout";
 import { life } from "./life";
 import { ROADS } from "./town-layout";
+import { EXITS, inBank } from "./bank-layout";
 import { WORLD_BOUNDS } from "./world-map";
 
 /*
  * The police. Plain TypeScript; police.tsx draws them.
  *
- *   - Once you've set off an alarm, squad cars come after you (two at first,
- *     up to four the longer it goes on). They turn up on the roads nearby
- *     and drive straight for you.
+ *   - Once you've set off an alarm, squad cars come after you (three at
+ *     first, up to six the longer it goes on). They turn up on the roads
+ *     nearby, always a bit faster than whatever you're driving, aim where
+ *     you're going (so they cut you off and box you in), and ram you.
  *   - On foot, when one gets close it screeches to a stop and an officer
- *     jumps out and runs after you. Run! (Shift: you're a little faster than
- *     them.) If they catch you: hands up, handcuffs, walked to the car, put
+ *     jumps out and runs after you. Run! (They're a little faster than you,
+ *     so get in a car.) If they catch you: hands up, handcuffs, walked to the car, put
  *     in the back, and off to jail.
  *   - In a car: if you stop with a squad car right on you, they pull you out.
  *   - When the chase is over (you stashed the loot, ran out of time, or got
  *     caught) the rest drive off.
  */
 
-const MAX_UNITS = 4;
-const CRUISE = 34;
-/** On foot, an officer runs at this speed (you run at 12). */
-const OFFICER_RUN = 10.8;
+const MAX_UNITS = 6;
+const CRUISE = 40;
+/** On foot, an officer runs at this speed: a touch faster than you (you run at 12), so don't stop for breath. */
+const OFFICER_RUN = 12.8;
+/** How fast squad cars go: always a bit faster than whatever you're driving. */
+const chaseTop = () => Math.max(CRUISE + 6, drive.active ? (drive.top / MPH_PER_UNIT) * 1.12 : 0);
 
 export type Officer = { active: boolean; x: number; z: number; yaw: number; speed: number; phase: number };
 export type Unit = {
@@ -69,6 +73,8 @@ export const police = {
   nextSpawn: 0,
   /** Seconds the player's car has been stopped with a squad car right on it. */
   pinned: 0,
+  /** Where you were last frame (to see where you're heading). */
+  last: { x: 0, z: 0 },
 };
 
 const you = () => (drive.active ? { x: drive.pos.x, z: drive.pos.z, inCar: true } : { x: player.x, z: player.z, inCar: false });
@@ -121,8 +127,9 @@ export function tickPolice(now: number, dt: number) {
   // ---- Squad cars turn up ----
   if (wanted) {
     const count = police.units.filter((u) => u.on && u.mode !== "leave").length;
-    const want = Math.min(MAX_UNITS, 2 + Math.floor((now - game.wanted!.startedAt) / 30));
-    if (police.nextSpawn === 0) police.nextSpawn = now + 4;
+    // Three to start with, and another every 20 seconds you stay free.
+    const want = Math.min(MAX_UNITS, 3 + Math.floor((now - game.wanted!.startedAt) / 20));
+    if (police.nextSpawn === 0) police.nextSpawn = now + 3;
     if (count < want && now >= police.nextSpawn) {
       const i = police.units.findIndex((u) => !u.on);
       const spot = i >= 0 ? spawnSpot(p.x, p.z) : null;
@@ -130,7 +137,7 @@ export function tickPolice(now: number, dt: number) {
         const u = police.units[i];
         Object.assign(u, newUnit(), { on: true, x: spot.x, z: spot.z, heading: spot.heading, speed: 20, look: u.look });
       }
-      police.nextSpawn = now + 6;
+      police.nextSpawn = now + 4;
     }
   } else {
     police.nextSpawn = 0;
@@ -143,9 +150,20 @@ export function tickPolice(now: number, dt: number) {
   }
 
   // ---- Each squad car ----
+  // Where you're heading (to cut you off rather than just follow).
+  const vx = dt > 0 ? (p.x - police.last.x) / dt : 0;
+  const vz = dt > 0 ? (p.z - police.last.z) / dt : 0;
+  police.last = { x: p.x, z: p.z };
+  const fast = Math.hypot(vx, vz) < 200;
+  const top = chaseTop();
+
+  // Holed up in the bank: they wait for you outside, at the foot of the front steps and the fire stairs.
+  const holed = !p.inCar && inBank(p.x, p.z);
+
   police.units.forEach((u, i) => {
     if (!u.on) return setSpot(i, u);
-    const dist = Math.hypot(p.x - u.x, p.z - u.z);
+    const goal = holed ? EXITS[i % EXITS.length] : p;
+    const dist = Math.hypot(goal.x - u.x, goal.z - u.z);
     let wantSpeed = 0;
     let wantHeading = u.heading;
 
@@ -158,10 +176,19 @@ export function tickPolice(now: number, dt: number) {
         return setSpot(i, u);
       }
     } else if (u.mode === "chase") {
-      wantHeading = angleTo(u, p);
-      wantSpeed = dist > 70 ? CRUISE : dist > 30 ? 24 : p.inCar ? 16 : 10;
+      // Aim where you're going to be, not where you are (each car leads you by a different amount, so they spread out and box you in).
+      const lead = fast ? Math.min(1.6, dist / Math.max(20, top)) * (0.6 + (i % 3) * 0.3) : 0;
+      const aim = { x: p.x + vx * lead, z: p.z + vz * lead };
+      wantHeading = angleTo(u, holed ? goal : dist < 10 ? p : aim);
+      const yours = Math.abs(drive.speed);
+      wantSpeed = dist > 60 ? top : dist > 25 ? Math.max(top * 0.75, yours + 8) : p.inCar ? Math.max(14, yours + 5) : 12;
+      // Right on you in a car: they ram you and slow you down.
+      if (p.inCar && dist < 5.5 && Math.abs(u.speed) > 6) {
+        slowCar(Math.max(0, 1 - 1.4 * dt));
+        game.shake = Math.max(game.shake, 0.25);
+      }
       // On foot and close: stop, and send the officer after you.
-      if (!p.inCar && dist < 22) {
+      if (!p.inCar && dist < 26) {
         u.mode = "stopped";
         const side = 3.4;
         Object.assign(u.officer, { active: true, x: u.x + Math.cos(u.heading) * -side, z: u.z - Math.sin(u.heading) * -side, yaw: 0, speed: 0 });
@@ -169,7 +196,7 @@ export function tickPolice(now: number, dt: number) {
     } else if (u.mode === "stopped") {
       wantSpeed = 0;
       // Got back in a car and drove off: the officer gets back in and they give chase again.
-      if (p.inCar || Math.hypot(p.x - u.officer.x, p.z - u.officer.z) > 75) {
+      if (p.inCar || (!holed && Math.hypot(p.x - u.officer.x, p.z - u.officer.z) > 75)) {
         const back = Math.hypot(u.officer.x - u.x, u.officer.z - u.z);
         stepOfficer(u.officer, u, dt, OFFICER_RUN);
         if (back < 2.5) {
@@ -177,37 +204,48 @@ export function tickPolice(now: number, dt: number) {
           u.mode = "chase";
         }
       } else {
-        stepOfficer(u.officer, p, dt, OFFICER_RUN);
-        if (Math.hypot(p.x - u.officer.x, p.z - u.officer.z) < 1.5) startArrest(i, now);
+        // Waiting at the bank's doors for you to come out (spread out a bit), or after you.
+        const spot = holed ? { x: goal.x + ((i % 3) - 1) * 4, z: goal.z + 2 } : p;
+        stepOfficer(u.officer, spot, dt, holed ? 6 : OFFICER_RUN);
+        // Close enough to tackle you.
+        if (Math.hypot(p.x - u.officer.x, p.z - u.officer.z) < 2) startArrest(i, now);
       }
     }
 
     // Steer and drive (slowing for sharp turns), dodging whatever's in the way.
     const turn = wrap(wantHeading - u.heading);
-    u.heading += Math.max(-2.4 * dt, Math.min(2.4 * dt, turn));
-    if (Math.abs(turn) > 1.2) wantSpeed = Math.min(wantSpeed, 12);
+    u.heading += Math.max(-3.2 * dt, Math.min(3.2 * dt, turn));
+    if (Math.abs(turn) > 1.2) wantSpeed = Math.min(wantSpeed, 16);
     if (u.reverse > 0) {
       u.reverse -= dt;
       wantSpeed = -7;
     }
-    u.speed += (wantSpeed - u.speed) * Math.min(1, dt * (wantSpeed < u.speed ? 4 : 1.6));
+    u.speed += (wantSpeed - u.speed) * Math.min(1, dt * (wantSpeed < u.speed ? 4 : 2.6));
     if (Math.abs(u.speed) > 0.05) {
       const self = copSpots[i];
-      let moved = false;
-      for (const off of [0, 0.5, -0.5, 1, -1]) {
-        const h = u.heading + off;
-        const next = { x: u.x + -Math.sin(h) * u.speed * dt, z: u.z + -Math.cos(h) * u.speed * dt, heading: u.heading };
-        if (!carBlocked(next, self, [])) {
-          u.x = next.x;
-          u.z = next.z;
-          if (off) u.heading += off * dt * 2;
-          moved = true;
+      // In small steps, so a fast squad car can't skip through a wall.
+      const steps = Math.max(1, Math.ceil((Math.abs(u.speed) * dt) / 1.2));
+      const sdt = dt / steps;
+      for (let k = 0; k < steps; k++) {
+        let moved = false;
+        for (const off of [0, 0.4, -0.4, 0.9, -0.9]) {
+          const h = u.heading + off;
+          const next = { x: u.x + -Math.sin(h) * u.speed * sdt, z: u.z + -Math.cos(h) * u.speed * sdt, heading: u.heading };
+          if (!carBlocked(next, self, [])) {
+            u.x = next.x;
+            u.z = next.z;
+            if (off) u.heading += off * sdt * 2.5;
+            moved = true;
+            break;
+          }
+        }
+        if (!moved) {
+          if (u.reverse <= 0 && u.mode !== "stopped") {
+            u.reverse = 0.7;
+            u.speed = Math.min(u.speed, 4);
+          }
           break;
         }
-      }
-      if (!moved && u.reverse <= 0 && u.mode !== "stopped") {
-        u.reverse = 0.9;
-        u.speed = 0;
       }
     }
     u.look.spin += (u.speed / 0.75) * dt;
@@ -220,8 +258,8 @@ export function tickPolice(now: number, dt: number) {
   // ---- Pinned in your car: they pull you out ----
   if (wanted && p.inCar) {
     const close = police.units.some((u) => u.on && u.mode === "chase" && Math.hypot(u.x - p.x, u.z - p.z) < 8);
-    police.pinned = close && Math.abs(drive.speed) < 2 ? police.pinned + dt : 0;
-    if (police.pinned > 2.5) {
+    police.pinned = close && Math.abs(drive.speed) < 4 ? police.pinned + dt : 0;
+    if (police.pinned > 1.6) {
       police.pinned = 0;
       police.forceOut = true;
       notify();

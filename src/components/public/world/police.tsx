@@ -6,6 +6,7 @@ import * as THREE from "three";
 import { player } from "./bump";
 import { CarModel } from "./car-model";
 import { ALL_TIERS, BANK, BANK_PLAN, JEWELRY, JEWELRY_PLAN, toWorld } from "./city-layout";
+import { PODIUM } from "./bank-layout";
 import { carOnGround, drive } from "./drive";
 import { game } from "./heist";
 import { COP_LOOK, Humanoid, newPose } from "./humanoid";
@@ -144,7 +145,7 @@ const SOLIDS = [
   (() => {
     const a = toWorld(BANK, -BANK_PLAN.halfW, 0);
     const b = toWorld(BANK, BANK_PLAN.halfW, -BANK_PLAN.depth);
-    return { x0: Math.min(a.x, b.x), x1: Math.max(a.x, b.x), y0: 0, y1: BANK_PLAN.height + 0.8, z0: Math.min(a.z, b.z), z1: Math.max(a.z, b.z) };
+    return { x0: Math.min(a.x, b.x), x1: Math.max(a.x, b.x), y0: 0, y1: PODIUM + BANK_PLAN.height + 0.8, z0: Math.min(a.z, b.z), z1: Math.max(a.z, b.z) };
   })(),
   (() => {
     const a = toWorld(JEWELRY, -JEWELRY_PLAN.halfW, 0);

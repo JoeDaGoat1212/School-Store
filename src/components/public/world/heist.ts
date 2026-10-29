@@ -1,9 +1,11 @@
-import { BANK, BANK_PLAN, JEWELRY, JEWELRY_PLAN, LOOT, LOOT_BOXES, SITE_CENTER, VAULT_DOOR_BOX, inBank, inJewelry, inVault, toLocal, toWorld, type Loot, type SiteKey } from "./city-layout";
+import { BANK, BANK_PLAN, JEWELRY, JEWELRY_PLAN, LOOT, SITE_CENTER, inBank, inJewelry, inVault, toLocal, toWorld, type Loot, type SiteKey } from "./city-layout";
+import { gateOn, inCorridor, sweepBeam, vaultBeams } from "./bank-layout";
+import { resetBank, tickBank } from "./bank-heist";
 import { sound } from "./city-audio";
 import { notify, useGameVersion } from "./game-events";
 import { provide } from "./interact";
 import { kill, life } from "./life";
-import { earn, profile, saveProfile, usd } from "./profile";
+import { earn, pockets, profile, saveProfile, usd } from "./profile";
 import { hitsBox } from "./town-layout";
 import { BASE } from "./world-map";
 import { player } from "./you";
@@ -180,7 +182,7 @@ export function vaultTime() {
 }
 export const vaultOpen = () => vaultTime() >= VAULT.openUntil - 0.6;
 
-function soundAlarm(site: SiteKey, why: string) {
+export function soundAlarm(site: SiteKey, why: string) {
   const s = game.sites[site];
   if (s.alarm) return;
   s.alarm = true;
@@ -196,13 +198,16 @@ function soundAlarm(site: SiteKey, why: string) {
   sound.alarm(true);
 }
 
-function startBankJob() {
-  if (game.sites.bank.vaultAt >= 0) return;
-  soundAlarm("bank", "Grab the loot and get it to the secret base in the mountains!");
-  game.sites.bank.vaultAt = game.now;
-  const door = toWorld(BANK, 0, BANK_PLAN.vaultWall.lz1);
-  game.fx.push({ kind: "sparks", x: door.x, y: BANK_PLAN.vaultDoor.y, z: door.z, count: 50 });
-  sound.drill();
+/** Holding up the tellers: a little cash from the drawers (the real money's in the vault downstairs). */
+function robTellers() {
+  if (game.sites.bank.alarm) return;
+  soundAlarm("bank", "The tellers hit the panic button! Grab the cash and run (the real money's in the vault).");
+  const take = 4 * (2500 + Math.round(Math.random() * 1500));
+  if (game.wanted) game.wanted.haul += take;
+  pop(take, "loot");
+  const c = toWorld(BANK, 0, BANK_PLAN.counter.lz1);
+  game.fx.push({ kind: "cash", x: c.x, y: 8, z: c.z, count: 40 });
+  sound.cash();
 }
 
 function grab(l: Loot) {
@@ -233,7 +238,7 @@ function grab(l: Loot) {
 export function rob() {
   const r = game.prompt?.rob;
   if (!r) return;
-  if (r.start === "bank") startBankJob();
+  if (r.start === "bank") robTellers();
   else if (r.loot) {
     const l = LOOT.find((x) => x.id === r.loot);
     if (l) grab(l);
@@ -251,6 +256,7 @@ export function talk() {
 /** Caught by the police (city-police.tsx): the loot's gone. */
 export function busted() {
   const w = game.wanted;
+  pockets.bankCard = false;
   game.wanted = null;
   sound.alarm(false);
   closeAlarmedSites();
@@ -265,16 +271,7 @@ function closeAlarmedSites() {
 // ---- Lasers ---------------------------------------------------------------------------------
 
 /** Where the vault's two sweeping laser beams are right now (in the bank's frame: lz), and how high. */
-export function vaultLasers(now: number) {
-  const z0 = BANK_PLAN.vaultWall.lz0 - 1;
-  const z1 = -BANK_PLAN.depth + 2;
-  const mid = (z0 + z1) / 2;
-  const half = (z0 - z1) / 2;
-  return [
-    { lz: mid + Math.sin(now * 1.3) * half, y: 0.75 },
-    { lz: mid + Math.sin(now * 1.3 + Math.PI) * half, y: 0.75 },
-  ];
-}
+export const vaultLasers = vaultBeams;
 /** Are the vault lasers on? (Once the vault's open, until it's empty.) */
 export const vaultLasersOn = () => vaultOpen() && LOOT.some((l) => l.site === "bank" && !isTaken(l.id));
 
@@ -299,6 +296,13 @@ function laserCheck(x: number, z: number, y: number) {
   if (vaultLasersOn() && inVault(x, z)) {
     const { lz } = toLocal(BANK, x, z);
     for (const b of vaultLasers(game.now)) if (Math.abs(lz - b.lz) < 0.35 && throughYou(b.y, y)) return true;
+  }
+  // The laser corridor on the way to the vault: the blinking gates (no getting past one while it's on) and the low sweeping beam.
+  if (inCorridor(x, z) && !isClosed("bank")) {
+    const { lx } = toLocal(BANK, x, z);
+    for (const [i, gx] of BANK_PLAN.gates.entries()) if (gateOn(i, game.now) && Math.abs(lx - gx) < 0.4) return true;
+    const b = sweepBeam(game.now);
+    if (Math.abs(lx - b.lx) < 0.35 && throughYou(b.y, y)) return true;
   }
   // The jewelry fence: crossing its edge while a beam's at your height.
   if (jewelryLasersOn() && inJewelry(x, z)) {
@@ -359,6 +363,7 @@ export function tick(now: number, dt: number, you: { x: number; z: number; y: nu
     if (s.closedUntil && game.wallClock > s.closedUntil && !inside) {
       game.sites[key] = freshSite();
       for (const l of LOOT) if (l.site === key) game.taken.delete(l.id);
+      if (key === "bank") resetBank();
       saveClosures();
       dirty = true;
     }
@@ -382,6 +387,9 @@ export function tick(now: number, dt: number, you: { x: number; z: number; y: nu
     }
   }
 
+  // ---- The bank's keycard, cameras, drill… (bank-heist.ts) ----
+  if (tickBank(now, dt, you)) dirty = true;
+
   // ---- What can you do here? ----
   const prompt = you.onFoot && !you.driving && !life.dead ? promptAt(you.x, you.z) : null;
   if ((prompt?.id ?? null) !== (game.prompt?.id ?? null)) {
@@ -398,17 +406,14 @@ function promptAt(x: number, z: number): Prompt | null {
     const { lx, lz } = toLocal(BANK, x, z);
     const bank = game.sites.bank;
     const C = BANK_PLAN.counter;
-    const atCounter = lx > C.lx0 - 1 && lx < C.lx1 + 1 && lz > C.lz1 && lz < C.lz1 + 4.5;
+    const atCounter = player.level === 1 && lx > C.lx0 - 1 && lx < C.lx1 + 1 && lz > C.lz1 && lz < C.lz1 + 4.5;
     if (isClosed("bank")) return atCounter ? { id: "bank-teller-closed", talk: { text: "Talk to the teller" } } : null;
-    // In the vault (or at its open door): the nearest pile of loot.
-    if (vaultOpen() && (inVault(x, z) || lz < BANK_PLAN.vaultWall.lz1 + 3)) {
+    // In the vault: the nearest pile of loot.
+    if (vaultOpen() && inVault(x, z)) {
       const l = nearestLoot("bank", x, z);
       if (l) return { id: `grab-${l.id}`, rob: { text: `Grab ${l.label} · ${usd(l.value)}`, loot: l.id } };
     }
-    if (bank.vaultAt >= 0) return null;
-    const atVault = Math.abs(lx) < 8 && lz < BANK_PLAN.vaultWall.lz1 + 5 && lz > BANK_PLAN.vaultWall.lz1;
-    if (atCounter) return { id: "bank-counter", talk: { text: "Talk to the teller" }, rob: { text: "Rob the bank!", start: "bank" } };
-    if (atVault) return { id: "bank-vault", rob: { text: "Crack the vault!", start: "bank" } };
+    if (atCounter) return bank.alarm ? { id: "bank-counter-alarm" } : { id: "bank-counter", talk: { text: "Talk to the teller" }, rob: { text: "Hold up the tellers", start: "bank" } };
     return null;
   }
   // ---- The jewelry shop ----
@@ -440,9 +445,7 @@ function nearestLoot(site: SiteKey, x: number, z: number) {
  * of a place that's closed.
  */
 export function heistBlocks(x: number, z: number, r: number) {
-  if (Math.abs(x - BANK.x) < 40 && Math.abs(z - BANK.z) < 50) {
-    if (!vaultOpen() && hitsBox(x, z, r, VAULT_DOOR_BOX)) return true;
-    for (const id in LOOT_BOXES) if (!isTaken(id) && hitsBox(x, z, r, LOOT_BOXES[id])) return true;
+  if (Math.abs(x - BANK.x) < 50 && Math.abs(z - BANK.z) < 60 && player.level === 1) {
     // Closed: the doors are locked to anyone outside (never to someone still inside: you can always get out).
     if (isClosed("bank") && outside(BANK, player.x, player.z) && hitsBox(x, z, r, BANK_DOORWAY)) return true;
   }
@@ -453,6 +456,8 @@ export function heistBlocks(x: number, z: number, r: number) {
 function outside(site: typeof BANK, x: number, z: number) {
   if (Math.abs(x - site.x) > 60 || Math.abs(z - site.z) > 60) return true;
   const { lx, lz } = toLocal(site, x, z);
+  // The bank: off its podium (down the front steps or the fire stairs).
+  if (site === BANK) return Math.abs(lx) > BANK_PLAN.halfW + 1 || lz > BANK_PLAN.porch + 1 || lz < -BANK_PLAN.depth - 1;
   return lz > 1.2 || Math.abs(lx) > 30;
 }
 const doorway = (site: typeof BANK, half: number, wall: number) => {

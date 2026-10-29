@@ -186,7 +186,7 @@ export function loseCash() {
 }
 
 /** What's in your pockets right now (not saved: a stolen keycard doesn't last). */
-export const pockets = { keycard: false };
+export const pockets = { keycard: false, bankCard: false };
 
 /** Your job title and pay at each level (promotions). */
 export const JOB_LEVELS = [
