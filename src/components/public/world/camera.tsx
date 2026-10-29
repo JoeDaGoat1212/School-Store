@@ -5,6 +5,7 @@ import { useFrame, useThree } from "@react-three/fiber";
 import * as THREE from "three";
 import { inStore, parkedSpots, player, walkBlocked } from "./bump";
 import { drive, input, moving } from "./drive";
+import { game } from "./heist";
 import { doors, EYE_HEIGHT, INSIDE_WORLD, nearestStation, STORE_SCALE, type Blocker, type Station, type StationKey } from "./world-layout";
 
 /*
@@ -266,6 +267,7 @@ export function CameraRig({
       shutDoors(drive.pos.x, drive.pos.z, false);
       cam.position.copy(s.pos);
       cam.lookAt(dirOf(s.yaw, s.pitch).add(s.pos));
+      shake(cam);
       return;
     }
     widen(cam as THREE.PerspectiveCamera, s.fov, dt);
@@ -274,7 +276,18 @@ export function CameraRig({
     if (player.hop) {
       player.hop = false;
       const to = new THREE.Vector3(player.x, EYE_HEIGHT, player.z);
-      s.flight = { from: s.pos.clone(), fromYaw: s.yaw, fromPitch: s.pitch, to, toYaw: player.yaw, toPitch: -0.05, start: -1, duration: calm ? 0.01 : 0.9, curve: null, key: "walk" };
+      const from = s.pos.clone();
+      const far = from.distanceTo(to);
+      // A long hop (to the city and back): up over the rooftops and down again.
+      const curve =
+        far > 60
+          ? new THREE.CatmullRomCurve3(
+              [from, new THREE.Vector3(from.x, 60 + far * 0.12, from.z), new THREE.Vector3((from.x + to.x) / 2, 90 + far * 0.15, (from.z + to.z) / 2), new THREE.Vector3(to.x, 40, to.z), to],
+              false,
+              "centripetal",
+            )
+          : null;
+      s.flight = { from, fromYaw: s.yaw, fromPitch: s.pitch, to, toYaw: player.yaw, toPitch: -0.05, start: -1, duration: calm ? 0.01 : curve ? 3.2 : 0.9, curve, key: "walk" };
     }
 
     // ---- Walking with the keys (inside and out) ----
@@ -383,9 +396,19 @@ export function CameraRig({
 
     cam.position.copy(s.pos);
     cam.lookAt(dirOf(s.yaw, s.pitch).add(s.pos));
+    shake(cam);
   });
 
   return null;
+}
+
+/** Shake the camera a little while something big happens (the vault door, glass smashing). */
+function shake(cam: THREE.Camera) {
+  const k = game.shake;
+  if (k <= 0) return;
+  cam.position.x += (Math.random() - 0.5) * k * 0.5;
+  cam.position.y += (Math.random() - 0.5) * k * 0.4;
+  cam.position.z += (Math.random() - 0.5) * k * 0.5;
 }
 
 /** Open the doors when (x, z) is close to them, shut them once it's far enough away. */

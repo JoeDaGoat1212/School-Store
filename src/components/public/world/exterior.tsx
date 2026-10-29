@@ -7,6 +7,7 @@ import * as THREE from "three";
 import { brand } from "@/config/brand";
 import { CREAM, ORANGE, TEAL, TEAL_DEEP, canvasTexture, seededRandom, noRaycast, signTexture, toonRamp } from "./paint";
 import { advanceOf, flameGeometry, letterGeometry } from "./text3d";
+import { CITY_PARKED } from "./city-layout";
 import { BUILDING, INSIDE, STORE, doors } from "./world-layout";
 
 /*
@@ -438,7 +439,7 @@ const STALL_W = 4.4;
 const STALLS = Array.from({ length: Math.floor((LOT_HALF * 2 - 4) / STALL_W) }, (_, i) => -LOT_HALF + 2 + i * STALL_W);
 const stallMid = (i: number) => STALLS[i] + STALL_W / 2;
 
-/** The parked cars: colour, where they start, and which way they face. */
+/** The parked cars: colour, where they start, and which way they face. (The last few are the getaway cars by the city bank.) */
 export const PARKED_CARS: { color: string; x: number; z: number; turn: number }[] = [
   { color: "#e5483b", x: stallMid(1), z: 10, turn: 0 },
   { color: "#13a8a0", x: stallMid(4), z: 10, turn: 0 },
@@ -447,6 +448,7 @@ export const PARKED_CARS: { color: string; x: number; z: number; turn: number }[
   { color: "#3d6fe0", x: stallMid(2), z: 27.5, turn: Math.PI },
   { color: "#ff7a2a", x: stallMid(7), z: 27.5, turn: Math.PI },
   { color: "#7b5cd6", x: stallMid(12), z: 27.5, turn: Math.PI },
+  ...CITY_PARKED,
 ];
 
 /** Trees around the lot and the store: x, z, size. */
@@ -497,9 +499,9 @@ export function Lot() {
 
   return (
     <group>
-      {/* Grass all around */}
+      {/* Grass all around (out past the city, too) */}
       <mesh rotation-x={-Math.PI / 2} position-y={-0.05} receiveShadow raycast={noRaycast}>
-        <planeGeometry args={[2600, 2600]} />
+        <planeGeometry args={[6000, 6000]} />
         <Toon color="#86c45a" />
       </mesh>
       {/* Asphalt */}

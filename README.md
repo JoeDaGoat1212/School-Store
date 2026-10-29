@@ -330,6 +330,38 @@ way to straighten up. A speedometer in the corner goes up to 100 mph; the brake 
 brake, reverse lights when you back up, and traffic brakes for you (and for anyone walking in the road). Phones get
 on-screen arrows for walking and driving.
 
+**The city.** East of the town (drive out of the lot and turn right along the main road, or tap **Go to the city**,
+top right, to fly straight there) is a cartoon city: a grid of busy streets with zebra crossings, giant skyscrapers in
+every colour (the tallest is 360 m, with a spire; others have antennas with blinking red lights, water towers, domes and
+helipads), a park with a fountain, a blimp drifting over the skyline, lots more people on the sidewalks and lots more
+traffic (plenty of yellow taxis). Three getaway cars are parked beside the bank. **Back to the store** flies you home.
+
+Two buildings in the city can be walked into, and robbed:
+
+- **City Bank** (a big columned bank with a gold dome, on your left as you drive in). Inside: a marble hall, three
+  tellers behind the counter, and the vault at the back. At the counter, **E** talks to the teller (put cash in the bank
+  or take it out) and **R** robs the bank: the alarm lights spin, the tellers put their hands up, a drill bites into the
+  vault door with sparks flying, the wheel spins, the bolts pull back with a clunk and the 20-ton door swings open on
+  gold bars and pallets of cash. Walk up to each pile and press **R** to grab it (the bills and bars fly into your pocket).
+- **Jewels** (the pink shop with the striped awning and the giant spinning diamond, across the road from the bank).
+  Walk up to a glass case and press **R** to smash it (glass flies everywhere, the gems fly to you), or grab **the Big
+  Rock** from behind the sweeping lasers in the middle (walking into the lasers sets the alarm off too).
+
+Once the alarm goes off the police come: two squad cars race over with their lights flashing and a helicopter circles
+overhead with its searchlight on you. **Get 230 m away before the timer runs out** (a getaway car helps) to keep the loot;
+if not, you're busted and the police take back what you grabbed. A little while after, the place is restocked and you
+can do it again. Phones get on-screen R and E buttons.
+
+**City money** is pretend US dollars, for the 3D world only: you start with $500, the money badge (top middle) shows your
+cash and what's in the bank, and cash in the bank is safe if you get busted. It's saved in the browser
+(`localStorage`), has nothing to do with the real shop, and can't be spent at checkout. Sound effects (siren, cash
+register, smashing glass) are made in the browser; the speaker button on the money badge mutes them.
+
+Where things are: the city's grid is in `city-plan.ts`; the skyscrapers, park, bank and jewelry shop layouts, the loot
+and the police routes are in `city-layout.ts`; they're drawn by `city.tsx` (skyline, park, blimp), `city-sites.tsx` (the
+bank and jewelry shop, inside and out) and `city-police.tsx`. The money and robberies are in `heist.ts`, the flying cash
+and glass in `city-fx.tsx`, the sounds in `city-audio.ts`, and the buttons over the world in `city-hud.tsx`.
+
 Everything is to the same scale: you're the size of the people walking about, with your eyes just above a car's roof,
 and the store is a real-size shop next to the cars. (The store is built in its own bigger units and drawn shrunk by
 `STORE_SCALE` in `world-layout.ts`.) The **Checkout** button only shows while you're inside the store.

@@ -1,4 +1,6 @@
+import { hitsCity } from "./city-layout";
 import { LAMPS, PARKED_CARS, TREES } from "./exterior";
+import { heistBlocks } from "./heist";
 import { hitsBox, townObstaclesNear, WORLD, type Box } from "./town-layout";
 import { doors, STORE, STORE_SCALE, type Blocker } from "./world-layout";
 
@@ -30,6 +32,8 @@ export type CarSpot = { x: number; z: number; heading: number };
 export const parkedSpots: CarSpot[] = PARKED_CARS.map((c) => ({ x: c.x, z: c.z, heading: c.turn }));
 /** Where each traffic car is now (traffic.tsx keeps this up to date). */
 export const trafficSpots: CarSpot[] = [];
+/** Where each police car is now (city-police.tsx keeps this up to date; far away while they're not out). */
+export const copSpots: CarSpot[] = Array.from({ length: 4 }, () => ({ x: -9999, z: -9999, heading: 0 }));
 
 export const CAR_RADIUS = 1.8;
 
@@ -65,8 +69,9 @@ export function inStore(x: number, z: number) {
   return Math.abs(x) < HW && z < 0 && z > -D;
 }
 
-/** Trees, lamp posts, houses and street lights: does a circle of radius r at (x, z) touch one? */
+/** Trees, lamp posts, houses, street lights and the city's buildings: does a circle of radius r at (x, z) touch one? */
 function hitsScenery(x: number, z: number, r: number) {
+  if (x > 470 && (hitsCity(x, z, r) || heistBlocks(x, z, r))) return true;
   for (const [lx, lz] of LAMPS) if (Math.hypot(x - lx, z - lz) < r + 0.35) return true;
   for (const [tx, tz, s] of TREES) if (Math.hypot(x - tx, z - tz) < r + 0.6 * s) return true;
   const near = townObstaclesNear(x, z);
@@ -77,7 +82,7 @@ function hitsScenery(x: number, z: number, r: number) {
 
 /** Does a circle at (x, z) touch any car (except `skip`)? */
 function hitsCar(x: number, z: number, r: number, skip?: CarSpot) {
-  for (const list of [parkedSpots, trafficSpots])
+  for (const list of [parkedSpots, trafficSpots, copSpots])
     for (const c of list) {
       if (c === skip || Math.abs(c.x - x) > 8 || Math.abs(c.z - z) > 8) continue;
       for (const p of carCircles(c)) if (Math.hypot(x - p.x, z - p.z) < r + CAR_RADIUS) return true;

@@ -29,13 +29,13 @@ import {
 const dummy = new THREE.Object3D();
 const tmp = new THREE.Vector3();
 
-type Place = (i: number, o: THREE.Object3D) => string | void;
+export type Place = (i: number, o: THREE.Object3D) => string | void;
 
 /**
  * Many copies of one shape in a single draw: `place` puts copy i (and can
  * return its colour). Can't be tapped.
  */
-function Instances({
+export function Instances({
   count,
   place,
   geometry,

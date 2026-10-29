@@ -22,6 +22,7 @@ import { modelFor, sectionFor, unitFor, UNITS, type UnitKey } from "../store/cat
 import { unitLayout, type StoreItem } from "../store/layout";
 import type { TillDisplay, TillUnit } from "./checkout-scene";
 import { TouchPad, useMovementKeys } from "./drive";
+import { CityHud } from "./city-hud";
 import { Speedometer } from "./speedometer";
 import type { BoardCard } from "./fixtures";
 import { LoadingScreen } from "./loading-screen";
@@ -41,6 +42,10 @@ import WorldScene from "./world-scene";
  *   3. Inside, floor arrows walk you around (deals board, drinks, snacks, candy).
  *   4. Tap a product to add it to your cart.
  *   5. "Checkout" takes you to the registers and rings you up.
+ *
+ * Next to the town is a city (drive east along the main road, or tap "Go to
+ * the city"), with a bank and a jewelry shop you can walk into and rob, and
+ * pretend US-dollar money to go with it. Its buttons are in city-hud.tsx.
  */
 
 export type Priced = { item: MenuItem; shown: ShownPrice };
@@ -146,6 +151,8 @@ export default function WorldApp({
   const [nearCar, setNearCar] = useState<number | null>(null);
   /** Are you in the store? (The Checkout button only shows in there.) */
   const [inside, setInside] = useState(startInside);
+  /** The city bank's teller window is open. */
+  const [cityPanel, setCityPanel] = useState(false);
   const counter = useRef(0);
   const sidebarScroll = useRef<HTMLDivElement>(null);
   const { progress, active } = useProgress();
@@ -323,7 +330,7 @@ export default function WorldApp({
   }, []);
 
   // Arrow keys / WASD walk you round the store (or drive a car), unless a panel is open.
-  useMovementKeys(!dealsOpen && !requestsOpen && !sidebar && !till);
+  useMovementKeys(!dealsOpen && !requestsOpen && !sidebar && !till && !cityPanel);
 
   // Escape closes the deals list (and gets you out of a car).
   useEffect(() => {
@@ -338,7 +345,7 @@ export default function WorldApp({
   }, []);
 
   // E: get into the car you're next to, or get out of the one you're driving.
-  const panelOpen = dealsOpen || requestsOpen || sidebar || Boolean(till);
+  const panelOpen = dealsOpen || requestsOpen || sidebar || Boolean(till) || cityPanel;
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.code !== "KeyE" || e.repeat || e.ctrlKey || e.metaKey || e.altKey || panelOpen) return;
@@ -533,6 +540,15 @@ export default function WorldApp({
           <TouchPad mode="walk" />
         </>
       )}
+
+      {/* The city: your money, robberies, the teller, and the quick hop to the city and back */}
+      <CityHud
+        show={station !== "outside" && ready}
+        canTravel={driving === null && !inside && station !== "outside" && !moving && !till}
+        nearCar={nearCar !== null}
+        calm={calm}
+        onPanel={setCityPanel}
+      />
 
       {/* Top corners: the logo, and your rewards account */}
       <div className="pointer-events-none absolute inset-x-0 top-0 flex items-start justify-between gap-3 p-3 sm:p-4">

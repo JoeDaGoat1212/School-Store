@@ -18,13 +18,18 @@ import { RequestDesk } from "./request-desk";
 import { parkedSpots, player, trafficSpots } from "./bump";
 import { Cars, drive, input } from "./drive";
 import { Town } from "./town";
+import { City } from "./city";
+import { CityGame } from "./city-fx";
+import { Police } from "./city-police";
+import { Bank, Jewelry } from "./city-sites";
 import { Smoke } from "./smoke";
 import { Traffic } from "./traffic";
 import { BULLETIN, BUILDING, LANES, STORE_SCALE, blockers, doors, placeUnits, stations, unitAt, worldStations, type Place, type StationKey } from "./world-layout";
 
 /*
- * The whole 3D world in one <Canvas>: sky, town, parking lot, the store
- * building and everything inside it. The store is built in its own (bigger)
+ * The whole 3D world in one <Canvas>: sky, town, the city next to it (with
+ * the bank and jewelry shop you can rob), parking lot, the store building
+ * and everything inside it. The store is built in its own (bigger)
  * units and drawn shrunk by STORE_SCALE, so people are the same size inside
  * and out (see world-layout.ts). React Three Fiber lets us write three.js as React
  * components. This file only puts things in place and passes taps up to
@@ -97,8 +102,8 @@ export default function WorldScene(props: WorldSceneProps) {
       gl={{ antialias: true, powerPreference: "high-performance" }}
     >
       <color attach="background" args={[spooky ? "#ffd2a4" : "#a9dcfb"]} />
-      {/* Haze in the distance, so the far end of town fades softly into the sky */}
-      <fog attach="fog" args={[spooky ? "#ffd8b0" : "#d9effc", 180, 720]} />
+      {/* Haze in the distance, so the far end of town fades softly into the sky (far enough out that the city's skyline shows from the store) */}
+      <fog attach="fog" args={[spooky ? "#ffd8b0" : "#d9effc", 240, 1150]} />
       <PerformanceMonitor onDecline={() => setShadows(false)} />
       <CameraRig stations={worldSpots} current={station} calm={calm} onArrive={props.onArrive} blockers={walls} onWalk={props.onWalk} onNearCar={props.onNearCar} onInside={props.onInside} />
       <FirstFrame onReady={props.onReady} />
@@ -121,6 +126,12 @@ export default function WorldScene(props: WorldSceneProps) {
           {/* The neighbourhood round the store: streets, houses, trees, people walking */}
           <Town />
           <Traffic calm={calm} />
+          {/* The city: skyscrapers, the park, and the bank and jewelry shop (both robbable) */}
+          <City />
+          <Bank />
+          <Jewelry />
+          <Police />
+          <CityGame calm={calm} />
           <Smoke />
           {/* The parked cars: walk up to one and press E (or tap it) to drive it */}
           <Cars driving={props.driving} canPick={props.driving === null && !moving ? props.nearCar : null} calm={calm} onPick={props.onPickCar} onBump={props.onBump} />
@@ -257,26 +268,27 @@ function Sun({ shadows, warm }: { shadows: boolean; warm: boolean }) {
     const x = Math.round((state.camera.position.x + look.x * 30) / 4) * 4;
     const z = Math.round((state.camera.position.z + look.z * 30) / 4) * 4;
     if (l.target.position.x === x && l.target.position.z === z - 10) return;
-    l.position.set(x + 34, 60, z + 46);
+    // (Same angle as ever, just twice as far up, so the city's tall towers still cast shadows.)
+    l.position.set(x + 68, 120, z + 92);
     l.target.position.set(x, 0, z - 10);
     l.target.updateMatrixWorld();
   });
   return (
     <directionalLight
       ref={light}
-      position={[34, 60, 46]}
+      position={[68, 120, 92]}
       intensity={2.1}
       color={warm ? "#ffd6a8" : "#fff3df"}
       castShadow={shadows}
       shadow-mapSize={[2048, 2048]}
-      shadow-bias={-0.0004}
+      shadow-bias={-0.0002}
       shadow-normalBias={0.04}
       shadow-camera-left={-75}
       shadow-camera-right={75}
       shadow-camera-top={75}
       shadow-camera-bottom={-75}
       shadow-camera-near={10}
-      shadow-camera-far={180}
+      shadow-camera-far={420}
     />
   );
 }
