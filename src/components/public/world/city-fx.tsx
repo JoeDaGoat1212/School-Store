@@ -196,11 +196,11 @@ function Effects({ calm }: { calm: boolean }) {
       <group ref={rock} visible={false}>
         <mesh position-y={0.2} raycast={noRaycast}>
           <cylinderGeometry args={[0.55, 1, 0.4, 8]} />
-          <meshToonMaterial color="#9ff3ff" emissive="#9ff3ff" emissiveIntensity={0.3} gradientMap={toonRamp()} flatShading />
+          <meshStandardMaterial color="#9ff3ff" emissive="#9ff3ff" emissiveIntensity={0.3} roughness={0.15} metalness={0.1} flatShading />
         </mesh>
         <mesh position-y={-0.6} rotation-x={Math.PI} raycast={noRaycast}>
           <coneGeometry args={[1, 1.2, 8]} />
-          <meshToonMaterial color="#9ff3ff" emissive="#9ff3ff" emissiveIntensity={0.2} gradientMap={toonRamp()} flatShading />
+          <meshStandardMaterial color="#9ff3ff" emissive="#9ff3ff" emissiveIntensity={0.2} roughness={0.15} metalness={0.1} flatShading />
         </mesh>
       </group>
     </group>

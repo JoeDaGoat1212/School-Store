@@ -913,11 +913,11 @@ function Diamond({ size, color }: { size: number; color: string }) {
     <group scale={size}>
       <mesh position-y={0.2} raycast={noRaycast}>
         <cylinderGeometry args={[0.55, 1, 0.4, 8]} />
-        <meshToonMaterial color={color} emissive={color} emissiveIntensity={0.25} gradientMap={toonRamp()} flatShading />
+        <meshStandardMaterial color={color} emissive={color} emissiveIntensity={0.25} roughness={0.15} metalness={0.1} flatShading />
       </mesh>
       <mesh position-y={-0.6} rotation-x={Math.PI} raycast={noRaycast}>
         <coneGeometry args={[1, 1.2, 8]} />
-        <meshToonMaterial color={color} emissive={color} emissiveIntensity={0.15} gradientMap={toonRamp()} flatShading />
+        <meshStandardMaterial color={color} emissive={color} emissiveIntensity={0.15} roughness={0.15} metalness={0.1} flatShading />
       </mesh>
     </group>
   );
