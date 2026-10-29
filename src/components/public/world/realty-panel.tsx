@@ -242,7 +242,7 @@ export function HomePicture({ h, big }: { h: Home; big?: boolean }) {
       {h.style === "tuscan" && <rect x={x0 + W - 34} y={top - 40} width={26} height={H + 40} fill={h.wall} stroke="#0002" />}
       {/* Windows */}
       {Array.from({ length: Math.max(1, h.floors) }, (_, f) =>
-        Array.from({ length: Math.max(2, Math.round(W / 34)) }, (_, i, a) => (
+        Array.from({ length: Math.max(2, Math.round(W / 34)) }).map((_, i, a) => (
           <rect key={`${f}-${i}`} x={x0 + 10 + (i * (W - 30)) / (a.length - 1)} y={base - (f + 1) * (H / Math.max(1, h.floors)) + 10} width={glass ? (W - 30) / a.length + 4 : 12} height={H / Math.max(1, h.floors) - 22} fill={glass ? "#9fd3f0" : "#cfe9f5"} stroke={h.trim} strokeWidth={2} />
         )),
       )}

@@ -16,7 +16,7 @@ import { SHOPS, type ShopKey } from "./world-map";
 
 const KEYS = Object.keys(SHOPS) as ShopKey[];
 /** Would someone on foot bump into something here? (Like bump.ts's walkBlocked, without the cars.) */
-function walkBlocked(x: number, z: number, _inside: unknown[]) {
+function walkBlocked(x: number, z: number) {
   const r = 0.9;
   if (roomsBlock(x, z, r) || hitsCity(x, z, r) || heistBlocks(x, z, r)) return true;
   const near = townObstaclesNear(x, z);
@@ -50,11 +50,11 @@ describe("the shops", () => {
         for (let s = 0; s <= 20; s++) {
           const x = pts[i].x + ((pts[i + 1].x - pts[i].x) * s) / 20;
           const z = pts[i].z + ((pts[i + 1].z - pts[i].z) * s) / 20;
-          expect(walkBlocked(x, z, []), `${k} at ${x.toFixed(1)}, ${z.toFixed(1)}`).toBe(false);
+          expect(walkBlocked(x, z), `${k} at ${x.toFixed(1)}, ${z.toFixed(1)}`).toBe(false);
         }
       // Staff get behind the counter through the gap at its right end.
       const gap = roomPoint(k, P.counter.lx1 + 2.5, -10.4);
-      expect(walkBlocked(gap.x, gap.z, [])).toBe(false);
+      expect(walkBlocked(gap.x, gap.z)).toBe(false);
       expect(shopAt(roomPoint(k, 0, -5).x, roomPoint(k, 0, -5).z)).toBe(k);
     }
   });
@@ -115,19 +115,19 @@ describe("homes", () => {
     const h = HOMES[0];
     const P = homePlan(h);
     const door = homePoint(h, 0, -0.2);
-    expect(walkBlocked(door.x, door.z, [])).toBe(true);
+    expect(walkBlocked(door.x, door.z)).toBe(true);
     profile.cash = 200000;
     expect(buyHome(h.id)).toBeNull();
-    expect(walkBlocked(door.x, door.z, [])).toBe(false);
+    expect(walkBlocked(door.x, door.z)).toBe(false);
     const living = homePoint(h, P.living.lx + 2, P.living.lz);
-    expect(walkBlocked(living.x, living.z, [])).toBe(false);
+    expect(walkBlocked(living.x, living.z)).toBe(false);
   });
   it("in Crescent Heights are behind a gate", () => {
     access.gateOpenUntil = 0;
     access.now = 10;
-    expect(walkBlocked(6, 572, [])).toBe(true);
+    expect(walkBlocked(6, 572)).toBe(true);
     access.gateOpenUntil = 20;
-    expect(walkBlocked(6, 572, [])).toBe(false);
+    expect(walkBlocked(6, 572)).toBe(false);
   });
 });
 

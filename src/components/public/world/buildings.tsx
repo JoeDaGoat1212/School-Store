@@ -194,7 +194,7 @@ export function Shell({ room, style, children }: { room: Room; style: ShellStyle
       </mesh>
       <Block x0={-W} x1={W} y0={H - 0.3} y1={H} z0={-D} z1={0} m={inside} />
       {/* Ceiling lights */}
-      {Array.from({ length: Math.max(1, Math.floor(W / 5)) }, (_, i, a) => (
+      {Array.from({ length: Math.max(1, Math.floor(W / 5)) }).map((_, i, a) => (
         <mesh key={i} geometry={BOX} material={mat("#ffffff", 0.5, 0, "#fff6e0")} position={[-W + ((i + 0.5) * 2 * W) / a.length, H - 0.34, -D / 2]} scale={[1.6, 0.06, D * 0.6]} raycast={noRaycast} />
       ))}
       {/* Side and back walls: outside face and inside face */}
@@ -212,7 +212,7 @@ export function Shell({ room, style, children }: { room: Room; style: ShellStyle
           <Block x0={s < 0 ? -W : room.doorHalf} x1={s < 0 ? -room.doorHalf : W} y0={0} y1={0.7} z0={-t} z1={0} m={outside} />
           <mesh geometry={BOX} material={GLASS} position={[(s * (W + room.doorHalf)) / 2, (0.7 + glassTop) / 2, -t / 2]} scale={[W - room.doorHalf, glassTop - 0.7, 0.08]} raycast={noRaycast} />
           {/* Mullions */}
-          {Array.from({ length: Math.max(1, Math.round((W - room.doorHalf) / 3.2)) + 1 }, (_, i, a) => (
+          {Array.from({ length: Math.max(1, Math.round((W - room.doorHalf) / 3.2)) + 1 }).map((_, i, a) => (
             <mesh key={i} geometry={BOX} material={trim} position={[s * (room.doorHalf + ((W - room.doorHalf) * i) / (a.length - 1)), (0.7 + glassTop) / 2, -t / 2]} scale={[0.14, glassTop - 0.7, t + 0.04]} raycast={noRaycast} />
           ))}
         </group>
