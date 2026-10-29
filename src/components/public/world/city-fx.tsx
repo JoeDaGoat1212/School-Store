@@ -15,7 +15,7 @@ import { tickJail } from "./jail-state";
 import { tickPolice } from "./police-state";
 import { life, revive, tickLife } from "./life";
 import { loseCash, profile } from "./profile";
-import { noRaycast, toonRamp } from "./paint";
+import { noRaycast } from "./paint";
 import { puff } from "./smoke";
 
 /*
@@ -215,11 +215,11 @@ function Effects({ calm }: { calm: boolean }) {
     <group>
       <instancedMesh ref={set("bills")} args={[undefined, undefined, MAX.bills]} frustumCulled={false} raycast={noRaycast}>
         <boxGeometry args={[0.7, 0.02, 0.32]} />
-        <meshToonMaterial color="#6cc04a" gradientMap={toonRamp()} />
+        <meshStandardMaterial color="#6cc04a" roughness={0.78} />
       </instancedMesh>
       <instancedMesh ref={set("gold")} args={[undefined, undefined, MAX.gold]} frustumCulled={false} raycast={noRaycast}>
         <boxGeometry args={[0.5, 0.25, 0.26]} />
-        <meshToonMaterial color="#ffcc33" emissive="#4a3200" gradientMap={toonRamp()} />
+        <meshStandardMaterial color="#ffcc33" emissive="#4a3200" roughness={0.78} />
       </instancedMesh>
       <instancedMesh ref={set("gems")} args={[undefined, undefined, MAX.gems]} frustumCulled={false} raycast={noRaycast}>
         <octahedronGeometry args={[0.18]} />

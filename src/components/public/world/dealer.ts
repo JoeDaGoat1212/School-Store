@@ -1,3 +1,4 @@
+import { carBlocked, player } from "./bump";
 import { addBought, fleet } from "./fleet";
 import { notify } from "./game-events";
 import { banner, pop } from "./heist";
@@ -38,14 +39,24 @@ export function buyCar(modelId: string, color: string) {
   return null;
 }
 
-/** Bring a car you own to just outside the dealership (if you've lost it somewhere). */
-export function fetchCar(id: string) {
+/** Have a car you own delivered to you (next to you, wherever there's room). Returns false if there's no room here. */
+export function bringCar(id: string) {
   const v = fleet.find((x) => x.id === id);
-  if (!v) return;
-  const spot = roomPoint("dealer", 26, 6);
-  Object.assign(v.spot, { x: spot.x, z: spot.z, heading: Math.PI / 2 });
-  v.alt = 0;
-  notify();
+  if (!v || v.spot === undefined) return false;
+  for (const r of [6, 9, 12, 16])
+    for (let k = 0; k < 12; k++) {
+      const a = player.yaw + (k * Math.PI) / 6;
+      const spot = { x: player.x - Math.sin(a) * r, z: player.z - Math.cos(a) * r, heading: player.yaw };
+      if (!carBlocked(spot, v.spot, [{ x: player.x, z: player.z }])) {
+        Object.assign(v.spot, spot);
+        v.alt = 0;
+        banner("info", "Delivered!", `Your ${modelOf(v.model).name} is right here.`, 2.5);
+        notify();
+        return true;
+      }
+    }
+  banner("info", "No room here", "Find an open space (a road or a car park) and try again.", 2.5);
+  return false;
 }
 
 provide("dealer", (you) => {

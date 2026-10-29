@@ -330,37 +330,84 @@ way to straighten up. A speedometer in the corner goes up to 100 mph; the brake 
 brake, reverse lights when you back up, and traffic brakes for you (and for anyone walking in the road). Phones get
 on-screen arrows for walking and driving.
 
-**The city.** East of the town (drive out of the lot and turn right along the main road, or tap **Go to the city**,
-top right, to fly straight there) is a cartoon city: a grid of busy streets with zebra crossings, giant skyscrapers in
-every colour (the tallest is 360 m, with a spire; others have antennas with blinking red lights, water towers, domes and
-helipads), a park with a fountain, a blimp drifting over the skyline, lots more people on the sidewalks and lots more
-traffic (plenty of yellow taxis). Three getaway cars are parked beside the bank. **Back to the store** flies you home.
+**The city.** East of the town (drive out of the lot and turn right along the main road, or use **Go to…**, top
+right) is a big city: a grid of busy streets with zebra crossings, giant glass skyscrapers, a park with a fountain, a
+blimp, crowds on the sidewalks and lots of traffic (sedans, hatchbacks, SUVs, pickups and yellow taxis).
 
-Two buildings in the city can be walked into, and robbed:
+**The map.** The main road runs west to **Firebird International** (the airport: runway with markings and lights,
+taxiway, apron, a terminal you can walk through with check-in desks and a departures board, the control tower, a hangar
+and a parked airliner) and east to the **County Correctional Facility** (the jail). North of everything are **the
+mountains** (snowy peaks, pine forests, and a winding mountain road with guard rails up to a hidden valley). South of the
+town, **Willow Lane** runs down to the gated community of **Crescent Heights**.
 
-- **City Bank** (a big columned bank with a gold dome, on your left as you drive in). Inside: a marble hall, three
-  tellers behind the counter, and the vault at the back. At the counter, **E** talks to the teller (put cash in the bank
-  or take it out) and **R** robs the bank: the alarm lights spin, the tellers put their hands up, a drill bites into the
-  vault door with sparks flying, the wheel spins, the bolts pull back with a clunk and the 20-ton door swings open on
-  gold bars and pallets of cash. Walk up to each pile and press **R** to grab it (the bills and bars fly into your pocket).
-- **Jewels** (the pink shop with the striped awning and the giant spinning diamond, across the road from the bank).
-  Walk up to a glass case and press **R** to smash it (glass flies everywhere, the gems fly to you), or grab **the Big
-  Rock** from behind the sweeping lasers in the middle (walking into the lasers sets the alarm off too).
+**You.** Walk with WASD, run with Shift, **jump** with Space, and press **V** (or use the mouse wheel) to zoom out to
+**third person** and back. Your hunger runs down over about 18 minutes: eat on Restaurant Row or you'll start starving
+and pass out (you wake up at home, or the store, without the cash you were carrying). Press **I** for your **wallet**:
+your city ID card (name, ID number, address), cash, bank card, car keys (with "Bring it here"), house keys, jobs and
+anything you've pickpocketed.
 
-Once the alarm goes off the police come: two squad cars race over with their lights flashing and a helicopter circles
-overhead with its searchlight on you. **Get 230 m away before the timer runs out** (a getaway car helps) to keep the loot;
-if not, you're busted and the police take back what you grabbed. A little while after, the place is restocked and you
-can do it again. Phones get on-screen R and E buttons.
+**Vehicles.** Any parked car: walk up and press E. Each model drives differently (top speed, acceleration and grip
+come from `vehicles.ts`), motorbikes lean into corners, and the speedometer goes up to the vehicle's top speed. At the
+airport there are two **planes** (W/S throttle, A/D bank and turn, Space pull up, Shift dive; take off past 55 mph) and
+two **helicopters** (Space/Shift up and down, W/S forward and back, A/D turn). Jump out mid-air (E) and press Space to
+open your **parachute**; hit the ground too fast without one and that's it. Crash hard and the aircraft burns, then
+respawns.
 
-**City money** is pretend US dollars, for the 3D world only: you start with $500, the money badge (top middle) shows your
-cash and what's in the bank, and cash in the bank is safe if you get busted. It's saved in the browser
-(`localStorage`), has nothing to do with the real shop, and can't be spent at checkout. Sound effects (siren, cash
-register, smashing glass) are made in the browser; the speaker button on the money badge mutes them.
+**Robbing the bank and the jewelry shop** (now at opposite corners of the city). In **City Bank**, **R** at the counter
+sets it off: alarm lights spin, the tellers put their hands up, the drill cracks the vault and the door swings open.
+Grab the gold and cash (R), but **jump the lasers** sweeping the vault floor: touching one kills you instantly. In
+**Jewels**, smash the cases (R) and time the lifting lasers to grab the Big Rock. The loot isn't yours yet: **get it to
+the secret base in the mountains before the timer runs out** (the arrow on the wanted panel points the way: up the
+mountain road, to a rock face whose hidden doors slide apart for you, and into the hangar inside the mountain). Too
+slow and you dump it. Walk out of a robbed place and it **closes for 30 minutes** (a countdown floats over it).
 
-Where things are: the city's grid is in `city-plan.ts`; the skyscrapers, park, bank and jewelry shop layouts, the loot
-and the police routes are in `city-layout.ts`; they're drawn by `city.tsx` (skyline, park, blimp), `city-sites.tsx` (the
-bank and jewelry shop, inside and out) and `city-police.tsx`. The money and robberies are in `heist.ts`, the flying cash
-and glass in `city-fx.tsx`, the sounds in `city-audio.ts`, and the buttons over the world in `city-hud.tsx`.
+**The police.** Squad cars chase you with sirens and a helicopter follows with a searchlight (which stops at roofs, it
+doesn't shine through buildings). Get out of the car and the officers jump out too, run after you, and **handcuff**
+you; you're walked to the car, driven off, and the screen fades to **jail**: an orange jumpsuit and a cell whose door
+slides open after 30 seconds. The jail has cell blocks, a gym, a guard room, a lobby and a fenced yard with
+watchtowers, and armed guards on patrol. **Sneak up behind a guard and press F to pickpocket their keycard** (get seen
+and you're thrown back in your cell): with it, every security door opens. Out through the lobby and you're free.
+
+**Jobs on Restaurant Row** (north-east of the bank): **Slice Society** (pizza), **Polar Scoops** (ice cream), **Bean
+There** (coffee), **Smash Stack** (burgers) and **Petal & Stem** (flowers). Walk in and ask for a job application (Q),
+fill in the résumé, and it goes to **Admin → City jobs**, where staff hire you (or not). Once you're hired, **clock in**
+(R). Customers come in at random (rushes, steady spells and quiet times), order at the kiosk by the door and wait at
+the counter. **Take their order** on the screen on the counter, then at the prep table **make it by hand**: pizzas
+(size, sauce, cheese, then tap the toppings onto the pizza and bake it in the wood-fired oven, taking it out when it's
+golden), ice cream (cone or cup, the scoops in order, then hold to scoop each one), coffee (drink, size, milk, syrup,
+topping, then pull the espresso shot), burgers (bun, patties, toppings, sauce, then grill and flip each patty) and
+bouquets (flowers, wrapping, ribbon, card, then trim the stems). Hand it over at the counter. Every customer has a
+patience bar: too slow and they walk out, and **three walkouts in a shift gets you fired**. Pay starts at **$15.50 an
+hour** (an hour of shift time is 40 seconds), paid into your bank when you clock out, plus tips for good, fast food;
+serve enough happy customers and you're **promoted** (Crew Member, Senior Crew, Shift Lead, Assistant Manager, Store
+Manager: up to $30 an hour). When nobody's working a shop, an NPC works it. When you're not on shift you can buy food
+there (it fills you up).
+
+**Apex Motors** (the glass showroom by the bank) sells 20 cars and bikes you won't see on the roads, at real-world
+prices: motorcycles from a $4,299 scooter to a $34,500 superbike, sedans, SUVs, a pickup, sports cars and supercars up
+to a $3,000,000 hypercar. The pricier, the faster (top speed and 0–60 are real-ish). Browse on the big screen (E), spin
+the 3D preview, pick a colour and buy it; it waits in the lot outside and stays wherever you park it.
+
+**Homes.** At **Keystone Realty** (on the avenue behind Restaurant Row), talk to the agent (E) to see every home for
+sale, from **$150,000** (Sparrow Cottage) to **$20,000,000** (the Crescent Crown), bigger as they get pricier. Every
+home gets a **tour** first: the camera sweeps round the outside, in through the front door, the living room, kitchen,
+bedroom and up over the grounds (pools, tennis courts, a helipad…). Then buy it: the door opens for you, the keys are in
+your wallet, and you wake up there. The million-dollar homes are inside **Crescent Heights**, behind a stone wall: the
+guard at the gatehouse asks for your ID and only lets residents in. The town's ordinary houses come in five styles
+(classic, two-storey, modern, bungalow, farmhouse), some with garages.
+
+**Your game is saved**: signed in, to your account (cash, bank, cars, homes, jobs; database update 13), otherwise in
+this browser. **City money** is pretend US dollars for the 3D world only: it has nothing to do with the real shop and
+can't be spent at checkout. The speaker button on the money badge mutes the sound effects.
+
+Where things are (all in `src/components/public/world/`): the big map is `world-map.ts`; the mountains, road and base
+are `terrain.ts` and `mountains.tsx`; people are `humanoid.tsx`; cars are `car-model.tsx`, `vehicles.ts` (models and
+prices), `fleet.ts` and `drive.tsx`; aircraft `flight.tsx`; robberies `heist.ts` and `city-sites.tsx`; police
+`police-state.ts` and `police.tsx`; the jail `jail-layout.ts`, `jail-state.ts` and `jail.tsx`; the walk-in buildings
+`rooms.ts` and `buildings.tsx`; jobs `menus.ts`, `jobs.ts` and `job-panels.tsx`; the dealership `dealer.ts`,
+`dealer-panel.tsx` and `showroom.tsx`; homes `houses-layout.ts`, `home-models.tsx`, `realty.ts` and `realty-panel.tsx`;
+the airport `airport.tsx`; your money and save `profile.ts`; hunger `life.ts`; and the buttons over the world
+`city-hud.tsx`. Job applications are reviewed in `src/app/admin/jobs`.
 
 Everything is to the same scale: you're the size of the people walking about, with your eyes just above a car's roof,
 and the store is a real-size shop next to the cars. (The store is built in its own bigger units and drawn shrunk by

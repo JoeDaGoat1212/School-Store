@@ -8,7 +8,8 @@ import { BANK, BANK_PLAN, JEWELRY, JEWELRY_PLAN, LOOT, toWorld, type Loot, type 
 import { drive } from "./drive";
 import { SITE_CENTER, VAULT, closedFor, game, isClosed, isTaken, jewelryLasers, jewelryLasersOn, vaultLasers, vaultLasersOn, vaultTime } from "./heist";
 import type { SiteKey } from "./city-layout";
-import { canvasTexture, noRaycast, seededRandom, signTexture, toonRamp } from "./paint";
+import { canvasTexture, noRaycast, seededRandom, signTexture } from "./paint";
+import { Humanoid, newPose, type Look } from "./humanoid";
 import { puff } from "./smoke";
 import { letterGeometry } from "./text3d";
 
@@ -31,7 +32,7 @@ import { letterGeometry } from "./text3d";
  * city-layout.ts. What happens (alarms, what's been taken) is in heist.ts.
  */
 
-const Toon = ({ color, emissive }: { color: string; emissive?: string }) => <meshToonMaterial color={color} emissive={emissive ?? "#000000"} gradientMap={toonRamp()} />;
+const Toon = ({ color, emissive }: { color: string; emissive?: string }) => <meshStandardMaterial color={color} emissive={emissive ?? "#000000"} roughness={0.78} />;
 
 /** A box from (x0, y0, z0) to (x1, y1, z1), in the building's own frame. */
 function Slab({ x0, x1, y0, y1, z0, z1, color, cast = false, children }: { x0: number; x1: number; y0: number; y1: number; z0: number; z1: number; color?: string; cast?: boolean; children?: React.ReactNode }) {
@@ -89,82 +90,21 @@ function checker(g: CanvasRenderingContext2D, a: string, b: string, line: string
 
 // ---- People behind the counters ------------------------------------------------------------------
 
-/**
- * A cartoon person (the same build as the people out walking). Puts their
- * hands up and trembles while `scared()` says so.
- */
+/** A person (a teller, the shopkeeper). Puts their hands up and trembles while `scared()` says so. */
 function Person({ position, turn = 0, shirt, skin, hair = "#2a1a12", tie, scared }: { position: [number, number, number]; turn?: number; shirt: string; skin: string; hair?: string; tie?: string; scared: () => boolean }) {
-  const s = 0.86;
-  const arms = useRef<(THREE.Group | null)[]>([]);
+  const look = useMemo<Look>(() => ({ skin, hair, hairStyle: tie ? "short" : "bun", shirt, pants: "#2b2f36", shoes: "#1b1d21", outfit: tie ? "suit" : "casual", accent: tie }), [skin, hair, shirt, tie]);
+  const pose = useMemo(newPose, []);
   const body = useRef<THREE.Group>(null);
-  const up = useRef(0);
   useFrame((state, delta) => {
     const t = state.clock.elapsedTime;
-    up.current = THREE.MathUtils.damp(up.current, scared() ? 1 : 0, 6, delta);
-    const u = up.current;
-    arms.current.forEach((a, i) => {
-      if (!a) return;
-      // Down by their sides (swinging a little), or straight up.
-      a.rotation.x = Math.PI * 0.95 * u + Math.sin(t * 1.3 + i) * 0.05 * (1 - u);
-      a.rotation.z = (i ? -1 : 1) * 0.28 * u;
-    });
-    if (body.current) {
-      body.current.position.y = Math.abs(Math.sin(t * 1.6)) * 0.03 + (u > 0.5 ? Math.sin(t * 40) * 0.03 : 0);
-      body.current.rotation.y = u > 0.5 ? Math.sin(t * 3) * 0.12 : 0;
-    }
+    pose.handsUp = THREE.MathUtils.damp(pose.handsUp, scared() ? 1 : 0, 6, delta);
+    if (body.current) body.current.rotation.y = pose.handsUp > 0.5 ? Math.sin(t * 3) * 0.12 : 0;
+    if (body.current) body.current.position.x = pose.handsUp > 0.5 ? Math.sin(t * 40) * 0.02 : 0;
   });
   return (
     <group position={position} rotation-y={turn}>
-      <group ref={body} scale={s}>
-        <mesh position-y={2.3} raycast={noRaycast}>
-          <boxGeometry args={[0.95, 1.6, 0.55]} />
-          <Toon color={shirt} />
-        </mesh>
-        {tie && (
-          <mesh position={[0, 2.55, 0.29]} raycast={noRaycast}>
-            <boxGeometry args={[0.18, 0.9, 0.04]} />
-            <Toon color={tie} />
-          </mesh>
-        )}
-        <mesh position-y={3.55} raycast={noRaycast}>
-          <sphereGeometry args={[0.42, 16, 12]} />
-          <Toon color={skin} />
-        </mesh>
-        <mesh position={[0, 3.72, -0.05]} raycast={noRaycast}>
-          <sphereGeometry args={[0.4, 12, 8, 0, Math.PI * 2, 0, Math.PI / 2]} />
-          <Toon color={hair} />
-        </mesh>
-        {/* Eyes */}
-        {[-1, 1].map((k) => (
-          <mesh key={k} position={[k * 0.15, 3.6, 0.38]} raycast={noRaycast}>
-            <sphereGeometry args={[0.055, 8, 6]} />
-            <meshBasicMaterial color="#1b1d21" />
-          </mesh>
-        ))}
-        {[-1, 1].map((k) => (
-          <mesh key={`l${k}`} position={[k * 0.2, 0.75, 0]} raycast={noRaycast}>
-            <boxGeometry args={[0.3, 1.5, 0.32]} />
-            <Toon color="#2b2f36" />
-          </mesh>
-        ))}
-        {[-1, 1].map((k, i) => (
-          <group
-            key={`a${k}`}
-            position={[k * 0.6, 3.0, 0]}
-            ref={(g) => {
-              arms.current[i] = g;
-            }}
-          >
-            <mesh position-y={-0.62} raycast={noRaycast}>
-              <boxGeometry args={[0.22, 1.25, 0.24]} />
-              <Toon color={shirt} />
-            </mesh>
-            <mesh position-y={-1.3} raycast={noRaycast}>
-              <sphereGeometry args={[0.15, 8, 6]} />
-              <Toon color={skin} />
-            </mesh>
-          </group>
-        ))}
+      <group ref={body}>
+        <Humanoid look={look} pose={pose} />
       </group>
     </group>
   );
@@ -401,7 +341,7 @@ export function Bank() {
       {/* ---- Inside: marble floor, ceiling, green marble round the walls ---- */}
       <mesh rotation-x={-Math.PI / 2} position={[0, BANK_FLOOR, -D / 2]} raycast={noRaycast}>
         <planeGeometry args={[W * 2 - t * 2, D - t * 2]} />
-        <meshToonMaterial map={marble} gradientMap={toonRamp()} />
+        <meshStandardMaterial map={marble} roughness={0.78} />
       </mesh>
       <mesh rotation-x={Math.PI / 2} position={[0, H - 0.05, -D / 2]} raycast={noRaycast}>
         <planeGeometry args={[W * 2, D]} />
@@ -496,18 +436,18 @@ export function Bank() {
       <VaultDoor />
       <mesh rotation-x={-Math.PI / 2} position={[0, BANK_FLOOR + 0.01, (P.vaultWall.lz0 - D + t) / 2]} raycast={noRaycast}>
         <planeGeometry args={[W * 2 - t * 2, P.vaultWall.lz0 + D - t]} />
-        <meshToonMaterial map={steel} gradientMap={toonRamp()} />
+        <meshStandardMaterial map={steel} roughness={0.78} />
       </mesh>
       {/* Safe-deposit boxes on both side walls and the back */}
       {[-1, 1].map((side) => (
         <mesh key={side} position={[side * (W - t - 0.06), 5, (P.vaultWall.lz0 - D + t) / 2]} rotation-y={(-side * Math.PI) / 2} raycast={noRaycast}>
           <planeGeometry args={[D - t + P.vaultWall.lz0 - 0.2, 8]} />
-          <meshToonMaterial map={lockers} gradientMap={toonRamp()} />
+          <meshStandardMaterial map={lockers} roughness={0.78} />
         </mesh>
       ))}
       <mesh position={[0, 5, -D + t + 0.06]} raycast={noRaycast}>
         <planeGeometry args={[W * 2 - t * 2, 8]} />
-        <meshToonMaterial map={lockers} gradientMap={toonRamp()} />
+        <meshStandardMaterial map={lockers} roughness={0.78} />
       </mesh>
       <AlarmLight position={[0, 11.5, -D + t + 0.6]} on={alarmOn} />
       <VaultGlow />
@@ -736,7 +676,7 @@ function BankLoot({ loot }: { loot: Loot }) {
                   <group key={`${x}${y}${z}`} position={[x, 0.95 + y * 0.72, z]}>
                     <mesh raycast={noRaycast}>
                       <boxGeometry args={[1.4, 0.7, 1]} />
-                      <meshToonMaterial map={cash.texture} gradientMap={toonRamp()} />
+                      <meshStandardMaterial map={cash.texture} roughness={0.78} />
                     </mesh>
                     <mesh raycast={noRaycast}>
                       <boxGeometry args={[0.3, 0.72, 1.02]} />
@@ -752,7 +692,7 @@ function BankLoot({ loot }: { loot: Loot }) {
           <group>
             <mesh position-y={1.4} raycast={noRaycast}>
               <boxGeometry args={[2.4, 1.6, 1.8]} />
-              <meshToonMaterial map={cash.texture} gradientMap={toonRamp()} />
+              <meshStandardMaterial map={cash.texture} roughness={0.78} />
             </mesh>
             <mesh position-y={0.55} raycast={noRaycast}>
               <boxGeometry args={[2.6, 0.12, 2]} />
@@ -848,7 +788,7 @@ export function Jewelry() {
       {/* Awning */}
       <mesh position={[0, 6.6, 1.6]} rotation-x={0.35} castShadow raycast={noRaycast}>
         <boxGeometry args={[W * 2 + 0.6, 0.25, 3.6]} />
-        <meshToonMaterial map={stripes} gradientMap={toonRamp()} />
+        <meshStandardMaterial map={stripes} roughness={0.78} />
       </mesh>
       <mesh geometry={letters} position={[0, 7.4, 0.3]} raycast={noRaycast}>
         <Toon color="#ffcc33" emissive="#4a3200" />
@@ -861,7 +801,7 @@ export function Jewelry() {
       {/* ---- Inside: purple carpet, a mirror wall, sparkly chandeliers ---- */}
       <mesh rotation-x={-Math.PI / 2} position={[0, SHOP_FLOOR, -D / 2]} raycast={noRaycast}>
         <planeGeometry args={[W * 2 - t * 2, D - t * 2]} />
-        <meshToonMaterial map={carpet} gradientMap={toonRamp()} />
+        <meshStandardMaterial map={carpet} roughness={0.78} />
       </mesh>
       <mesh rotation-x={Math.PI / 2} position={[0, H - 0.05, -D / 2]} raycast={noRaycast}>
         <planeGeometry args={[W * 2, D]} />

@@ -177,6 +177,11 @@ export const HOUSES: House[] = (() => {
   return list;
 })();
 
+/** Each house's style (town.tsx): 0 classic gable, 1 two-storey, 2 modern flat roof, 3 hip-roofed bungalow, 4 farmhouse with a porch. */
+export const houseStyle = (i: number) => (i * 7 + (i >> 2)) % 5;
+/** Some houses have a garage on the side. */
+export const hasGarage = (i: number) => i % 4 === 1 && houseStyle(i) !== 3;
+
 // ---- Street lights -----------------------------------------------------------------------------
 
 /** A street light: where it stands and which way its arm reaches (toward the road). */
@@ -364,9 +369,16 @@ function addTo(x: number, z: number, reach: number, add: (c: { boxes: Box[]; cir
       add(grid.get(key)!);
     }
 }
-for (const h of HOUSES) {
+for (const [i, h] of HOUSES.entries()) {
   const box = { x: h.x, z: h.z, hw: h.w / 2, hd: h.d / 2, turn: h.turn };
   addTo(h.x, h.z, Math.max(h.w, h.d), (c) => c.boxes.push(box));
+  if (hasGarage(i)) {
+    // The garage on its right-hand side (town.tsx draws it).
+    const lx = h.w / 2 + 3.4;
+    const lz = h.d / 2 - 3.6;
+    const g = { x: h.x + lx * Math.cos(h.turn) + lz * Math.sin(h.turn), z: h.z - lx * Math.sin(h.turn) + lz * Math.cos(h.turn), hw: 3.3, hd: 3.5, turn: h.turn };
+    addTo(g.x, g.z, 6, (c) => c.boxes.push(g));
+  }
 }
 for (const t of TOWN_TREES) addTo(t.x, t.z, 2, (c) => c.circles.push({ x: t.x, z: t.z, r: 0.55 * t.s }));
 for (const l of STREET_LIGHTS) addTo(l.x, l.z, 1, (c) => c.circles.push({ x: l.x, z: l.z, r: 0.3 }));

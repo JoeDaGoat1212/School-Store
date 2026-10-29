@@ -308,7 +308,7 @@ export function CityHud({
       )}
 
       {g.teller && <TellerWindow />}
-      {walletOpen && <WalletPanel onClose={() => setWalletOpen(false)} />}
+      {walletOpen && <WalletPanel onClose={() => setWalletOpen(false)} canBring={canTravel && !life.inJail} />}
     </>
   );
 }

@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef } from "react";
 import { useFrame } from "@react-three/fiber";
 import * as THREE from "three";
 import { BENCHES, CROWN_SPOTS, FOUNTAIN, PARK, PARK_TREES, PAVED_BLOCKS, TIERS_BY_STYLE, TOWERS, ZEBRA, ALL_TIERS } from "./city-layout";
-import { noRaycast, signTexture, toonRamp } from "./paint";
+import { noRaycast, signTexture } from "./paint";
 import { Instances, type Place } from "./town";
 
 /*
@@ -48,7 +48,7 @@ function windowMaterial(style: 0 | 1 | 2) {
   ][style];
   const cover = (P.win[1] - P.win[0]) * (P.win[3] - P.win[2]);
   const f = (n: number) => n.toFixed(4);
-  const m = new THREE.MeshToonMaterial({ gradientMap: toonRamp() });
+  const m = new THREE.MeshStandardMaterial({ roughness: 0.8, metalness: 0.05 });
   m.onBeforeCompile = (shader) => {
     shader.vertexShader = shader.vertexShader.replace("#include <common>", "#include <common>\nvarying vec3 vCityPos;\nvarying vec3 vCityNormal;").replace(
       "#include <project_vertex>",
@@ -73,6 +73,7 @@ function windowMaterial(style: 0 | 1 | 2) {
       .replace(
         "#include <color_fragment>",
         `#include <color_fragment>
+        float cityWin = 0.0;
         {
           vec3 n = normalize(vCityNormal);
           if (abs(n.y) < 0.5) {
@@ -84,6 +85,7 @@ function windowMaterial(style: 0 | 1 | 2) {
               float fx = fract(u / 7.0);
               float shop = step(0.1, fx) * step(fx, 0.9) * step(0.6, v) * step(v, ${f(LOBBY - 1.5)});
               diffuseColor.rgb = mix(wall * 0.8, vec3(0.3, 0.52, 0.7), shop);
+              cityWin = shop;
             } else {
               vec2 cell = vec2(u / ${f(P.cell[0])}, (v - ${f(LOBBY)}) / ${f(P.cell[1])});
               vec2 g = fract(cell);
@@ -93,11 +95,14 @@ function windowMaterial(style: 0 | 1 | 2) {
               float r = cityHash(floor(cell) + (sideX ? vec2(31.0, 7.0) : vec2(0.0)) + floor(vCityPos.x * 0.02 + vCityPos.z * 0.013) * 3.1);
               vec3 glass = mix(vec3(0.66, 0.87, 1.0), vec3(0.4, 0.64, 0.92), fract(v * 0.0035 + r * 0.25));
               glass = mix(glass, vec3(1.0, 0.92, 0.6), step(0.94, r));
-              diffuseColor.rgb = mix(wall, glass, win);
+              diffuseColor.rgb = mix(wall, glass * 0.8, win);
+              cityWin = win;
             }
           }
         }`,
-      );
+      )
+      .replace("#include <roughnessmap_fragment>", "#include <roughnessmap_fragment>\n        roughnessFactor = mix(roughnessFactor, 0.08, cityWin);")
+      .replace("#include <metalnessmap_fragment>", "#include <metalnessmap_fragment>\n        metalnessFactor = mix(metalnessFactor, 0.65, cityWin);");
   };
   m.customProgramCacheKey = () => `city-windows-${style}`;
   return m;
@@ -132,7 +137,7 @@ function Towers() {
       ))}
       <Instances count={ALL_TIERS.length} place={placeLedge} castShadow>
         <boxGeometry />
-        <meshToonMaterial color="#fff6e6" gradientMap={toonRamp()} />
+        <meshStandardMaterial color="#fff6e6" roughness={0.78} />
       </Instances>
     </group>
   );
@@ -238,7 +243,7 @@ function Crowns() {
     // Blink: on for a moment every 1.4 seconds.
     if (beacon.current) beacon.current.color.set(state.clock.elapsedTime % 1.4 < 0.5 ? "#ff3b30" : "#5a1410");
   });
-  const toon = (color?: string) => <meshToonMaterial color={color} gradientMap={toonRamp()} />;
+  const toon = (color?: string) => <meshStandardMaterial color={color} roughness={0.78} />;
   return (
     <group>
       <Instances count={SPIRES.length} place={placeSpireBase} castShadow>
@@ -261,7 +266,7 @@ function Crowns() {
       </Instances>
       <Instances count={WATER.length} place={placeTankLegs}>
         <cylinderGeometry args={[2.6, 2.6, 5, 6, 1, true]} />
-        <meshToonMaterial color="#6b4b32" gradientMap={toonRamp()} wireframe />
+        <meshStandardMaterial color="#6b4b32" roughness={0.78} wireframe />
       </Instances>
       <Instances count={WATER.length} place={placeTank} castShadow>
         <cylinderGeometry args={[3.2, 3.2, 5.4, 14]} />
@@ -321,7 +326,7 @@ function Lobbies() {
       </Instances>
       <Instances count={TOWERS.length} place={placeAwning} castShadow>
         <boxGeometry />
-        <meshToonMaterial gradientMap={toonRamp()} />
+        <meshStandardMaterial roughness={0.78} />
       </Instances>
     </group>
   );
@@ -348,7 +353,7 @@ function Pavement() {
     <group>
       <Instances count={PAVED_BLOCKS.length} place={placePaving} receiveShadow>
         <boxGeometry />
-        <meshToonMaterial color="#d8d2c6" gradientMap={toonRamp()} />
+        <meshStandardMaterial color="#d8d2c6" roughness={0.78} />
       </Instances>
       <Instances count={ZEBRA.length} place={placeZebra}>
         <planeGeometry args={[1, 1]} />
@@ -411,37 +416,37 @@ function Park() {
       {/* Paths crossing the park */}
       <mesh position={[PARK.cx, 0.06, PARK.cz]} receiveShadow raycast={noRaycast}>
         <boxGeometry args={[PARK.x1 - PARK.x0, 0.12, pathW]} />
-        <meshToonMaterial color="#e3d6b8" gradientMap={toonRamp()} />
+        <meshStandardMaterial color="#e3d6b8" roughness={0.78} />
       </mesh>
       <mesh position={[PARK.cx, 0.061, PARK.cz]} receiveShadow raycast={noRaycast}>
         <boxGeometry args={[pathW, 0.12, PARK.z1 - PARK.z0]} />
-        <meshToonMaterial color="#e3d6b8" gradientMap={toonRamp()} />
+        <meshStandardMaterial color="#e3d6b8" roughness={0.78} />
       </mesh>
       <mesh position={[PARK.cx, 0.07, PARK.cz]} rotation-x={-Math.PI / 2} receiveShadow raycast={noRaycast}>
         <circleGeometry args={[FOUNTAIN.r + 4, 36]} />
-        <meshToonMaterial color="#e3d6b8" gradientMap={toonRamp()} />
+        <meshStandardMaterial color="#e3d6b8" roughness={0.78} />
       </mesh>
       {/* The fountain: a stone basin, water, a column and a bowl on top */}
       <group position={[FOUNTAIN.x, 0, FOUNTAIN.z]}>
         <mesh position-y={0.7} castShadow raycast={noRaycast}>
           <cylinderGeometry args={[FOUNTAIN.r, FOUNTAIN.r + 0.3, 1.4, 36]} />
-          <meshToonMaterial color="#c9c2b6" gradientMap={toonRamp()} />
+          <meshStandardMaterial color="#c9c2b6" roughness={0.78} />
         </mesh>
         <mesh position-y={1.42} raycast={noRaycast}>
           <cylinderGeometry args={[FOUNTAIN.r - 0.5, FOUNTAIN.r - 0.5, 0.1, 36]} />
-          <meshToonMaterial color="#5ec4ef" gradientMap={toonRamp()} />
+          <meshStandardMaterial color="#5ec4ef" roughness={0.78} />
         </mesh>
         <mesh position-y={2.8} castShadow raycast={noRaycast}>
           <cylinderGeometry args={[0.6, 0.9, 3, 12]} />
-          <meshToonMaterial color="#c9c2b6" gradientMap={toonRamp()} />
+          <meshStandardMaterial color="#c9c2b6" roughness={0.78} />
         </mesh>
         <mesh position-y={4.3} castShadow raycast={noRaycast}>
           <cylinderGeometry args={[2.6, 1.2, 0.8, 24]} />
-          <meshToonMaterial color="#c9c2b6" gradientMap={toonRamp()} />
+          <meshStandardMaterial color="#c9c2b6" roughness={0.78} />
         </mesh>
         <mesh position-y={4.72} raycast={noRaycast}>
           <cylinderGeometry args={[2.3, 2.3, 0.08, 24]} />
-          <meshToonMaterial color="#5ec4ef" gradientMap={toonRamp()} />
+          <meshStandardMaterial color="#5ec4ef" roughness={0.78} />
         </mesh>
       </group>
       <instancedMesh ref={drops} args={[undefined, undefined, DROPS.length]} raycast={noRaycast} frustumCulled={false}>
@@ -450,19 +455,19 @@ function Park() {
       </instancedMesh>
       <Instances count={PARK_TREES.length} place={placeParkTrunk} castShadow>
         <cylinderGeometry args={[0.35, 0.5, 3.2, 7]} />
-        <meshToonMaterial color="#8a5a35" gradientMap={toonRamp()} />
+        <meshStandardMaterial color="#8a5a35" roughness={0.78} />
       </Instances>
       <Instances count={PARK_TREES.length} place={placeParkLeaves} castShadow>
         <icosahedronGeometry args={[1, 1]} />
-        <meshToonMaterial gradientMap={toonRamp()} />
+        <meshStandardMaterial roughness={0.78} />
       </Instances>
       <Instances count={BENCHES.length} place={placeSeat}>
         <boxGeometry />
-        <meshToonMaterial color="#b0743f" gradientMap={toonRamp()} />
+        <meshStandardMaterial color="#b0743f" roughness={0.78} />
       </Instances>
       <Instances count={BENCHES.length} place={placeBack}>
         <boxGeometry />
-        <meshToonMaterial color="#b0743f" gradientMap={toonRamp()} />
+        <meshStandardMaterial color="#b0743f" roughness={0.78} />
       </Instances>
     </group>
   );
@@ -488,18 +493,18 @@ function Blimp() {
     <group ref={g}>
       <mesh scale={[9, 9, len / 2]} castShadow raycast={noRaycast}>
         <sphereGeometry args={[1, 24, 16]} />
-        <meshToonMaterial color="#f2f4f7" gradientMap={toonRamp()} />
+        <meshStandardMaterial color="#f2f4f7" roughness={0.78} />
       </mesh>
       {/* Tail fins */}
       {[0, Math.PI / 2, Math.PI, -Math.PI / 2].map((a) => (
         <mesh key={a} position={[Math.sin(a) * 5, Math.cos(a) * 5, len / 2 - 2]} rotation-z={-a} raycast={noRaycast}>
           <boxGeometry args={[0.5, 6, 6]} />
-          <meshToonMaterial color="#e5483b" gradientMap={toonRamp()} />
+          <meshStandardMaterial color="#e5483b" roughness={0.78} />
         </mesh>
       ))}
       <mesh position={[0, -9.6, -2]} raycast={noRaycast}>
         <boxGeometry args={[3.4, 2.2, 8]} />
-        <meshToonMaterial color="#3d6fe0" gradientMap={toonRamp()} />
+        <meshStandardMaterial color="#3d6fe0" roughness={0.78} />
       </mesh>
       {/* The sign on both sides */}
       {[-1, 1].map((s) => (

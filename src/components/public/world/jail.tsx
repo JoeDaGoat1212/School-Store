@@ -8,6 +8,7 @@ import { jail, type Guard } from "./jail-state";
 import { CELL_ROW, CORRIDOR, JAIL_BOX, JAIL_DOORS, JAIL_ROOMS, JAIL_SOLID, YARD, YARD_FENCE, doorOpen, type JailDoor } from "./jail-layout";
 import { canvasTexture, noRaycast, signTexture } from "./paint";
 import { Instances, type Place } from "./town";
+import * as fx from "./buildings";
 
 /*
  * Draws the jail from jail-layout.ts: concrete walls, ten cells with bunks
@@ -41,6 +42,7 @@ export function Jail() {
       <GuardRoom />
       <Lobby />
       <Yard />
+      <Facade />
       {jail.guards.map((g, i) => (
         <GuardModel key={i} guard={g} />
       ))}
@@ -107,6 +109,79 @@ function Shell() {
           <planeGeometry args={[6, 1.2]} />
           <meshStandardMaterial color="#1f2328" roughness={0.3} />
         </mesh>
+      ))}
+    </group>
+  );
+}
+
+// ---- The front: a proper prison entrance ------------------------------------------------------
+
+function Facade() {
+  const B = JAIL_BOX;
+  const z = B.z1;
+  const title = useMemo(() => signTexture("County Correctional Facility", { bg: "transparent", fg: "#e9ecef", height: 128 }), []);
+  const band = fx.mat("#6b6f76", 0.85);
+  const brick = fx.mat("#8a5a48", 0.9);
+  const glass = fx.mat("#2a3a48", 0.1, 0.6);
+  const flag = useRef<THREE.Mesh>(null);
+  useFrame(({ clock }) => {
+    if (flag.current) flag.current.rotation.y = Math.sin(clock.elapsedTime * 1.3) * 0.18;
+  });
+  return (
+    <group>
+      {/* Brick banding along the front, and a row of tall slit windows */}
+      <fx.Block x0={B.x0} x1={B.x1} y0={0} y1={1.4} z0={z} z1={z + 0.3} m={brick} />
+      <fx.Block x0={B.x0} x1={B.x1} y0={H - 1.2} y1={H} z0={z} z1={z + 0.35} m={band} />
+      {Array.from({ length: 22 }, (_, i) => B.x0 + 6 + i * 7)
+        .filter((x) => Math.abs(x - 1420) > 9)
+        .map((x) => (
+          <group key={x}>
+            <fx.Block x0={x - 0.35} x1={x + 0.35} y0={2.4} y1={7.6} z0={z} z1={z + 0.12} m={glass} />
+            {[-0.2, 0, 0.2].map((b) => (
+              <fx.Block key={b} x0={x + b - 0.04} x1={x + b + 0.04} y0={2.4} y1={7.6} z0={z + 0.1} z1={z + 0.18} m={band} />
+            ))}
+          </group>
+        ))}
+      {/* The name across the top */}
+      <mesh position={[1340, H - 2.2, z + 0.4]} raycast={noRaycast}>
+        <planeGeometry args={[60, 60 / title.aspect]} />
+        <meshBasicMaterial map={title.texture} transparent />
+      </mesh>
+      {/* The entrance: a concrete portico over the doors, steps, and lamps */}
+      <group position={[1420, 0, z]}>
+        <fx.Block x0={-8} x1={8} y0={H - 1} y1={H + 0.4} z0={0} z1={7} m={band} />
+        {[-7, -3.4, 3.4, 7].map((x) => (
+          <fx.Block key={x} x0={x - 0.45} x1={x + 0.45} y0={0} y1={H - 1} z0={6} z1={6.9} m={fx.mat("#c9ced4", 0.7)} />
+        ))}
+        <fx.Block x0={-8.5} x1={8.5} y0={0} y1={0.3} z0={0} z1={8} m={fx.mat("#b9b6ae", 0.9)} />
+        {[-4.6, 4.6].map((x) => (
+          <mesh key={x} position={[x, H - 1.4, 3]} raycast={noRaycast}>
+            <boxGeometry args={[0.6, 0.3, 0.6]} />
+            <meshStandardMaterial color="#ffffff" emissive="#fff4d6" emissiveIntensity={1.5} />
+          </mesh>
+        ))}
+      </group>
+      {/* Flagpoles */}
+      {[1396, 1444].map((x, i) => (
+        <group key={x} position={[x, 0, z + 14]}>
+          <fx.Cyl x={0} y={7} z={0} r={0.12} h={14} m={fx.mat("#c9ced4", 0.3, 0.8)} />
+          <mesh ref={i ? undefined : flag} position={[1.6, 12.6, 0]} raycast={noRaycast}>
+            <planeGeometry args={[3.2, 2]} />
+            <meshStandardMaterial color={i ? "#1f3a5f" : "#c8102e"} side={THREE.DoubleSide} />
+          </mesh>
+        </group>
+      ))}
+      {/* Watchtowers on the front corners */}
+      {[B.x0 + 2, B.x1 - 2].map((x) => (
+        <group key={x} position={[x, 0, z - 2]}>
+          <fx.Block x0={-2} x1={2} y0={0} y1={H + 6} z0={-2} z1={2} m={fx.mat("#9aa0a6", 0.85)} />
+          <fx.Block x0={-3} x1={3} y0={H + 6} y1={H + 9} z0={-3} z1={3} m={glass} />
+          <fx.Block x0={-3.4} x1={3.4} y0={H + 9} y1={H + 9.6} z0={-3.4} z1={3.4} m={band} />
+          <mesh position={[0, H + 10.2, 0]} raycast={noRaycast}>
+            <sphereGeometry args={[0.5, 10, 8]} />
+            <meshStandardMaterial color="#ff3b30" emissive="#ff3b30" emissiveIntensity={1.5} />
+          </mesh>
+        </group>
       ))}
     </group>
   );

@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef } from "react";
 import { useFrame } from "@react-three/fiber";
 import { RoundedBox } from "@react-three/drei";
 import * as THREE from "three";
-import { canvasTexture, fontFamily, noRaycast, seededRandom, toonRamp } from "./paint";
+import { canvasTexture, fontFamily, noRaycast, seededRandom } from "./paint";
 import { advanceOf, letterGeometry } from "./text3d";
 import { BUILDING, INSIDE, LANES, COUNTER } from "./world-layout";
 
@@ -149,7 +149,7 @@ function pumpkinFace(style: number) {
 /** A glowing jack-o'-lantern, `size` across, sitting on the ground (or wherever it's put), facing +z. */
 export function Pumpkin({ size = 1, face = 0, turn = 0, position = [0, 0, 0] }: { size?: number; face?: number; turn?: number; position?: [number, number, number] }) {
   const { map, glow } = pumpkinFace(face % 3);
-  const glowRef = useRef<THREE.MeshToonMaterial>(null);
+  const glowRef = useRef<THREE.MeshStandardMaterial>(null);
   const seed = useMemo(() => position[0] * 7.1 + position[2] * 3.3, [position]);
   // The candle inside flickers.
   useFrame((state) => {
@@ -162,12 +162,12 @@ export function Pumpkin({ size = 1, face = 0, turn = 0, position = [0, 0, 0] }: 
   return (
     <group position={position} rotation-y={turn}>
       <mesh geometry={pumpkinGeometry()} position-y={r * 0.8} scale={r} castShadow raycast={noRaycast}>
-        <meshToonMaterial ref={glowRef} map={map} emissive="#ffffff" emissiveMap={glow} emissiveIntensity={1.6} gradientMap={toonRamp()} />
+        <meshStandardMaterial ref={glowRef} map={map} emissive="#ffffff" emissiveMap={glow} emissiveIntensity={1.6} roughness={0.78} />
       </mesh>
       {/* Stem */}
       <mesh position={[0, r * 1.5, 0]} rotation-z={0.25} raycast={noRaycast}>
         <cylinderGeometry args={[r * 0.08, r * 0.13, r * 0.4, 8]} />
-        <meshToonMaterial color="#4f6b22" gradientMap={toonRamp()} />
+        <meshStandardMaterial color="#4f6b22" roughness={0.78} />
       </mesh>
     </group>
   );
@@ -216,7 +216,7 @@ export function Ghost({ position, size = 1, circle = 0, speed = 0.3, phase = 0 }
     g.rotation.y = circle > 0 ? -a : Math.sin(t * 0.7) * 0.3;
     g.rotation.z = Math.sin(t * 1.3) * 0.08;
   });
-  const white = <meshToonMaterial color="#ffffff" gradientMap={toonRamp()} transparent opacity={0.93} side={THREE.DoubleSide} />;
+  const white = <meshStandardMaterial color="#ffffff" roughness={0.78} transparent opacity={0.93} side={THREE.DoubleSide} />;
   return (
     <group ref={ref} position={position} scale={size}>
       <mesh geometry={ghostGeometry()} raycast={noRaycast}>
@@ -289,7 +289,7 @@ export function Bat({ position, size = 1, fly, phase = 0 }: { position: [number,
       g.rotation.y = Math.sin(t * 0.5) * 0.4;
     }
   });
-  const black = <meshToonMaterial color={NIGHT} gradientMap={toonRamp()} side={THREE.DoubleSide} />;
+  const black = <meshStandardMaterial color={NIGHT} roughness={0.78} side={THREE.DoubleSide} />;
   return (
     <group ref={ref} position={position} scale={size}>
       <mesh scale={[0.18, 0.16, 0.28]} raycast={noRaycast}>
@@ -390,7 +390,7 @@ export function HangingSpider({ x, z, top, low, phase = 0 }: { x: number; z: num
       thread.current.scale.y = top - y;
     }
   });
-  const black = <meshToonMaterial color={NIGHT} gradientMap={toonRamp()} />;
+  const black = <meshStandardMaterial color={NIGHT} roughness={0.78} />;
   return (
     <group position={[x, 0, z]}>
       <mesh ref={thread} raycast={noRaycast}>
@@ -495,7 +495,7 @@ export function Bunting({ from, to, swags, facing }: { from: [number, number, nu
     <group>
       <primitive object={string} />
       <instancedMesh ref={ref} args={[shape, undefined, flags.length]} raycast={noRaycast}>
-        <meshToonMaterial gradientMap={toonRamp()} side={THREE.DoubleSide} />
+        <meshStandardMaterial roughness={0.78} side={THREE.DoubleSide} />
       </instancedMesh>
     </group>
   );
@@ -589,20 +589,20 @@ export function Tombstone({ position, text = "RIP", turn = 0, lean = 0 }: { posi
   return (
     <group position={position} rotation={[lean, turn, lean * 0.5]}>
       <RoundedBox args={[1.6, 2.2, 0.4]} radius={0.18} position-y={1.0} castShadow raycast={noRaycast}>
-        <meshToonMaterial color="#9da3a8" gradientMap={toonRamp()} />
+        <meshStandardMaterial color="#9da3a8" roughness={0.78} />
       </RoundedBox>
       <mesh position={[0, 1.95, 0]} rotation-x={Math.PI / 2} castShadow raycast={noRaycast}>
         <cylinderGeometry args={[0.8, 0.8, 0.4, 24, 1, false, -Math.PI / 2, Math.PI]} />
-        <meshToonMaterial color="#9da3a8" gradientMap={toonRamp()} />
+        <meshStandardMaterial color="#9da3a8" roughness={0.78} />
       </mesh>
       <mesh position={[0, 1.3, 0.205]} raycast={noRaycast}>
         <planeGeometry args={[1.3, 1.3]} />
-        <meshToonMaterial map={ripTexture(text)} gradientMap={toonRamp()} />
+        <meshStandardMaterial map={ripTexture(text)} roughness={0.78} />
       </mesh>
       {/* A little mound of earth in front */}
       <mesh position={[0, 0, 1.0]} scale={[0.8, 0.18, 1.1]} raycast={noRaycast}>
         <sphereGeometry args={[1, 16, 10, 0, Math.PI * 2, 0, Math.PI / 2]} />
-        <meshToonMaterial color="#5b4a33" gradientMap={toonRamp()} />
+        <meshStandardMaterial color="#5b4a33" roughness={0.78} />
       </mesh>
     </group>
   );
@@ -841,15 +841,15 @@ export function WitchHat() {
     <group position-y={0.28}>
       <mesh raycast={noRaycast}>
         <cylinderGeometry args={[0.72, 0.72, 0.05, 32]} />
-        <meshToonMaterial color={NIGHT} gradientMap={toonRamp()} />
+        <meshStandardMaterial color={NIGHT} roughness={0.78} />
       </mesh>
       <mesh position={[0, 0.5, -0.04]} rotation-x={-0.12} raycast={noRaycast}>
         <coneGeometry args={[0.38, 1.0, 24]} />
-        <meshToonMaterial color={NIGHT} gradientMap={toonRamp()} />
+        <meshStandardMaterial color={NIGHT} roughness={0.78} />
       </mesh>
       <mesh position-y={0.1} raycast={noRaycast}>
         <cylinderGeometry args={[0.39, 0.4, 0.12, 24]} />
-        <meshToonMaterial color={PUMPKIN} gradientMap={toonRamp()} />
+        <meshStandardMaterial color={PUMPKIN} roughness={0.78} />
       </mesh>
     </group>
   );

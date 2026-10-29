@@ -3,6 +3,7 @@
 import { useEffect, useRef } from "react";
 import { BriefcaseIcon, CarFrontIcon, HomeIcon, KeyRoundIcon, LandmarkIcon, ShieldCheckIcon, XIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { bringCar } from "./dealer";
 import { useGameVersion } from "./game-events";
 import { PLAYER_LOOK } from "./humanoid";
 import { JOB_LEVELS, pockets, profile, usd } from "./profile";
@@ -15,7 +16,7 @@ import { carName, houseName } from "./wallet-names";
  * and anything you've, er, picked up (a guard's keycard…). Open with I.
  */
 
-export function WalletPanel({ onClose }: { onClose: () => void }) {
+export function WalletPanel({ onClose, canBring = false }: { onClose: () => void; canBring?: boolean }) {
   useGameVersion();
   const closeRef = useRef<HTMLButtonElement>(null);
   useEffect(() => closeRef.current?.focus(), []);
@@ -75,7 +76,19 @@ export function WalletPanel({ onClose }: { onClose: () => void }) {
 
         {/* ---- Keys, badges, and other bits ---- */}
         <Section icon={<CarFrontIcon className="size-4" />} title="Car keys">
-          {profile.cars.length === 0 ? <Empty>No cars yet. The dealership by the bank has some beauties.</Empty> : profile.cars.map((c) => <Item key={c.id}>{carName(c.model)}</Item>)}
+          {profile.cars.length === 0 ? <Empty>No cars yet. The dealership by the bank has some beauties.</Empty> : profile.cars.map((c) => (
+                <Item key={c.id}>
+                  <span className="flex items-center gap-2">
+                    <span className="size-3 shrink-0 rounded-full ring-1 ring-black/20" style={{ background: c.color }} />
+                    <span className="flex-1">{carName(c.model)}</span>
+                    {canBring && (
+                      <button type="button" onClick={() => bringCar(c.id) && onClose()} className="rounded-full bg-black px-2.5 py-0.5 text-xs font-bold text-white">
+                        Bring it here
+                      </button>
+                    )}
+                  </span>
+                </Item>
+              ))}
         </Section>
         <Section icon={<HomeIcon className="size-4" />} title="House keys">
           {profile.houses.length === 0 ? (

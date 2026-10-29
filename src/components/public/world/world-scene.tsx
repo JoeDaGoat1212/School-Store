@@ -117,17 +117,17 @@ export default function WorldScene(props: WorldSceneProps) {
       camera={{ fov: 56, near: 0.2, far: 2600, position: [40, 40, 60] }}
       gl={{ antialias: true, powerPreference: "high-performance" }}
     >
-      <color attach="background" args={[spooky ? "#ffd2a4" : "#a9dcfb"]} />
+      <color attach="background" args={[spooky ? "#ffd2a4" : "#a8d2f2"]} />
       {/* Haze in the distance, so the far end of town fades softly into the sky (far enough out that the city's skyline shows from the store) */}
-      <fog attach="fog" args={[spooky ? "#ffd8b0" : "#d9effc", 240, 1150]} />
+      <fog attach="fog" args={[spooky ? "#ffd8b0" : "#d6e8f4", 260, 1250]} />
       <PerformanceMonitor onDecline={() => setShadows(false)} />
       <CameraRig stations={worldSpots} current={station} calm={calm} onArrive={props.onArrive} blockers={walls} onWalk={props.onWalk} onNearCar={props.onNearCar} onInside={props.onInside} />
       <FirstFrame onReady={props.onReady} />
       {process.env.NODE_ENV !== "production" && <TestHook spots={worldSpots} places={places} layouts={layouts} station={station} moving={moving} items={props.items} />}
 
       {/* Daylight: the sun (with shadows), sky light from above, and soft fill. */}
-      <hemisphereLight args={[spooky ? "#f1defa" : "#e8f6ff", "#b9a98a", 1.1]} />
-      <ambientLight intensity={0.35} />
+      <hemisphereLight args={[spooky ? "#f1defa" : "#dcefff", "#8f8466", 0.85]} />
+      <ambientLight intensity={0.22} />
       <Sun shadows={shadows} warm={spooky} />
       <Environment resolution={128} frames={1}>
         <Lightformer intensity={2} position={[0, 10, 0]} rotation-x={Math.PI / 2} scale={[20, 20, 1]} />
@@ -308,7 +308,7 @@ function Sun({ shadows, warm }: { shadows: boolean; warm: boolean }) {
     <directionalLight
       ref={light}
       position={[68, 120, 92]}
-      intensity={2.1}
+      intensity={2.6}
       color={warm ? "#ffd6a8" : "#fff3df"}
       castShadow={shadows}
       shadow-mapSize={[2048, 2048]}

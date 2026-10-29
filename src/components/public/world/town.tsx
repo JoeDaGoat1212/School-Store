@@ -1,14 +1,17 @@
 "use client";
 
-import { useEffect, useLayoutEffect, useMemo, useRef } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useFrame } from "@react-three/fiber";
 import * as THREE from "three";
-import { canvasTexture, noRaycast, seededRandom, toonRamp } from "./paint";
+import { Humanoid, newPose, type Look } from "./humanoid";
+import { canvasTexture, noRaycast, seededRandom } from "./paint";
 import {
   BUSHES,
   CURB,
   DRIVEWAY,
   HOUSES,
+  hasGarage,
+  houseStyle,
   INTERSECTIONS,
   ROAD_HALF,
   ROADS,
@@ -201,78 +204,236 @@ function roofGeometry() {
   return g;
 }
 
-const WITH_CHIMNEY = HOUSES.filter((h) => h.chimney);
+/*
+ * Every house has its own look: 0 a classic gable, 1 a two-storey family
+ * house, 2 a modern flat-roofed box with wood cladding and big windows, 3 a
+ * hip-roofed bungalow, 4 a farmhouse with a front porch. Some have a garage
+ * on the side, the classics have shutters.
+ */
+const styleOf = houseStyle;
+const HOUSE_IDS = HOUSES.map((_, i) => i);
+const wallH = (i: number) => HOUSES[i].h * (styleOf(i) === 1 ? 1.75 : styleOf(i) === 2 ? 1.3 : 1);
+const GABLED = HOUSE_IDS.filter((i) => [0, 1, 4].includes(styleOf(i)));
+const FLAT = HOUSE_IDS.filter((i) => styleOf(i) === 2);
+const HIPPED = HOUSE_IDS.filter((i) => styleOf(i) === 3);
+const TWO_STOREY = HOUSE_IDS.filter((i) => styleOf(i) === 1);
+const PORCHED = HOUSE_IDS.filter((i) => styleOf(i) === 4);
+const SHUTTERED = HOUSE_IDS.filter((i) => styleOf(i) === 0);
+const GARAGED = HOUSE_IDS.filter(hasGarage);
+const WITH_CHIMNEY = HOUSE_IDS.filter((i) => HOUSES[i].chimney && styleOf(i) !== 2);
 const windowSide = (i: number) => (i % 2 ? 1 : -1);
+const WOOD = ["#a87a45", "#8b5a3c", "#c49a6c"];
 
 const placeWall: Place = (i, o) => {
   const h = HOUSES[i];
-  onHouse(h, 0, h.h / 2, 0, o);
-  o.scale.set(h.w, h.h, h.d);
-  return h.wall;
+  onHouse(h, 0, wallH(i) / 2, 0, o);
+  o.scale.set(h.w, wallH(i), h.d);
+  return styleOf(i) === 2 ? ["#f2f2f2", "#e9ecef", "#2b2f36"][i % 3] : h.wall;
 };
-const placeRoof: Place = (i, o) => {
+const placeRoof: Place = (k, o) => {
+  const i = GABLED[k];
   const h = HOUSES[i];
-  onHouse(h, 0, h.h - 0.02, 0, o);
-  o.scale.set(h.w + 1.2, h.roofH, h.d + 1.2); // a little overhang all round
+  onHouse(h, 0, wallH(i) - 0.02, 0, o);
+  o.scale.set(h.w + 1.2, h.roofH * (styleOf(i) === 4 ? 1.25 : 1), h.d + 1.2); // a little overhang all round
   return h.roof;
+};
+const placeHip: Place = (k, o) => {
+  const i = HIPPED[k];
+  const h = HOUSES[i];
+  onHouse(h, 0, wallH(i) + h.roofH * 0.4, 0, o);
+  o.scale.set(h.w + 1.4, h.roofH * 0.8, h.d + 1.4);
+  return h.roof;
+};
+const placeFlat: Place = (k, o) => {
+  const i = FLAT[k];
+  const h = HOUSES[i];
+  onHouse(h, 0, wallH(i) + 0.25, 0, o);
+  o.scale.set(h.w + 1.6, 0.5, h.d + 1.6);
+  return "#2b2f36";
+};
+// Modern houses: a wall of wood cladding, and one huge window.
+const placeCladding: Place = (k, o) => {
+  const i = FLAT[k];
+  const h = HOUSES[i];
+  onHouse(h, -h.w / 4, wallH(i) / 2, h.d / 2 + 0.04, o);
+  o.scale.set(h.w / 2, wallH(i), 0.1);
+  return WOOD[i % WOOD.length];
+};
+const placeBigGlass: Place = (k, o) => {
+  const i = FLAT[k];
+  const h = HOUSES[i];
+  onHouse(h, h.w / 4 + 0.3, wallH(i) * 0.52, h.d / 2 + 0.08, o);
+  o.scale.set(h.w / 2 - 1.6, wallH(i) * 0.75, 0.1);
 };
 const placeDoor: Place = (i, o) => {
   const h = HOUSES[i];
-  onHouse(h, 0, 1.7, h.d / 2 + 0.06, o);
+  onHouse(h, styleOf(i) === 2 ? -h.w / 4 : 0, 1.7, h.d / 2 + 0.1, o);
   o.scale.set(1.7, 3.4, 0.2);
-  return h.door;
+  return styleOf(i) === 2 ? "#1b1d21" : h.door;
 };
-// Two front windows each: white frames, then glass.
-const placeFrame: Place = (i, o) => {
-  const h = HOUSES[i >> 1];
-  onHouse(h, windowSide(i) * (h.w / 4 + 0.6), h.h * 0.56, h.d / 2 + 0.05, o);
+// Two front windows each (four on two-storey houses): white frames, then glass.
+const FRONT_WINDOWS = HOUSE_IDS.filter((i) => styleOf(i) !== 2).flatMap((i) => [
+  { i, side: -1, y: 0.56 },
+  { i, side: 1, y: 0.56 },
+  ...(styleOf(i) === 1 ? [{ i, side: -1, y: 1.3 }, { i, side: 1, y: 1.3 }, { i, side: 0, y: 1.3 }] : []),
+]);
+const placeFrame: Place = (k, o) => {
+  const { i, side, y } = FRONT_WINDOWS[k];
+  const h = HOUSES[i];
+  onHouse(h, side * (h.w / 4 + 0.6), h.h * y, h.d / 2 + 0.05, o);
   o.scale.set(2.7, 2.5, 0.16);
 };
-const placeGlass: Place = (i, o) => {
-  const h = HOUSES[i >> 1];
-  onHouse(h, windowSide(i) * (h.w / 4 + 0.6), h.h * 0.56, h.d / 2 + 0.12, o);
+const placeGlass: Place = (k, o) => {
+  const { i, side, y } = FRONT_WINDOWS[k];
+  const h = HOUSES[i];
+  onHouse(h, side * (h.w / 4 + 0.6), h.h * y, h.d / 2 + 0.12, o);
   o.scale.set(2.2, 2.0, 0.1);
 };
-const placeChimney: Place = (i, o) => {
-  const h = WITH_CHIMNEY[i];
-  onHouse(h, h.w / 4, h.h + h.roofH * 0.55, -h.d / 5, o);
+const placeShutter: Place = (k, o) => {
+  const i = SHUTTERED[k >> 2];
+  const h = HOUSES[i];
+  const side = k & 1 ? 1 : -1;
+  const lr = k & 2 ? 1 : -1;
+  onHouse(h, side * (h.w / 4 + 0.6) + lr * 1.75, h.h * 0.56, h.d / 2 + 0.08, o);
+  o.scale.set(0.7, 2.5, 0.1);
+  return h.door;
+};
+// Side windows, so houses don't look blank from the road round the corner.
+const placeSideGlass: Place = (k, o) => {
+  const i = k >> 1;
+  const h = HOUSES[i];
+  const s = k & 1 ? 1 : -1;
+  onHouse(h, s * (h.w / 2 + 0.06), h.h * 0.56, 0, o);
+  o.rotation.y += Math.PI / 2;
+  o.scale.set(2.4, 2, 0.1);
+};
+const placeChimney: Place = (k, o) => {
+  const i = WITH_CHIMNEY[k];
+  const h = HOUSES[i];
+  onHouse(h, h.w / 4, wallH(i) + h.roofH * 0.55, -h.d / 5, o);
   o.scale.set(1.2, h.roofH * 0.9 + 1.2, 1.2);
+};
+// Farmhouse porches: a deck, a roof, two posts.
+const placePorch: Place = (k, o) => {
+  const i = PORCHED[k];
+  const h = HOUSES[i];
+  onHouse(h, 0, 0.25, h.d / 2 + 1.6, o);
+  o.scale.set(h.w - 1, 0.5, 3.2);
+  return WOOD[i % WOOD.length];
+};
+const placePorchRoof: Place = (k, o) => {
+  const i = PORCHED[k];
+  const h = HOUSES[i];
+  onHouse(h, 0, 3.9, h.d / 2 + 1.7, o);
+  o.rotation.x = 0.22;
+  o.scale.set(h.w - 0.6, 0.25, 3.6);
+  return h.roof;
+};
+const placePost: Place = (k, o) => {
+  const i = PORCHED[k >> 1];
+  const h = HOUSES[i];
+  onHouse(h, (k & 1 ? 1 : -1) * (h.w / 2 - 1.2), 2, h.d / 2 + 3, o);
+  o.scale.set(0.3, 3.6, 0.3);
+};
+// Garages on the side, with a roller door and a driveway.
+const placeGarage: Place = (k, o) => {
+  const i = GARAGED[k];
+  const h = HOUSES[i];
+  onHouse(h, h.w / 2 + 3.4, 2, h.d / 2 - 3.6, o);
+  o.scale.set(6.6, 4, 7);
+  return h.wall;
+};
+const placeGarageDoor: Place = (k, o) => {
+  const i = GARAGED[k];
+  const h = HOUSES[i];
+  onHouse(h, h.w / 2 + 3.4, 1.6, h.d / 2 - 0.05, o);
+  o.scale.set(5.2, 3.2, 0.12);
 };
 // A path from the front door to the sidewalk.
 const placePath: Place = (i, o) => {
   const h = HOUSES[i];
-  onHouse(h, 0, 0.04, h.d / 2 + h.setback / 2, o);
+  onHouse(h, styleOf(i) === 2 ? -h.w / 4 : 0, 0.04, h.d / 2 + h.setback / 2, o);
   o.scale.set(2, 0.08, h.setback);
 };
 
 function Houses() {
   const n = HOUSES.length;
   const roof = useMemo(() => roofGeometry(), []);
-  useEffect(() => () => roof.dispose(), [roof]);
+  const hip = useMemo(() => new THREE.CylinderGeometry(0, Math.SQRT1_2, 1, 4, 1).rotateY(Math.PI / 4), []);
+  useEffect(
+    () => () => {
+      roof.dispose();
+      hip.dispose();
+    },
+    [roof, hip],
+  );
   return (
     <group>
       <Instances count={n} place={placeWall} castShadow receiveShadow>
         <boxGeometry />
-        <meshToonMaterial gradientMap={toonRamp()} />
+        <meshStandardMaterial roughness={0.85} />
       </Instances>
-      <Instances count={n} place={placeRoof} geometry={roof} castShadow>
-        <meshToonMaterial gradientMap={toonRamp()} />
+      <Instances count={GABLED.length} place={placeRoof} geometry={roof} castShadow>
+        <meshStandardMaterial roughness={0.8} />
+      </Instances>
+      <Instances count={HIPPED.length} place={placeHip} geometry={hip} castShadow>
+        <meshStandardMaterial roughness={0.8} flatShading />
+      </Instances>
+      <Instances count={FLAT.length} place={placeFlat} castShadow>
+        <boxGeometry />
+        <meshStandardMaterial roughness={0.6} />
+      </Instances>
+      <Instances count={FLAT.length} place={placeCladding}>
+        <boxGeometry />
+        <meshStandardMaterial roughness={0.7} />
+      </Instances>
+      <Instances count={FLAT.length} place={placeBigGlass}>
+        <boxGeometry />
+        <meshStandardMaterial color="#6f9cb8" roughness={0.06} metalness={0.7} />
       </Instances>
       <Instances count={n} place={placeDoor}>
         <boxGeometry />
         <meshStandardMaterial roughness={0.6} />
       </Instances>
-      <Instances count={n * 2} place={placeFrame}>
+      <Instances count={FRONT_WINDOWS.length} place={placeFrame}>
         <boxGeometry />
         <meshStandardMaterial color="#ffffff" roughness={0.7} />
       </Instances>
-      <Instances count={n * 2} place={placeGlass}>
+      <Instances count={FRONT_WINDOWS.length} place={placeGlass}>
         <boxGeometry />
-        <meshStandardMaterial color="#9fd3f0" roughness={0.15} metalness={0.3} />
+        <meshStandardMaterial color="#7fa9c4" roughness={0.08} metalness={0.6} />
+      </Instances>
+      <Instances count={n * 2} place={placeSideGlass}>
+        <boxGeometry />
+        <meshStandardMaterial color="#7fa9c4" roughness={0.08} metalness={0.6} />
+      </Instances>
+      <Instances count={SHUTTERED.length * 4} place={placeShutter}>
+        <boxGeometry />
+        <meshStandardMaterial roughness={0.7} />
       </Instances>
       <Instances count={WITH_CHIMNEY.length} place={placeChimney} castShadow>
         <boxGeometry />
-        <meshToonMaterial color="#9a4a3a" gradientMap={toonRamp()} />
+        <meshStandardMaterial color="#9a4a3a" roughness={0.9} />
+      </Instances>
+      <Instances count={PORCHED.length} place={placePorch} receiveShadow>
+        <boxGeometry />
+        <meshStandardMaterial roughness={0.8} />
+      </Instances>
+      <Instances count={PORCHED.length} place={placePorchRoof} castShadow>
+        <boxGeometry />
+        <meshStandardMaterial roughness={0.8} />
+      </Instances>
+      <Instances count={PORCHED.length * 2} place={placePost}>
+        <boxGeometry />
+        <meshStandardMaterial color="#f2f0ea" roughness={0.7} />
+      </Instances>
+      <Instances count={GARAGED.length} place={placeGarage} castShadow receiveShadow>
+        <boxGeometry />
+        <meshStandardMaterial roughness={0.85} />
+      </Instances>
+      <Instances count={GARAGED.length} place={placeGarageDoor}>
+        <boxGeometry />
+        <meshStandardMaterial color="#e9ecef" roughness={0.5} metalness={0.3} />
       </Instances>
       <Instances count={n} place={placePath} receiveShadow>
         <boxGeometry />
@@ -284,41 +445,80 @@ function Houses() {
 
 // ---- Nature -----------------------------------------------------------------------------------
 
-const GREENS = ["#4c9a3b", "#5cb045", "#3f8a35", "#69b84f"];
-const placeTrunk: Place = (i, o) => {
-  const t = TOWN_TREES[i];
+const GREENS = ["#3f7d32", "#4a8a3a", "#35702c", "#5a9443", "#466f2e"];
+/** A lumpy ball of leaves (an icosahedron pushed in and out a little). */
+function leafGeometry(seed: number) {
+  const g = new THREE.IcosahedronGeometry(1, 2);
+  const p = g.attributes.position;
+  const v = new THREE.Vector3();
+  for (let i = 0; i < p.count; i++) {
+    v.fromBufferAttribute(p, i);
+    const n = Math.sin(v.x * 3.1 + seed) * Math.cos(v.y * 2.7 - seed) * Math.sin(v.z * 3.7 + seed * 2);
+    v.multiplyScalar(1 + n * 0.16);
+    p.setXYZ(i, v.x, v.y * 0.9, v.z);
+  }
+  g.computeVertexNormals();
+  return g;
+}
+const CONIFER = (i: number) => i % 4 === 3;
+const BROAD = TOWN_TREES.map((_, i) => i).filter((i) => !CONIFER(i));
+const PINES = TOWN_TREES.map((_, i) => i).filter(CONIFER);
+/** Each broadleaf tree's crown is four clumps, set a little differently on every tree. */
+const CLUMPS = [
+  [0, 4.3, 0, 2.3],
+  [1.2, 5.4, 0.5, 1.7],
+  [-1.1, 5.2, -0.4, 1.6],
+  [0.2, 6.4, -0.2, 1.4],
+];
+const placeTrunk: Place = (k, o) => {
+  const t = TOWN_TREES[k];
   o.position.set(t.x, 1.6 * t.s, t.z);
-  o.scale.set(t.s, t.s, t.s);
+  o.scale.set(t.s, t.s * (CONIFER(k) ? 0.7 : 1), t.s);
 };
-const placeLowLeaves: Place = (i, o) => {
-  const t = TOWN_TREES[i];
-  o.position.set(t.x, 4.2 * t.s, t.z);
-  o.scale.setScalar(2.4 * t.s);
-  return GREENS[i % GREENS.length];
-};
-const placeHighLeaves: Place = (i, o) => {
-  const t = TOWN_TREES[i];
-  o.position.set(t.x + 0.3 * t.s, 5.9 * t.s, t.z - 0.2 * t.s);
-  o.scale.setScalar(1.6 * t.s);
-  return GREENS[(i + 1) % GREENS.length];
-};
+const clump =
+  (c: number): Place =>
+  (k, o) => {
+    const i = BROAD[k];
+    const t = TOWN_TREES[i];
+    const [cx, cy, cz, r] = CLUMPS[c];
+    const a = i * 1.7;
+    o.position.set(t.x + (cx * Math.cos(a) - cz * Math.sin(a)) * t.s, cy * t.s, t.z + (cx * Math.sin(a) + cz * Math.cos(a)) * t.s);
+    o.rotation.set(0, a, 0);
+    o.scale.setScalar(r * t.s);
+    return GREENS[(i + c) % GREENS.length];
+  };
+const CLUMP_PLACERS = CLUMPS.map((_, c) => clump(c));
+const pineTier =
+  (tier: number): Place =>
+  (k, o) => {
+    const t = TOWN_TREES[PINES[k]];
+    o.position.set(t.x, (2.6 + tier * 1.9) * t.s, t.z);
+    o.scale.set((2.6 - tier * 0.6) * t.s, 3 * t.s, (2.6 - tier * 0.6) * t.s);
+    return ["#2f5e2a", "#386a2f", "#2a5526"][(k + tier) % 3];
+  };
+const PINE_PLACERS = [0, 1, 2].map(pineTier);
 
 function Trees() {
   const n = TOWN_TREES.length;
+  const leaves = useMemo(() => [leafGeometry(1), leafGeometry(2.3), leafGeometry(3.7), leafGeometry(5.1)], []);
+  useEffect(() => () => leaves.forEach((g) => g.dispose()), [leaves]);
   return (
     <group>
       <Instances count={n} place={placeTrunk} castShadow>
-        <cylinderGeometry args={[0.35, 0.5, 3.2, 7]} />
-        <meshToonMaterial color="#8a5a35" gradientMap={toonRamp()} />
+        <cylinderGeometry args={[0.28, 0.48, 3.2, 8]} />
+        <meshStandardMaterial color="#5e4330" roughness={0.95} />
       </Instances>
-      <Instances count={n} place={placeLowLeaves} castShadow>
-        <icosahedronGeometry args={[1, 1]} />
-        <meshToonMaterial gradientMap={toonRamp()} />
-      </Instances>
-      <Instances count={n} place={placeHighLeaves} castShadow>
-        <icosahedronGeometry args={[1, 1]} />
-        <meshToonMaterial gradientMap={toonRamp()} />
-      </Instances>
+      {CLUMP_PLACERS.map((place, c) => (
+        <Instances key={c} count={BROAD.length} place={place} geometry={leaves[c]} castShadow>
+          <meshStandardMaterial roughness={0.9} flatShading />
+        </Instances>
+      ))}
+      {PINE_PLACERS.map((place, tier) => (
+        <Instances key={`p${tier}`} count={PINES.length} place={place} castShadow>
+          <coneGeometry args={[1, 1, 9]} />
+          <meshStandardMaterial roughness={0.9} flatShading />
+        </Instances>
+      ))}
     </group>
   );
 }
@@ -327,14 +527,14 @@ const placeBush: Place = (i, o) => {
   const b = BUSHES[i];
   o.position.set(b.x, 0.7 * b.s, b.z);
   o.scale.set(1.2 * b.s, 0.95 * b.s, 1.1 * b.s);
-  return ["#4f9a3d", "#5fae47", "#3e8c3a", "#77b85a"][i % 4];
+  return ["#3f7d32", "#4a8a3a", "#35702c", "#5a9443"][i % 4];
 };
 
 function Bushes() {
   return (
     <Instances count={BUSHES.length} place={placeBush}>
       <icosahedronGeometry args={[1, 1]} />
-      <meshToonMaterial gradientMap={toonRamp()} />
+      <meshStandardMaterial roughness={0.78} />
     </Instances>
   );
 }
@@ -395,6 +595,35 @@ function walkerAt(w: (typeof WALKERS)[number], t: number) {
 /** Where everyone is walking right now (for cars to stop for them). */
 export const walkerSpots: { x: number; z: number }[] = WALKERS.map(() => ({ x: 0, z: 0 }));
 
+/** How many of the nearest people are drawn in full detail (the rest are simpler, further off). */
+const NEAR_PEOPLE = 18;
+const HAIR_STYLES = ["short", "long", "buzz", "bun", "short", "bald"] as const;
+const walkerLook = (i: number): Look => {
+  const w = WALKERS[i];
+  return { skin: w.skin, hair: i % 3 ? "#2a1a12" : i % 5 ? "#6b4423" : "#c9a56b", hairStyle: HAIR_STYLES[i % HAIR_STYLES.length], shirt: w.shirt, pants: w.pants, shoes: i % 2 ? "#f2f2f2" : "#1b1d21" };
+};
+
+/** One of the people near you, in full detail (face, hair, walking properly). */
+function NearWalker({ idx }: { idx: number }) {
+  const g = useRef<THREE.Group>(null);
+  const look = useMemo(() => walkerLook(idx), [idx]);
+  const pose = useMemo(() => ({ ...newPose(), gait: 1 }), []);
+  const w = WALKERS[idx];
+  useFrame((state) => {
+    const t = state.clock.elapsedTime;
+    const p = walkerAt(w, t);
+    if (!g.current) return;
+    g.current.position.set(p.x, 0, p.z);
+    g.current.rotation.y = p.heading;
+    pose.phase = t * w.speed * 1.25 + idx;
+  });
+  return (
+    <group ref={g} scale={w.height / 0.83}>
+      <Humanoid look={look} pose={pose} />
+    </group>
+  );
+}
+
 function Walkers() {
   const n = WALKERS.length;
   const bodies = useRef<THREE.InstancedMesh>(null);
@@ -402,15 +631,20 @@ function Walkers() {
   const legs = useRef<THREE.InstancedMesh>(null);
   const arms = useRef<THREE.InstancedMesh>(null);
   const hair = useRef<THREE.InstancedMesh>(null);
-  // Limbs swing from the top: shift their shapes so the hinge is at the top.
-  const legGeo = useMemo(() => new THREE.BoxGeometry(0.3, 1.5, 0.32).translate(0, -0.75, 0), []);
-  const armGeo = useMemo(() => new THREE.BoxGeometry(0.22, 1.25, 0.24).translate(0, -0.62, 0), []);
+  const [near, setNear] = useState<number[]>([]);
+  const nearSet = useRef(new Set<number>());
+  const lastPick = useRef(-1);
+  // Rounded limbs that swing from the top (the hinge is at the top of each shape).
+  const legGeo = useMemo(() => new THREE.CapsuleGeometry(0.15, 1.2, 4, 8).translate(0, -0.75, 0), []);
+  const armGeo = useMemo(() => new THREE.CapsuleGeometry(0.1, 0.95, 4, 8).translate(0, -0.58, 0), []);
+  const bodyGeo = useMemo(() => new THREE.CapsuleGeometry(0.3, 0.62, 6, 12).scale(1, 1, 0.7), []);
   useEffect(
     () => () => {
       legGeo.dispose();
       armGeo.dispose();
+      bodyGeo.dispose();
     },
-    [legGeo, armGeo],
+    [legGeo, armGeo, bodyGeo],
   );
 
   // Colours once.
@@ -419,7 +653,7 @@ function Walkers() {
     WALKERS.forEach((w, i) => {
       bodies.current?.setColorAt(i, c.set(w.shirt));
       heads.current?.setColorAt(i, c.set(w.skin));
-      hair.current?.setColorAt(i, c.set(i % 3 ? "#2a1a12" : "#6b4423"));
+      hair.current?.setColorAt(i, c.set(walkerLook(i).hair));
       for (const k of [0, 1]) {
         legs.current?.setColorAt(i * 2 + k, c.set(w.pants));
         arms.current?.setColorAt(i * 2 + k, c.set(w.shirt));
@@ -431,52 +665,73 @@ function Walkers() {
   useFrame((state) => {
     const t = state.clock.elapsedTime;
     if (!bodies.current || !heads.current || !legs.current || !arms.current || !hair.current) return;
+    const cam = state.camera.position;
+    // Every half second: who's close enough to see properly?
+    if (t - lastPick.current > 0.5) {
+      lastPick.current = t;
+      const order = WALKERS.map((w, i) => {
+        const p = walkerAt(w, t);
+        return { i, d: (p.x - cam.x) ** 2 + (p.z - cam.z) ** 2 };
+      })
+        .filter((o) => o.d < 90 * 90)
+        .sort((a, b) => a.d - b.d)
+        .slice(0, NEAR_PEOPLE)
+        .map((o) => o.i)
+        .sort((a, b) => a - b);
+      if (order.join() !== [...nearSet.current].join()) {
+        nearSet.current = new Set(order);
+        setNear(order);
+      }
+    }
     WALKERS.forEach((w, i) => {
       const p = walkerAt(w, t);
       walkerSpots[i].x = p.x;
       walkerSpots[i].z = p.z;
-      const s = w.height;
-      const swing = Math.sin(t * w.speed * 2.6 + i) * 0.55;
-      const bob = Math.abs(Math.cos(t * w.speed * 2.6 + i)) * 0.06;
-      const put = (m: THREE.InstancedMesh, idx: number, lx: number, y: number, lz: number, rx = 0, scale = 1) => {
-        tmp.set(lx, 0, lz).applyAxisAngle(THREE.Object3D.DEFAULT_UP, p.heading);
-        dummy.position.set(p.x + tmp.x, y, p.z + tmp.z);
+      // Drawn in full detail instead: tuck the simple one away.
+      const s = nearSet.current.has(i) ? 0.0001 : w.height / 0.83;
+      const swing = Math.sin(t * w.speed * 2.6 + i) * 0.5;
+      const bob = Math.abs(Math.cos(t * w.speed * 2.6 + i)) * 0.05;
+      const put = (m: THREE.InstancedMesh, idx: number, lx: number, y: number, lz: number, rx = 0) => {
+        tmp.set(lx * s, 0, lz * s).applyAxisAngle(THREE.Object3D.DEFAULT_UP, p.heading);
+        dummy.position.set(p.x + tmp.x, y * s, p.z + tmp.z);
         dummy.rotation.set(rx, p.heading, 0, "YXZ");
-        dummy.scale.setScalar(scale);
+        dummy.scale.setScalar(s);
         dummy.updateMatrix();
         m.setMatrixAt(idx, dummy.matrix);
       };
-      put(bodies.current!, i, 0, (1.5 + 0.8) * s + bob, 0, 0, s);
-      put(heads.current!, i, 0, 3.55 * s + bob, 0, 0, s);
-      put(hair.current!, i, 0, 3.72 * s + bob, -0.05, 0, s);
-      put(legs.current!, i * 2, -0.2 * s, 1.5 * s + bob, 0, swing, s);
-      put(legs.current!, i * 2 + 1, 0.2 * s, 1.5 * s + bob, 0, -swing, s);
-      put(arms.current!, i * 2, -0.6 * s, 3.0 * s + bob, 0, -swing * 0.8, s);
-      put(arms.current!, i * 2 + 1, 0.6 * s, 3.0 * s + bob, 0, swing * 0.8, s);
+      put(bodies.current!, i, 0, 2.2 + bob, 0);
+      put(heads.current!, i, 0, 3.08 + bob, 0);
+      put(hair.current!, i, 0, 3.16 + bob, -0.03);
+      put(legs.current!, i * 2, -0.16, 1.62 + bob, 0, swing);
+      put(legs.current!, i * 2 + 1, 0.16, 1.62 + bob, 0, -swing);
+      put(arms.current!, i * 2, -0.42, 2.72 + bob, 0, -swing * 0.8);
+      put(arms.current!, i * 2 + 1, 0.42, 2.72 + bob, 0, swing * 0.8);
     });
     for (const m of [bodies, heads, legs, arms, hair]) m.current!.instanceMatrix.needsUpdate = true;
   });
 
   return (
     <group>
-      <instancedMesh ref={bodies} args={[undefined, undefined, n]} castShadow raycast={noRaycast} frustumCulled={false}>
-        <boxGeometry args={[0.95, 1.6, 0.55]} />
-        <meshStandardMaterial roughness={0.8} />
+      <instancedMesh ref={bodies} args={[bodyGeo, undefined, n]} castShadow raycast={noRaycast} frustumCulled={false}>
+        <meshStandardMaterial roughness={0.85} />
       </instancedMesh>
       <instancedMesh ref={heads} args={[undefined, undefined, n]} raycast={noRaycast} frustumCulled={false}>
-        <sphereGeometry args={[0.42, 14, 10]} />
+        <sphereGeometry args={[0.26, 14, 10]} />
         <meshStandardMaterial roughness={0.6} />
       </instancedMesh>
       <instancedMesh ref={hair} args={[undefined, undefined, n]} raycast={noRaycast} frustumCulled={false}>
-        <sphereGeometry args={[0.4, 12, 8, 0, Math.PI * 2, 0, Math.PI / 2]} />
-        <meshStandardMaterial roughness={0.7} />
+        <sphereGeometry args={[0.275, 12, 8, 0, Math.PI * 2, 0, Math.PI / 2]} />
+        <meshStandardMaterial roughness={0.8} />
       </instancedMesh>
       <instancedMesh ref={legs} args={[legGeo, undefined, n * 2]} raycast={noRaycast} frustumCulled={false}>
-        <meshStandardMaterial roughness={0.8} />
+        <meshStandardMaterial roughness={0.85} />
       </instancedMesh>
       <instancedMesh ref={arms} args={[armGeo, undefined, n * 2]} raycast={noRaycast} frustumCulled={false}>
-        <meshStandardMaterial roughness={0.8} />
+        <meshStandardMaterial roughness={0.85} />
       </instancedMesh>
+      {near.map((i) => (
+        <NearWalker key={i} idx={i} />
+      ))}
     </group>
   );
 }
