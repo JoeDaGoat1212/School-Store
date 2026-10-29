@@ -191,8 +191,12 @@ export function CameraRig({
     const wheel = (e: WheelEvent) => {
       if (currentRef.current === "outside" || drive.active) return;
       // Not while scrolling a panel or a list on screen.
-      const t = e.target as HTMLElement | null;
-      if (t && t !== el && t.closest?.("[role=dialog], [data-scroll], .overflow-y-auto, .overflow-auto, aside, nav")) return;
+      for (let n = e.target as HTMLElement | null; n && n !== document.body; n = n.parentElement) {
+        if (n === el) break;
+        if (n.getAttribute?.("role") === "dialog") return;
+        const oy = getComputedStyle(n).overflowY;
+        if ((oy === "auto" || oy === "scroll") && n.scrollHeight > n.clientHeight + 2) return;
+      }
       player.zoom = clamp(player.zoom + e.deltaY * 0.012, 0, MAX_ZOOM);
       player.view = player.zoom > 1.2 ? "third" : "first";
       if (player.view === "first") player.zoom = 0;

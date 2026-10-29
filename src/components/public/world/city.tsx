@@ -5,6 +5,7 @@ import { useFrame } from "@react-three/fiber";
 import * as THREE from "three";
 import { BENCHES, CROWN_SPOTS, FOUNTAIN, PARK, PARK_TREES, PAVED_BLOCKS, TIERS_BY_STYLE, TOWERS, ZEBRA, ALL_TIERS } from "./city-layout";
 import { noRaycast, signTexture } from "./paint";
+import { pavingMaterial } from "./surfaces";
 import { Instances, type Place } from "./town";
 
 /*
@@ -353,7 +354,7 @@ function Pavement() {
     <group>
       <Instances count={PAVED_BLOCKS.length} place={placePaving} receiveShadow>
         <boxGeometry />
-        <meshStandardMaterial color="#d8d2c6" roughness={0.78} />
+        <primitive object={pavingMaterial()} attach="material" />
       </Instances>
       <Instances count={ZEBRA.length} place={placeZebra}>
         <planeGeometry args={[1, 1]} />

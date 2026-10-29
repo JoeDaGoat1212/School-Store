@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { CameraIcon, HeartIcon, LandmarkIcon, MapPinIcon, NavigationIcon, StarIcon, UtensilsIcon, Volume2Icon, VolumeXIcon, WalletIcon, XIcon } from "lucide-react";
+import { CameraIcon, HeartIcon, SparklesIcon, LandmarkIcon, MapPinIcon, NavigationIcon, StarIcon, UtensilsIcon, Volume2Icon, VolumeXIcon, WalletIcon, XIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { player } from "./bump";
 import { BANK } from "./city-layout";
@@ -13,6 +13,7 @@ import { police } from "./police-state";
 import { pockets, profile, transfer, usd } from "./profile";
 import { WalletPanel } from "./wallet-panel";
 import { cutscene } from "./cutscene";
+import { graphics, setQuality, useQuality, type Quality } from "./effects";
 import { DealerPanel } from "./dealer-panel";
 import { dealer } from "./dealer";
 import { JobPanels, ShiftCard } from "./job-panels";
@@ -302,6 +303,9 @@ export function CityHud({
         </button>
       )}
 
+      {/* ---- How good it looks ---- */}
+      {!life.dead && !panel && <GraphicsButton />}
+
       {/* ---- Quick trips round the map ---- */}
       {canTravel && !w && !life.dead && (
         <div className="absolute top-[10.6rem] right-3 flex flex-col items-end gap-2 sm:top-20 sm:right-4">
@@ -437,5 +441,30 @@ function TellerWindow() {
         </div>
       </div>
     </div>
+  );
+}
+
+const LEVELS: { key: Quality; label: string }[] = [
+  { key: "ultra", label: "Ultra" },
+  { key: "high", label: "High" },
+  { key: "fast", label: "Fast" },
+];
+
+/** Graphics: Ultra / High / Fast (tap to change). */
+function GraphicsButton() {
+  const level = useQuality();
+  const next = () => {
+    const i = LEVELS.findIndex((l) => l.key === graphics.level);
+    setQuality(LEVELS[(i + 1) % LEVELS.length].key);
+  };
+  return (
+    <button
+      type="button"
+      onClick={next}
+      title="Graphics quality (Ultra looks best; Fast runs best on older computers)"
+      className="absolute top-[16.8rem] right-3 flex h-9 items-center gap-1.5 rounded-full bg-black/70 px-3.5 text-sm font-bold text-white shadow-md backdrop-blur transition-transform hover:-translate-y-0.5 sm:top-[10.6rem] sm:right-4"
+    >
+      <SparklesIcon className="size-4" /> Graphics: {LEVELS.find((l) => l.key === level)?.label}
+    </button>
   );
 }

@@ -66,7 +66,7 @@ function crossingsOf(road: Road) {
 export const INTERSECTIONS = ROADS.filter((r) => r.axis === "z").flatMap((street) => crossingsOf(street).map((z) => ({ x: street.at, z })));
 
 /** A road split into the pieces between crossings (for sidewalks, houses and lamps). */
-function pieces(road: Road, gap: number) {
+export function pieces(road: Road, gap: number) {
   const out: [number, number][] = [];
   let start = road.from;
   for (const c of crossingsOf(road)) {
@@ -78,7 +78,7 @@ function pieces(road: Road, gap: number) {
 }
 
 /** Turn "distance along a road, distance to one side" into x, z. */
-function onRoad(road: Road, along: number, side: number) {
+export function onRoad(road: Road, along: number, side: number) {
   return road.axis === "x" ? { x: along, z: road.at + side } : { x: road.at + side, z: along };
 }
 

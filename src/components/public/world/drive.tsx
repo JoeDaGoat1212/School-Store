@@ -212,6 +212,15 @@ export function Cars({
     [],
   );
 
+  // Parked cars far from the camera aren't drawn (there are a lot of them, and they're detailed).
+  useFrame(({ camera }) => {
+    groups.current.forEach((g, i) => {
+      if (!g || i === driving) return;
+      const s = fleet[i]?.spot;
+      if (!s) return;
+      g.visible = (s.x - camera.position.x) ** 2 + (s.z - camera.position.z) ** 2 < 240 * 240;
+    });
+  });
   useFrame((frame, rawDelta) => {
     if (driving === null || isAircraft(fleet[driving])) return;
     const dt = Math.min(rawDelta, 0.1);

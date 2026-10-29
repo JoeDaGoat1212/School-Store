@@ -737,6 +737,9 @@ function VaultLevel() {
         <planeGeometry args={[3, 3 / warn.aspect]} />
         <meshBasicMaterial map={warn.texture} toneMapped={false} />
       </mesh>
+      {/* Warm light over the vault, cool light in the corridor */}
+      <pointLight position={[0, PODIUM - 1.2, -10]} intensity={60} distance={40} color="#ffe2b0" />
+      <pointLight position={[-26, PODIUM - 1.2, -32]} intensity={30} distance={26} color="#dfefff" />
       <CorridorLasers />
       <VaultDoor />
       <VaultGlow />
@@ -1034,7 +1037,7 @@ function CorridorLasers() {
 function Loot({ loot }: { loot: BankLoot }) {
   const ref = useTakenAnim(loot.id);
   const cash = useMemo(() => signTexture("$100", { bg: "#4f8f3f", fg: "#e9f7dc", height: 64 }), []);
-  const gold = mat("#e8b931", 0.22, 0.9, "#3a2600");
+  const gold = mat("#f2c23a", 0.3, 0.55, "#5a3c00");
   return (
     <group position={[loot.lx, 0.16, loot.lz]}>
       <group ref={ref}>

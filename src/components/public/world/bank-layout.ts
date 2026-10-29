@@ -212,7 +212,7 @@ const VAULT_BOXES = VAULT_WALLS.map(box);
 const COLUMNS = [...P.columns.map((lx) => ({ ...toWorld(lx, P.columnZ), r: 0.9 })), ...P.hallColumns.map(([lx, lz]) => ({ ...toWorld(lx, lz), r: 1 }))];
 
 /** Hooks from heist.ts: is the staff door open, the vault door open, is the fire door open. */
-export const bankDoors = { staff: () => false, vault: () => false, fire: () => false, loot: (_id: string) => null as Box | null };
+export const bankDoors = { staff: () => false, vault: () => false, fire: () => false, loot: (id: string): Box | null => (id ? null : null) };
 
 /** Does a circle at (x, z) hit any of the bank's walls, on your level? */
 export function bankBlocks(x: number, z: number, r: number) {

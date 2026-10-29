@@ -83,6 +83,10 @@ const TORSO = new THREE.CapsuleGeometry(0.155, 0.3, 6, 14);
 const PELVIS = new THREE.CapsuleGeometry(0.14, 0.08, 4, 12);
 const HAIR_CAP = new THREE.SphereGeometry(1, 18, 10, 0, Math.PI * 2, 0, Math.PI * 0.55);
 
+/** People further from the camera than this aren't drawn. */
+const FAR = 150;
+const SEE = new THREE.Vector3();
+
 export function Humanoid({ look, pose, castShadow = true }: { look: Look; pose: Pose; castShadow?: boolean }) {
   const root = useRef<THREE.Group>(null);
   const hips = useRef<THREE.Group>(null);
@@ -110,7 +114,15 @@ export function Humanoid({ look, pose, castShadow = true }: { look: Look; pose: 
   const longSleeves = o !== "casual" && o !== "worker";
   const style = look.hairStyle ?? "short";
 
-  useFrame(() => {
+  useFrame(({ camera }) => {
+    // Far away: not drawn at all (and not animated), which saves a lot.
+    const r = root.current;
+    if (r) {
+      r.getWorldPosition(SEE);
+      const far = SEE.distanceToSquared(camera.position) > FAR * FAR;
+      r.visible = !far;
+      if (far) return;
+    }
     const p = pose;
     const g = Math.min(2, p.gait);
     const walk = Math.min(1, g);

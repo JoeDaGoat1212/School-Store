@@ -5,6 +5,7 @@ import { useFrame } from "@react-three/fiber";
 import * as THREE from "three";
 import { Humanoid, newPose, type Look } from "./humanoid";
 import { canvasTexture, noRaycast, seededRandom } from "./paint";
+import { asphaltMaterial, pavingMaterial } from "./surfaces";
 import {
   BUSHES,
   CURB,
@@ -149,13 +150,12 @@ function Roads() {
   const patch = useMemo(() => stripGeometry(ROAD_HALF * 2, ROAD_HALF * 2, 1000), []);
   const drive = useMemo(() => stripGeometry(DRIVEWAY.halfWidth * 2, DRIVEWAY.toZ - DRIVEWAY.fromZ + 1, 1000), []);
   useEffect(() => () => [...roads.map((r) => r.geometry), patch, drive].forEach((g) => g.dispose()), [roads, patch, drive]);
-  const plain = <meshStandardMaterial color="#4b5057" roughness={0.95} />;
+  const lined = asphaltMaterial(tex);
+  const plain = <primitive object={asphaltMaterial()} attach="material" />;
   return (
     <group>
       {roads.map((r, i) => (
-        <mesh key={i} geometry={r.geometry} position={r.position} receiveShadow raycast={noRaycast}>
-          <meshStandardMaterial map={tex} roughness={0.95} />
-        </mesh>
+        <mesh key={i} geometry={r.geometry} material={lined} position={r.position} receiveShadow raycast={noRaycast} />
       ))}
       {/* Plain squares where roads cross (no lines through the middle) */}
       {INTERSECTIONS.map((p) => (
@@ -184,7 +184,7 @@ function Sidewalks() {
   return (
     <Instances count={SIDEWALKS.length} place={placeSidewalk} receiveShadow>
       <boxGeometry />
-      <meshStandardMaterial color="#d9d5cc" roughness={0.9} />
+      <primitive object={pavingMaterial()} attach="material" />
     </Instances>
   );
 }

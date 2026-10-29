@@ -2,9 +2,10 @@
 
 import { useEffect, useMemo, useRef } from "react";
 import { useFrame, type ThreeEvent } from "@react-three/fiber";
-import { RoundedBox } from "@react-three/drei";
+import { RoundedBox, Sky as SkyShader } from "@react-three/drei";
 import * as THREE from "three";
 import { brand } from "@/config/brand";
+import { asphaltMaterial, grassMaterial } from "./surfaces";
 import { CREAM, ORANGE, TEAL, TEAL_DEEP, canvasTexture, seededRandom, noRaycast, signTexture } from "./paint";
 import { advanceOf, flameGeometry, letterGeometry } from "./text3d";
 import { CITY_PARKED } from "./city-layout";
@@ -502,12 +503,12 @@ export function Lot() {
       {/* Grass all around (out past the city, too) */}
       <mesh rotation-x={-Math.PI / 2} position-y={-0.05} receiveShadow raycast={noRaycast}>
         <planeGeometry args={[6000, 6000]} />
-        <Toon color="#86c45a" />
+        <primitive object={grassMaterial()} attach="material" />
       </mesh>
       {/* Asphalt */}
       <mesh rotation-x={-Math.PI / 2} position={[0, 0.01, 19]} receiveShadow raycast={noRaycast}>
         <planeGeometry args={[LOT_HALF * 2, 32]} />
-        <meshStandardMaterial map={asphalt} roughness={0.95} />
+        <primitive object={asphaltMaterial(asphalt)} attach="material" />
       </mesh>
       {/* Sidewalk and curb along the front of the store */}
       <mesh position={[0, 0.15, 1.75]} receiveShadow raycast={noRaycast}>
@@ -546,6 +547,9 @@ export function Lot() {
  * At Halloween it's a late-afternoon sky instead: purple overhead, glowing
  * orange at the horizon.
  */
+/** Which way the sun is (the same as the sunlight in world-scene.tsx). */
+export const SUN_DIR: [number, number, number] = [68, 120, 92];
+
 export function Sky({ spooky = false }: { spooky?: boolean }) {
   const texture = useMemo(() => {
     const c = document.createElement("canvas");
@@ -578,10 +582,15 @@ export function Sky({ spooky = false }: { spooky?: boolean }) {
   });
   return (
     <group ref={dome}>
-      <mesh raycast={noRaycast}>
-        <sphereGeometry args={[1100, 32, 16, 0, Math.PI * 2, 0, Math.PI / 2]} />
-        <meshBasicMaterial map={texture} side={THREE.BackSide} toneMapped={false} fog={false} />
-      </mesh>
+      {spooky ? (
+        <mesh raycast={noRaycast}>
+          <sphereGeometry args={[1100, 32, 16, 0, Math.PI * 2, 0, Math.PI / 2]} />
+          <meshBasicMaterial map={texture} side={THREE.BackSide} toneMapped={false} fog={false} />
+        </mesh>
+      ) : (
+        // A real sky: sunlight scattering through the air, deep blue overhead, hazy at the horizon, a glow round the sun.
+        <SkyShader distance={1100} sunPosition={SUN_DIR} turbidity={5.5} rayleigh={1.25} mieCoefficient={0.0045} mieDirectionalG={0.86} />
+      )}
       <group ref={clouds}>
         {[
           [-90, 70, -140, 1.4],

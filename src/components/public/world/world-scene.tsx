@@ -1,17 +1,18 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
-import { Environment, Lightformer, PerformanceMonitor } from "@react-three/drei";
+import { Environment, Lightformer, PerformanceMonitor, Sky as DreiSky } from "@react-three/drei";
 import * as THREE from "three";
 import { useFontsReady } from "../showcase/drink-scene";
 import type { UnitKey } from "../store/catalog";
 import type { Placement, StoreItem, UnitLayout } from "../store/layout";
 import { CameraRig, testView } from "./camera";
+import { Effects, QUALITY, slowDown, useQuality } from "./effects";
 import { CheckoutCounter, type TillDisplay, type TillUnit } from "./checkout-scene";
 import { HalloweenInside, HalloweenLawn, HalloweenOutside } from "./halloween";
 import type { Season } from "@/lib/seasons";
-import { Building, Interior, Lot, Sky } from "./exterior";
+import { Building, Interior, Lot, SUN_DIR, Sky } from "./exterior";
 import { BulletinBoard, CandyStand, CheckoutLane, FloorMarker, WorldFridge, WorldShelf, YellowLetters, type BoardCard } from "./fixtures";
 import { PriceTag, ProductCopies } from "./products";
 import { RequestDesk } from "./request-desk";
@@ -28,6 +29,7 @@ import { Mountains } from "./mountains";
 import { Aircraft } from "./flight";
 import { Jail } from "./jail";
 import { Airport } from "./airport";
+import { Birds, StreetProps } from "./street-props";
 import { RestaurantRow } from "./buildings";
 import { Homes } from "./home-models";
 import { RealtyOffice, Showroom } from "./showroom";
@@ -100,8 +102,10 @@ export type WorldSceneProps = {
 
 export default function WorldScene(props: WorldSceneProps) {
   const { layouts, station, moving, calm } = props;
-  // Shadows are switched off on devices that can't keep up.
-  const [shadows, setShadows] = useState(true);
+  // How good it looks (effects.tsx): shadows and effects drop off on devices that can't keep up.
+  const quality = useQuality();
+  const q = QUALITY[quality];
+  const shadows = q.shadows;
   const fontsReady = useFontsReady();
   const places = useMemo(() => placeUnits(layouts), [layouts]);
   // Spots to stand: in store units (for the floor arrows, drawn with the store) and in world units (for the camera).
@@ -113,15 +117,16 @@ export default function WorldScene(props: WorldSceneProps) {
 
   return (
     <Canvas
-      shadows={shadows ? "percentage" : false}
-      dpr={[1, 1.6]}
+      shadows={shadows ? "soft" : false}
+      dpr={q.dpr}
       camera={{ fov: 56, near: 0.2, far: 2600, position: [40, 40, 60] }}
       gl={{ antialias: true, powerPreference: "high-performance" }}
     >
       <color attach="background" args={[spooky ? "#ffd2a4" : "#a8d2f2"]} />
       {/* Haze in the distance, so the far end of town fades softly into the sky (far enough out that the city's skyline shows from the store) */}
       <fog attach="fog" args={[spooky ? "#ffd8b0" : "#d6e8f4", 260, 1250]} />
-      <PerformanceMonitor onDecline={() => setShadows(false)} />
+      <PerformanceMonitor onDecline={slowDown} flipflops={2} />
+      <Effects />
       <CameraRig stations={worldSpots} current={station} calm={calm} onArrive={props.onArrive} blockers={walls} onWalk={props.onWalk} onNearCar={props.onNearCar} onInside={props.onInside} />
       <FirstFrame onReady={props.onReady} />
       {process.env.NODE_ENV !== "production" && <TestHook spots={worldSpots} places={places} layouts={layouts} station={station} moving={moving} items={props.items} />}
@@ -129,11 +134,13 @@ export default function WorldScene(props: WorldSceneProps) {
       {/* Daylight: the sun (with shadows), sky light from above, and soft fill. */}
       <hemisphereLight args={[spooky ? "#f1defa" : "#dcefff", "#8f8466", 0.85]} />
       <ambientLight intensity={0.22} />
-      <Sun shadows={shadows} warm={spooky} />
-      <Environment resolution={128} frames={1}>
+      <Sun key={q.shadowMap} shadows={shadows} warm={spooky} mapSize={q.shadowMap} />
+      <Environment resolution={256} frames={1}>
         <Lightformer intensity={2} position={[0, 10, 0]} rotation-x={Math.PI / 2} scale={[20, 20, 1]} />
         <Lightformer intensity={1.2} color="#ffe2c4" position={[-10, 3, 6]} rotation-y={Math.PI / 4} scale={[10, 4, 1]} />
         <Lightformer intensity={1} color="#c4f2ee" position={[10, 3, 6]} rotation-y={-Math.PI / 4} scale={[10, 4, 1]} />
+        {/* The sky, so shiny things (car paint, glass, chrome) reflect it */}
+        {!spooky && <DreiSky distance={900} sunPosition={SUN_DIR} turbidity={5.5} rayleigh={1.25} mieCoefficient={0.0045} mieDirectionalG={0.86} />}
       </Environment>
 
       <Sky spooky={spooky} />
@@ -158,6 +165,8 @@ export default function WorldScene(props: WorldSceneProps) {
           <RealtyOffice />
           <Homes />
           <Airport />
+          <StreetProps />
+          <Birds />
           {/* The mountains to the north, with the road up to the secret base */}
           <Mountains />
           {/* You, seen in third person */}
@@ -280,7 +289,7 @@ const sunLook = new THREE.Vector3();
  * far, so the sun follows you round the town (in 4-unit steps, so the
  * shadows don't shimmer as you move).
  */
-function Sun({ shadows, warm }: { shadows: boolean; warm: boolean }) {
+function Sun({ shadows, warm, mapSize }: { shadows: boolean; warm: boolean; mapSize: number }) {
   const light = useRef<THREE.DirectionalLight>(null);
   const scene = useThree((s) => s.scene);
   useEffect(() => {
@@ -312,7 +321,7 @@ function Sun({ shadows, warm }: { shadows: boolean; warm: boolean }) {
       intensity={2.6}
       color={warm ? "#ffd6a8" : "#fff3df"}
       castShadow={shadows}
-      shadow-mapSize={[2048, 2048]}
+      shadow-mapSize={[mapSize, mapSize]}
       shadow-bias={-0.0002}
       shadow-normalBias={0.04}
       shadow-camera-left={-75}
