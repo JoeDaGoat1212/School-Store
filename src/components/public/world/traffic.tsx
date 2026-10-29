@@ -22,7 +22,7 @@ import { LOOPS, TOWN_LOOPS } from "./town-layout";
 const PER_LOOP = 2;
 const PER_CITY_LOOP = 3;
 /** Cars further than this from the camera aren't drawn. */
-const DRAW_DISTANCE = 260;
+const DRAW_DISTANCE = 220;
 /** A car that's been stuck behind another this long squeezes past (so two cars at a crossroads never wait for each other forever). */
 const STUCK = 3;
 const CRUISE = 14; // units/s (about 30 mph)

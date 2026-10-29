@@ -10,6 +10,7 @@ import { AlarmLight, Person, SlidingDoors, backOut, checker, clamp01, ease, useC
 import { VAULT, game, vaultLasers, vaultLasersOn, vaultTime } from "./heist";
 import { COP_LOOK, Humanoid, newPose } from "./humanoid";
 import { noRaycast, signTexture } from "./paint";
+import { Near } from "./near";
 import { puff } from "./smoke";
 import { letterGeometry } from "./text3d";
 
@@ -191,10 +192,14 @@ export function Bank() {
         </group>
         <AlarmLight position={[-W + 1.2, H + 2.6, 1.2]} on={alarmOn} />
         <AlarmLight position={[W - 1.2, H + 2.6, 1.2]} on={alarmOn} />
-        <Hall floorMat={floorMat} />
+        <Near x={BANK.x} z={BANK.z - D / 2} dist={140}>
+          <Hall floorMat={floorMat} />
+        </Near>
       </group>
       <FireStairs />
-      <VaultLevel />
+      <Near x={BANK.x} z={BANK.z - D / 2} dist={110}>
+        <VaultLevel />
+      </Near>
     </group>
   );
 }
@@ -737,9 +742,6 @@ function VaultLevel() {
         <planeGeometry args={[3, 3 / warn.aspect]} />
         <meshBasicMaterial map={warn.texture} toneMapped={false} />
       </mesh>
-      {/* Warm light over the vault, cool light in the corridor */}
-      <pointLight position={[0, PODIUM - 1.2, -10]} intensity={60} distance={40} color="#ffe2b0" />
-      <pointLight position={[-26, PODIUM - 1.2, -32]} intensity={30} distance={26} color="#dfefff" />
       <CorridorLasers />
       <VaultDoor />
       <VaultGlow />

@@ -12,6 +12,7 @@ import { canvasTexture, noRaycast, seededRandom, signTexture } from "./paint";
 import { roomOf, shopPlan, type Room } from "./rooms";
 import { SHOPS, type ShopKey } from "./world-map";
 import { toWorld } from "./city-layout";
+import { Near } from "./near";
 
 /*
  * The walk-in buildings on Restaurant Row (the five places you can work),
@@ -239,7 +240,10 @@ export function Shell({ room, style, children }: { room: Room; style: ShellStyle
           ))}
         </group>
       )}
-      {children}
+      {/* Inside: only drawn when you're nearby. */}
+      <Near x={room.site.x} z={room.site.z} dist={Math.max(110, room.halfW * 2.5)}>
+        {children}
+      </Near>
     </group>
   );
 }

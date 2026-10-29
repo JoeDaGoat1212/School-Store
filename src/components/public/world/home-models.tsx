@@ -8,6 +8,7 @@ import { Block, Cyl, GLASS, mat, useDrawn } from "./buildings";
 import { drive } from "./drive";
 import { HOMES, ESTATE_WALL, access, doorOpenFor, homePlan, ownsHome, type Home } from "./houses-layout";
 import { Humanoid, newPose, randomLook } from "./humanoid";
+import { Near } from "./near";
 import { noRaycast, signTexture } from "./paint";
 import { usd } from "./profile";
 
@@ -590,7 +591,9 @@ export function Homes() {
   return (
     <>
       {HOMES.map((h) => (
-        <HomeModel key={h.id} h={h} />
+        <Near key={h.id} x={h.site.x} z={h.site.z} dist={480}>
+          <HomeModel h={h} />
+        </Near>
       ))}
       <EstateWall />
       <Gate />

@@ -9,6 +9,7 @@ import { CELL_ROW, CORRIDOR, JAIL_BOX, JAIL_DOORS, JAIL_ROOMS, JAIL_SOLID, YARD,
 import { canvasTexture, noRaycast, signTexture } from "./paint";
 import { Instances, type Place } from "./town";
 import * as fx from "./buildings";
+import { Near } from "./near";
 
 /*
  * Draws the jail from jail-layout.ts: concrete walls, ten cells with bunks
@@ -34,18 +35,21 @@ export function Jail() {
   return (
     <group>
       <Shell />
-      <Cells />
-      {JAIL_DOORS.filter((d) => d.kind === "security").map((d) => (
-        <SecurityDoor key={d.id} door={d} />
-      ))}
-      <Gym />
-      <GuardRoom />
-      <Lobby />
-      <Yard />
       <Facade />
-      {jail.guards.map((g, i) => (
-        <GuardModel key={i} guard={g} />
-      ))}
+      <Yard />
+      {/* Inside: only drawn when you're nearby. */}
+      <Near x={(JAIL_BOX.x0 + JAIL_BOX.x1) / 2} z={(JAIL_BOX.z0 + JAIL_BOX.z1) / 2} dist={170}>
+        <Cells />
+        {JAIL_DOORS.filter((d) => d.kind === "security").map((d) => (
+          <SecurityDoor key={d.id} door={d} />
+        ))}
+        <Gym />
+        <GuardRoom />
+        <Lobby />
+        {jail.guards.map((g, i) => (
+          <GuardModel key={i} guard={g} />
+        ))}
+      </Near>
     </group>
   );
 }

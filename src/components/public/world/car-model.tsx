@@ -312,6 +312,11 @@ function Wheel({ x, z, r, spinRef, steerRef, width = 0.6 }: { x: number; z: numb
   );
 }
 
+/** Cars closer than this are drawn in full detail. */
+const CAR_NEAR = 55;
+const CAR_AT = new THREE.Vector3();
+const FAR_TYRE = new THREE.CylinderGeometry(1, 1, 1, 12);
+
 export function CarModel({ color, look, body = "sedan" }: { color: string; look: CarLook; body?: Body }) {
   if (body === "moto") return <MotorbikeModel color={color} look={look} />;
   const kind = (body in STYLES ? body : "sedan") as keyof typeof STYLES;
@@ -325,6 +330,9 @@ function Car({ color, look, kind }: { color: string; look: CarLook; kind: keyof 
   const steers = useRef<(THREE.Group | null)[]>([]);
   const spins = useRef<(THREE.Group | null)[]>([]);
   const halo = useRef<THREE.Mesh>(null);
+  const detail = useRef<THREE.Group>(null);
+  const nearWheels = useRef<THREE.Group>(null);
+  const farWheels = useRef<THREE.Group>(null);
   // This car's own light materials (so one car braking doesn't light up every car).
   const brake = useMemo(() => new THREE.MeshBasicMaterial({ color: BRAKE_OFF, toneMapped: false }), []);
   const reverse = useMemo(() => new THREE.MeshBasicMaterial({ color: REVERSE_OFF, toneMapped: false }), []);
@@ -334,7 +342,16 @@ function Car({ color, look, kind }: { color: string; look: CarLook; kind: keyof 
   const back = st.body[st.body.length - 1][0];
   const L = st.lights;
 
-  useFrame((_, delta) => {
+  useFrame(({ camera }, delta) => {
+    // Level of detail: far off, only the body, the glass and the tyres are drawn (6 parts instead of 60).
+    if (bodyRef.current) {
+      bodyRef.current.getWorldPosition(CAR_AT);
+      const near = CAR_AT.distanceToSquared(camera.position) < CAR_NEAR * CAR_NEAR;
+      if (detail.current) detail.current.visible = near;
+      if (nearWheels.current) nearWheels.current.visible = near;
+      if (farWheels.current) farWheels.current.visible = !near;
+      if (!near) return;
+    }
     steers.current.forEach((w, i) => {
       if (w) w.rotation.y = i < 2 ? look.steer : 0;
     });
@@ -357,6 +374,7 @@ function Car({ color, look, kind }: { color: string; look: CarLook; kind: keyof 
         <group position-y={-0.9}>
           <mesh geometry={geo.body} material={p} castShadow receiveShadow raycast={noRaycast} />
           <mesh geometry={geo.glass} material={M.glass} castShadow raycast={noRaycast} />
+          <group ref={detail}>
           {/* Roof panel in the body colour, and the pillars between the windows */}
           <mesh geometry={WHEEL_GEO.box} material={p} position={[0, st.roof[2] - 0.02, (st.roof[0] + st.roof[1]) / 2]} scale={[st.width - 0.55, 0.08, st.roof[1] - st.roof[0]]} raycast={noRaycast} />
           {[-1, 1].map((s) => (
@@ -410,10 +428,23 @@ function Car({ color, look, kind }: { color: string; look: CarLook; kind: keyof 
               <mesh geometry={WHEEL_GEO.box} material={M.trim} position={[0, 2.06, 2.35]} scale={[st.width - 0.5, 0.04, 2.2]} raycast={noRaycast} />
             </group>
           )}
+          </group>
         </group>
       </group>
 
+      {/* Far away: just the tyres. */}
+      <group ref={farWheels} visible={false}>
+        {[
+          [-wheelX, st.wheels[0]],
+          [wheelX, st.wheels[0]],
+          [-wheelX, st.wheels[1]],
+          [wheelX, st.wheels[1]],
+        ].map(([x, z], i) => (
+          <mesh key={i} geometry={FAR_TYRE} material={M.tyre} position={[x, st.wheelR, z]} rotation-z={Math.PI / 2} scale={[st.wheelR, 0.5, st.wheelR]} raycast={noRaycast} />
+        ))}
+      </group>
       {/* Wheels: an outer part that steers, an inner part that rolls */}
+      <group ref={nearWheels}>
       {[
         [-wheelX, st.wheels[0]],
         [wheelX, st.wheels[0]],
@@ -433,6 +464,7 @@ function Car({ color, look, kind }: { color: string; look: CarLook; kind: keyof 
           }}
         />
       ))}
+      </group>
     </group>
   );
 }

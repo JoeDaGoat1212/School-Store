@@ -594,7 +594,7 @@ function walkerAt(w: (typeof WALKERS)[number], t: number) {
 export const walkerSpots: { x: number; z: number }[] = WALKERS.map(() => ({ x: 0, z: 0 }));
 
 /** How many of the nearest people are drawn in full detail (the rest are simpler, further off). */
-const NEAR_PEOPLE = 18;
+const NEAR_PEOPLE = 10;
 const HAIR_STYLES = ["short", "long", "buzz", "bun", "short", "bald"] as const;
 const walkerLook = (i: number): Look => {
   const w = WALKERS[i];

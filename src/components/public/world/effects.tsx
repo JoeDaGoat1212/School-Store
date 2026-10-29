@@ -14,11 +14,12 @@ import { notify, useGameVersion } from "./game-events";
 /*
  * How good the 3D world looks (and how hard your computer works):
  *
- *   Ultra   sharp (high resolution), soft shadows from a big shadow map,
- *           ambient occlusion (soft shading where things meet), bloom
- *           (lights and neon glow), and a touch of colour grading.
- *   High    the same without ambient occlusion, a little less sharp.
- *   Fast    no shadows or effects, for older computers and phones.
+ *   Ultra   sharpest, big soft shadows, ambient occlusion (soft shading
+ *           where things meet), bloom (lights and neon glow) and colour
+ *           grading. For fast computers with a good graphics card.
+ *   High    the same world, materials, sky and soft shadows, without the
+ *           extra effects passes (they're what costs the most). The default.
+ *   Fast    no shadows, lower resolution: for older computers and phones.
  *
  * It starts on High (Fast on phones), drops a level by itself if the
  * world's running slowly, and you can pick one yourself (it's remembered).
@@ -63,9 +64,9 @@ export function useQuality() {
   return graphics.level;
 }
 export const QUALITY = {
-  ultra: { dpr: [1, 2] as [number, number], shadowMap: 4096, shadows: true, post: true, ao: true },
-  high: { dpr: [1, 1.5] as [number, number], shadowMap: 2048, shadows: true, post: true, ao: false },
-  fast: { dpr: [1, 1] as [number, number], shadowMap: 1024, shadows: false, post: false, ao: false },
+  ultra: { dpr: [1, 1.75] as [number, number], shadowMap: 4096, shadows: true, post: true, ao: true, shadowEvery: 1 },
+  high: { dpr: [1, 1.25] as [number, number], shadowMap: 2048, shadows: true, post: false, ao: false, shadowEvery: 2 },
+  fast: { dpr: [0.75, 1] as [number, number], shadowMap: 1024, shadows: false, post: false, ao: false, shadowEvery: 3 },
 };
 
 /** A gentle colour grade: a little more contrast and warmth, and a soft vignette. */
@@ -128,7 +129,18 @@ export function Effects() {
   }, [composer, gl, size.width, size.height]);
 
   // With effects on, draw the frame through them (priority 1 takes over from the normal render).
+  // Shadows are re-drawn every frame on Ultra, every other frame on High (you can't tell, and it's a lot less work).
+  const frame = useMemo(() => ({ n: 0 }), []);
+  useEffect(() => {
+    gl.shadowMap.autoUpdate = false;
+    gl.shadowMap.needsUpdate = true;
+    return () => {
+      gl.shadowMap.autoUpdate = true;
+    };
+  }, [gl]);
   useFrame(() => {
+    frame.n++;
+    if (frame.n % q.shadowEvery === 0) gl.shadowMap.needsUpdate = true;
     if (composer) composer.render();
     else gl.render(scene, camera);
   }, 1);

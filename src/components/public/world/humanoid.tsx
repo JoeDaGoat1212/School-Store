@@ -83,12 +83,14 @@ const TORSO = new THREE.CapsuleGeometry(0.155, 0.3, 6, 14);
 const PELVIS = new THREE.CapsuleGeometry(0.14, 0.08, 4, 12);
 const HAIR_CAP = new THREE.SphereGeometry(1, 18, 10, 0, Math.PI * 2, 0, Math.PI * 0.55);
 
-/** People further from the camera than this aren't drawn. */
+/** People further from the camera than this aren't drawn; further than NEAR, they're drawn simply. */
 const FAR = 150;
+const NEAR = 38;
 const SEE = new THREE.Vector3();
 
 export function Humanoid({ look, pose, castShadow = true }: { look: Look; pose: Pose; castShadow?: boolean }) {
   const root = useRef<THREE.Group>(null);
+  const simple = useRef<THREE.Group>(null);
   const hips = useRef<THREE.Group>(null);
   const chest = useRef<THREE.Group>(null);
   const head = useRef<THREE.Group>(null);
@@ -119,9 +121,12 @@ export function Humanoid({ look, pose, castShadow = true }: { look: Look; pose: 
     const r = root.current;
     if (r) {
       r.getWorldPosition(SEE);
-      const far = SEE.distanceToSquared(camera.position) > FAR * FAR;
-      r.visible = !far;
-      if (far) return;
+      const d2 = SEE.distanceToSquared(camera.position);
+      // Up close: every detail, animated. Further off: a simple figure (5 parts instead of 40). Far away: nothing.
+      const near = d2 < NEAR * NEAR;
+      r.visible = near;
+      if (simple.current) simple.current.visible = !near && d2 < FAR * FAR;
+      if (!near) return;
     }
     const p = pose;
     const g = Math.min(2, p.gait);
@@ -254,6 +259,13 @@ export function Humanoid({ look, pose, castShadow = true }: { look: Look; pose: 
 
   return (
     <group scale={S}>
+      <group ref={simple} visible={false}>
+        <mesh geometry={G.box} material={pants} position-y={0.47} scale={[0.3, 0.94, 0.2]} castShadow={castShadow} raycast={noRaycast} />
+        <mesh geometry={TORSO} material={shirt} position-y={1.29} scale={[1.18, 1, 0.78]} castShadow={castShadow} raycast={noRaycast} />
+        <mesh geometry={G.box} material={shirt} position-y={1.18} scale={[0.5, 0.42, 0.12]} raycast={noRaycast} />
+        <mesh geometry={G.sphere} material={skin} position-y={1.63} scale={[0.1, 0.12, 0.11]} raycast={noRaycast} />
+        <mesh geometry={HAIR_CAP} material={hair} position-y={1.66} scale={0.112} raycast={noRaycast} />
+      </group>
       <group ref={root}>
         <group ref={hips} position-y={0.95}>
           <mesh geometry={PELVIS} material={pants} rotation-z={Math.PI / 2} scale={[1, 1.05, 0.85]} castShadow={castShadow} raycast={noRaycast} />

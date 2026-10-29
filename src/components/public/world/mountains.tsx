@@ -7,6 +7,7 @@ import { player } from "./bump";
 import { drive } from "./drive";
 import { canvasTexture, noRaycast, seededRandom } from "./paint";
 import { puff } from "./smoke";
+import { Near } from "./near";
 import { BASE_DOOR, GRID, HILLS_START, PINES, ROAD_HALF_W, ROAD_PATH, baseDoor, groundAt, slopeAt } from "./terrain";
 import { Instances, type Place } from "./town";
 import { BASE, BASE_VALLEY } from "./world-map";
@@ -25,7 +26,9 @@ export function Mountains() {
       <Land />
       <MountainRoad />
       <Pines />
-      <SecretBase />
+      <Near x={BASE.x} z={BASE.z} dist={420}>
+        <SecretBase />
+      </Near>
     </group>
   );
 }
@@ -217,12 +220,12 @@ const PINE_TIERS = [0, 1, 2].map(pineTier);
 function Pines() {
   return (
     <group>
-      <Instances count={PINES.length} place={placePineTrunk} castShadow>
+      <Instances count={PINES.length} place={placePineTrunk}>
         <cylinderGeometry args={[0.25, 0.4, 3.2, 6]} />
         <meshStandardMaterial color="#5b4030" roughness={0.9} />
       </Instances>
       {PINE_TIERS.map((place, k) => (
-        <Instances key={k} count={PINES.length} place={place} castShadow>
+        <Instances key={k} count={PINES.length} place={place}>
           <coneGeometry args={[2.6, 4.2, 8]} />
           <meshStandardMaterial roughness={0.85} />
         </Instances>

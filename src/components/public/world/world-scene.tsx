@@ -30,6 +30,7 @@ import { Aircraft } from "./flight";
 import { Jail } from "./jail";
 import { Airport } from "./airport";
 import { Birds, StreetProps } from "./street-props";
+import { Near } from "./near";
 import { RestaurantRow } from "./buildings";
 import { Homes } from "./home-models";
 import { RealtyOffice, Showroom } from "./showroom";
@@ -184,6 +185,8 @@ export default function WorldScene(props: WorldSceneProps) {
             <pointLight position={[-13, BUILDING.height - 1, -20]} intensity={105 * STORE_SCALE ** 1.2} distance={46 * STORE_SCALE} decay={1.2} color="#fff4e6" />
             <pointLight position={[13, BUILDING.height - 1, -20]} intensity={105 * STORE_SCALE ** 1.2} distance={46 * STORE_SCALE} decay={1.2} color="#fff4e6" />
             <Building onDoors={props.onDoors} canEnter={station === "outside" && !moving} openSign={props.openSign} />
+            {/* The inside of the store is only drawn when you're near it (it's full of products). */}
+            <Near x={0} z={-14} dist={150}>
             <Interior />
             {spooky && <HalloweenOutside />}
             {spooky && <HalloweenInside fridgeX={places.drinks?.x ?? -8.5} />}
@@ -210,7 +213,8 @@ export default function WorldScene(props: WorldSceneProps) {
               <CheckoutLane key={lane.number} lane={lane} />
             ))}
 
-            {/* The request table, front left: someone at a computer takes requests */}
+            </Near>
+            {/* The request table, front left: someone at a computer takes requests (it has its own lights, so it's always drawn: switching lights on and off makes everything recompile) */}
             <RequestDesk
               near={station === "requests" && !moving}
               calm={calm}
@@ -218,6 +222,7 @@ export default function WorldScene(props: WorldSceneProps) {
               onOpen={() => (station === "requests" ? props.onOpenRequests() : props.onGo("requests"))}
             />
 
+            <Near x={0} z={-14} dist={150}>
             <BulletinBoard cards={props.cards} near={station === "deals" && !moving} onOpen={() => (station === "deals" ? props.onOpenDeals() : props.onGo("deals"))} />
             {/* Big yellow letters over the board, with an arrow bouncing down at it */}
             <group position={[BULLETIN.x, BULLETIN.bottom + BULLETIN.height + 2.1, BULLETIN.z]} rotation-y={BULLETIN.turn}>
@@ -235,6 +240,7 @@ export default function WorldScene(props: WorldSceneProps) {
                 const at = spots[key].marker ?? spots[key];
                 return <FloorMarker key={`${station}-${key}`} x={at.x} z={at.z} label={spots[key].label} from={here} onGo={() => props.onGo(key)} />;
               })}
+            </Near>
           </group>
         </>
       )}
