@@ -6,6 +6,7 @@ import * as THREE from "three";
 import { Block, Cyl, GLASS, Shell, mat, useDrawn } from "./buildings";
 import { Humanoid, newPose, randomLook } from "./humanoid";
 import { Instances, type Place } from "./town";
+import { Static } from "./static-merge";
 import { noRaycast, signTexture } from "./paint";
 import { TERMINAL_PLAN, addSolid, roomOf } from "./rooms";
 import { AIRPORT } from "./world-map";
@@ -428,10 +429,12 @@ export function Airport() {
       <Paving />
       <Terminal />
       <Tower />
-      <Hangar />
-      <Airliner x={JET.x} z={JET.z} color="#f2f4f7" stripe="#ff5a1f" />
+      <Static>
+        <Hangar />
+        <Airliner x={JET.x} z={JET.z} color="#f2f4f7" stripe="#ff5a1f" />
+        <FuelTruck />
+      </Static>
       <Windsock />
-      <FuelTruck />
     </group>
   );
 }
