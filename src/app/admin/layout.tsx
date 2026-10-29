@@ -36,10 +36,17 @@ export default async function AdminLayout({ children }: LayoutProps<"/admin">) {
     .select("id", { count: "exact", head: true })
     .gte("created_at", daysAgo(7));
 
+  // Number badge on "City jobs": résumés waiting for an answer.
+  const { count: pendingJobs, error: jobsMissing } = await supabase
+    .from("game_job_applications")
+    .select("id", { count: "exact", head: true })
+    .eq("status", "pending");
+
   // Database updates that haven't been run yet (their tables are missing).
   const missing = [
     ...(teachersMissing ? [{ file: "20261028000011_teachers_room_service.sql", what: "teachers, room service and combos" }] : []),
     ...(requestsMissing ? [{ file: "20261028000012_item_requests.sql", what: "item requests" }] : []),
+    ...(jobsMissing ? [{ file: "20261029000013_city_game.sql", what: "the 3D city game (jobs, money, ID cards)" }] : []),
   ];
 
   // Remember whether the sidebar was collapsed last time.
@@ -49,7 +56,7 @@ export default async function AdminLayout({ children }: LayoutProps<"/admin">) {
     // "backroom": the staff pages' retro corner-store look (globals.css).
     <SidebarProvider defaultOpen={sidebarOpen} className={`backroom ${backroomFonts}`}>
       <SkipLink />
-      <StaffSidebar email={user.email} openOrders={openOrders ?? 0} pendingTeachers={pendingTeachers ?? 0} newRequests={newRequests ?? 0} />
+      <StaffSidebar email={user.email} openOrders={openOrders ?? 0} pendingTeachers={pendingTeachers ?? 0} newRequests={newRequests ?? 0} pendingJobs={pendingJobs ?? 0} />
       <SidebarInset id="main">
         <header className="no-print sticky top-0 z-10 flex h-14 items-center gap-3 border-b-2 border-dashed border-border bg-card/90 px-4 backdrop-blur">
           <SidebarTrigger className="-ml-1" />

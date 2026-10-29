@@ -1,44 +1,48 @@
-import { useSyncExternalStore } from "react";
-import { BANK, BANK_PLAN, LOOT, LOOT_BOXES, SITE_CENTER, VAULT_DOOR_BOX, inBank, inJewelry, inLasers, inVault, toLocal, type Loot, type SiteKey } from "./city-layout";
-import { hitsBox } from "./town-layout";
+import { BANK, BANK_PLAN, JEWELRY, JEWELRY_PLAN, LOOT, LOOT_BOXES, SITE_CENTER, VAULT_DOOR_BOX, inBank, inJewelry, inVault, toLocal, toWorld, type Loot, type SiteKey } from "./city-layout";
 import { sound } from "./city-audio";
+import { notify, useGameVersion } from "./game-events";
+import { provide } from "./interact";
+import { kill, life } from "./life";
+import { earn, profile, saveProfile, usd } from "./profile";
+import { hitsBox } from "./town-layout";
+import { BASE } from "./world-map";
+
+export { usd, profile };
 
 /*
- * The city game: your money (US dollars), and robbing the bank and the
- * jewelry shop. Plain TypeScript (no 3D code), shared by the 3D scene (which
- * reads it every frame to animate things) and the buttons on screen (which
- * re-draw when it changes, via useGame()).
- *
- * Money is pretend money for the 3D world only. It has nothing to do with
- * the real shop: it can't be spent at checkout, and it's only kept in this
- * browser (localStorage).
+ * Robbing the bank and the jewelry shop. Plain TypeScript (no 3D code),
+ * shared by the 3D scene (which reads it every frame to animate things) and
+ * the buttons on screen (which re-draw when it changes, via useGame()).
  *
  * How a robbery goes:
- *   1. Walk up to the bank counter (or the vault door) and press R. The alarm
- *      goes off, the tellers put their hands up, and the vault door is
- *      cracked open: the wheel spins, the bolts pull back, the door swings.
- *      In the jewelry shop, smashing the first glass case sets it off.
- *   2. Grab what you can: walk up to the gold, the cash, a case or the Big
- *      Rock and press R.
- *   3. Get away! Police cars race over and a helicopter circles. Get far
- *      enough from the building before the timer runs out (a getaway car
- *      helps) and you keep it all. If not: busted, and you lose what you took.
- *   4. A little while after, the place is restocked and you can do it again.
+ *   1. At the bank counter (or the vault door) press R: the alarm goes off,
+ *      the tellers put their hands up, and the vault is cracked open. In the
+ *      jewelry shop, smashing the first case (or walking into the lasers…)
+ *      sets it off.
+ *   2. Grab what you can (R). Careful: lasers sweep the vault floor (jump
+ *      over them!) and fence in the Big Rock. Touching one kills you.
+ *   3. The loot isn't yours yet. Get it to the secret base in the mountains
+ *      before the timer runs out: drive up the mountain road (north from the
+ *      city's north-east corner) and into the hidden hangar. Too slow, and
+ *      the loot's too hot to keep: you dump it. Get caught by the police
+ *      (they chase you, and hop out to run after you on foot) and you're
+ *      handcuffed and taken to jail.
+ *   4. Once you've walked out, the place closes for 30 minutes (a countdown
+ *      floats over it) and then it's restocked.
+ *
+ * Money is pretend money for the 3D world only (profile.ts).
  */
 
-/** How far from the building counts as "got away". */
-export const ESCAPE_DISTANCE = 230;
-/** How long you have to get away once the alarm goes off (seconds). */
-export const ESCAPE_TIME = 85;
-/** After a robbery, how long until the place is back to normal (and you're out of sight). */
-const RESTOCK_AFTER = 35;
+/** How long you've got to get the loot to the secret base (seconds). */
+export const DELIVER_TIME = 200;
+/** How long a robbed place stays closed (seconds of real time). */
+export const CLOSED_FOR = 30 * 60;
 /** The vault door's opening, second by second: the wheel spins, the bolts pull back, then it swings open. */
 export const VAULT = { spinUntil: 1.6, boltsUntil: 2.3, openUntil: 4.4 };
-/** When the police turn up after the alarm. */
-export const COPS_AFTER = 7;
+/** The spot in the secret base's hangar where you drop the loot. */
+export const DROP_ZONE = { x: BASE.x, z: BASE.doorZ - BASE.depth * 0.62, r: 7 };
 
-const MONEY_KEY = "nest:city-money";
-const START_CASH = 500;
+const CLOSED_KEY = "nest:city-closed";
 
 export type Prompt = {
   /** Changes when the prompt does (so the screen only re-draws then). */
@@ -49,23 +53,21 @@ export type Prompt = {
   talk?: { text: string };
 };
 
-export type Banner = { kind: "alarm" | "escaped" | "busted" | "info"; title: string; line: string; key: number };
+export type Banner = { kind: "alarm" | "escaped" | "busted" | "info" | "dead"; title: string; line: string; key: number };
 
 export type SiteState = {
   alarm: boolean;
   alarmAt: number;
   /** When the vault started opening (bank only), or -1. */
   vaultAt: number;
-  /** When it can be restocked (after the robbery's over), or 0 while it's not been robbed. */
-  restockAt: number;
-  /** When the police left (they drive off), or -1. */
-  copsLeftAt: number;
+  /** When it opens again (real time, ms since 1970), or 0 if it's open. */
+  closedUntil: number;
 };
 
-const freshSite = (): SiteState => ({ alarm: false, alarmAt: 0, vaultAt: -1, restockAt: 0, copsLeftAt: -1 });
+const freshSite = (): SiteState => ({ alarm: false, alarmAt: 0, vaultAt: -1, closedUntil: 0 });
 
 /** One "+$45,000" floating up the screen. */
-export type Pop = { amount: number; key: number };
+export type Pop = { amount: number; key: number; label?: string };
 
 /** Something for the 3D scene to show once (bills flying, glass smashing, …). */
 export type Fx = { kind: "cash" | "gold" | "gems" | "rock" | "shards" | "sparks" | "blast"; x: number; y: number; z: number; count: number };
@@ -73,122 +75,95 @@ export type Fx = { kind: "cash" | "gold" | "gems" | "rock" | "shards" | "sparks"
 export const game = {
   /** Seconds since the scene started (the 3D clock). */
   now: 0,
-  cash: START_CASH,
-  bank: 0,
   sites: { bank: freshSite(), jewelry: freshSite() } as Record<SiteKey, SiteState>,
   /** What's been taken (loot id → when). */
   taken: new Map<string, number>(),
-  /** While the police are after you: which robbery, when it started, the deadline, and what you've got on you from it. */
+  /** While the police are after you: which robbery, when it started, the deadline, and the loot you're carrying. */
   wanted: null as null | { site: SiteKey; startedAt: number; until: number; haul: number },
   prompt: null as Prompt | null,
   /** The bank's teller window is open. */
   teller: false,
   banner: null as Banner | null,
   pops: [] as Pop[],
-  /** Distance to the building you robbed, while wanted (for the screen). */
+  /** How far you are from the secret base, while carrying loot (for the screen). */
   distance: 0,
-  muted: false,
   /** Shakes the camera (decays by itself; camera.tsx reads it). */
   shake: 0,
   /** Effects waiting to be shown by the 3D scene. */
   fx: [] as Fx[],
-  loaded: false,
-};
-
-// ---- Telling the screen ---------------------------------------------------------------------
-
-let version = 0;
-const listeners = new Set<() => void>();
-function changed() {
-  version++;
-  for (const l of listeners) l();
-}
-const subscribe = (l: () => void) => {
-  listeners.add(l);
-  return () => listeners.delete(l);
+  /** Real time now (ms), updated every frame (for the closed-for-30-minutes signs). */
+  wallClock: Date.now(),
 };
 
 /** Re-draws whenever the game changes (money, prompts, banners…). */
 export function useGame() {
-  useSyncExternalStore(
-    subscribe,
-    () => version,
-    () => 0,
-  );
+  useGameVersion();
   return game;
 }
+const changed = notify;
 
 let counter = 0;
-function banner(kind: Banner["kind"], title: string, line: string) {
+export function banner(kind: Banner["kind"], title: string, line: string, seconds?: number) {
   game.banner = { kind, title, line, key: ++counter };
   const key = game.banner.key;
-  setTimeout(() => {
-    if (game.banner?.key === key) {
-      game.banner = null;
-      changed();
-    }
-  }, kind === "info" ? 2600 : 3600);
+  setTimeout(
+    () => {
+      if (game.banner?.key === key) {
+        game.banner = null;
+        changed();
+      }
+    },
+    (seconds ?? (kind === "info" ? 2.6 : 3.6)) * 1000,
+  );
+  changed();
 }
-function pop(amount: number) {
-  const p = { amount, key: ++counter };
+export function pop(amount: number, label?: string) {
+  const p = { amount, key: ++counter, label };
   game.pops = [...game.pops, p].slice(-5);
   setTimeout(() => {
     game.pops = game.pops.filter((x) => x.key !== p.key);
     changed();
   }, 1700);
-}
-
-// ---- Money ------------------------------------------------------------------------------------
-
-/** Loads your money from this browser (once). */
-export function loadMoney() {
-  if (game.loaded) return;
-  game.loaded = true;
-  try {
-    const saved = JSON.parse(localStorage.getItem(MONEY_KEY) ?? "null") as { cash?: number; bank?: number; muted?: boolean } | null;
-    if (saved && Number.isFinite(saved.cash) && Number.isFinite(saved.bank)) {
-      game.cash = Math.max(0, Math.round(saved.cash!));
-      game.bank = Math.max(0, Math.round(saved.bank!));
-      game.muted = Boolean(saved.muted);
-    }
-  } catch {
-    // Private browsing can block storage: start fresh.
-  }
-  sound.mute(game.muted);
   changed();
 }
-function saveMoney() {
+
+// ---- Closed for 30 minutes (remembered in this browser) --------------------------------------
+
+function loadClosures() {
   try {
-    localStorage.setItem(MONEY_KEY, JSON.stringify({ cash: game.cash, bank: game.bank, muted: game.muted }));
+    const saved = JSON.parse(localStorage.getItem(CLOSED_KEY) ?? "{}") as Partial<Record<SiteKey, number>>;
+    for (const k of ["bank", "jewelry"] as SiteKey[]) if (typeof saved[k] === "number" && saved[k]! > Date.now()) game.sites[k].closedUntil = saved[k]!;
+  } catch {
+    // Nothing saved.
+  }
+}
+function saveClosures() {
+  try {
+    localStorage.setItem(CLOSED_KEY, JSON.stringify({ bank: game.sites.bank.closedUntil, jewelry: game.sites.jewelry.closedUntil }));
   } catch {
     // Not a problem.
   }
 }
+if (typeof window !== "undefined") loadClosures();
 
-/** "$1,234,567" */
-export function usd(amount: number) {
-  return amount.toLocaleString("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 });
+/** Is it closed right now? How many seconds until it opens? */
+export const isClosed = (site: SiteKey) => game.sites[site].closedUntil > game.wallClock;
+export const closedFor = (site: SiteKey) => Math.max(0, Math.ceil((game.sites[site].closedUntil - game.wallClock) / 1000));
+
+function closeSite(site: SiteKey) {
+  const s = game.sites[site];
+  if (s.closedUntil > game.wallClock) return;
+  s.closedUntil = game.wallClock + CLOSED_FOR * 1000;
+  saveClosures();
 }
 
-/** Put cash in the bank (or take it out, with a negative amount). Returns false if there isn't enough. */
-export function transfer(amount: number) {
-  if (amount > 0 && amount > game.cash) return false;
-  if (amount < 0 && -amount > game.bank) return false;
-  game.cash -= amount;
-  game.bank += amount;
-  saveMoney();
-  sound.cash();
-  changed();
-  return true;
-}
+// ---- Money ------------------------------------------------------------------------------------
 
 export function toggleMute() {
-  game.muted = !game.muted;
-  sound.mute(game.muted);
-  saveMoney();
-  changed();
+  profile.muted = !profile.muted;
+  sound.mute(profile.muted);
+  saveProfile();
 }
-
 export function setTeller(open: boolean) {
   game.teller = open;
   changed();
@@ -209,13 +184,11 @@ function soundAlarm(site: SiteKey, why: string) {
   if (s.alarm) return;
   s.alarm = true;
   s.alarmAt = game.now;
-  s.restockAt = 0;
-  s.copsLeftAt = -1;
   if (game.wanted) {
     // Robbing a second place while they're already after you: more time on the clock, same chase.
-    game.wanted.until = Math.max(game.wanted.until, game.now + ESCAPE_TIME * 0.6);
+    game.wanted.until = Math.max(game.wanted.until, game.now + DELIVER_TIME * 0.6);
   } else {
-    game.wanted = { site, startedAt: game.now, until: game.now + ESCAPE_TIME, haul: 0 };
+    game.wanted = { site, startedAt: game.now, until: game.now + DELIVER_TIME, haul: 0 };
   }
   game.teller = false;
   banner("alarm", "Alarm!", why);
@@ -224,27 +197,20 @@ function soundAlarm(site: SiteKey, why: string) {
 
 function startBankJob() {
   if (game.sites.bank.vaultAt >= 0) return;
-  soundAlarm("bank", "Grab the loot from the vault and get away!");
+  soundAlarm("bank", "Grab the loot and get it to the secret base in the mountains!");
   game.sites.bank.vaultAt = game.now;
-  const p = BANK_PLAN;
-  const door = toWorldBank(0, p.vaultWall.lz1);
-  game.fx.push({ kind: "sparks", x: door.x, y: p.vaultDoor.y, z: door.z, count: 50 });
+  const door = toWorld(BANK, 0, BANK_PLAN.vaultWall.lz1);
+  game.fx.push({ kind: "sparks", x: door.x, y: BANK_PLAN.vaultDoor.y, z: door.z, count: 50 });
   sound.drill();
 }
-const toWorldBank = (lx: number, lz: number) => {
-  const c = Math.cos(BANK.turn);
-  const n = Math.sin(BANK.turn);
-  return { x: BANK.x + lx * c + lz * n, z: BANK.z - lx * n + lz * c };
-};
 
 function grab(l: Loot) {
   if (isTaken(l.id)) return;
-  if (l.site === "jewelry") soundAlarm("jewelry", l.kind === "rock" ? "You grabbed the Big Rock! Now run!" : "You smashed a case! Grab what you can and run!");
+  if (l.site === "jewelry") soundAlarm("jewelry", l.kind === "rock" ? "You grabbed the Big Rock! Get it to the secret base!" : "You smashed a case! Grab what you can and get to the secret base!");
   game.taken.set(l.id, game.now);
-  game.cash += l.value;
+  // The loot's not yours yet: it's in your bag until you stash it at the base.
   if (game.wanted) game.wanted.haul += l.value;
-  saveMoney();
-  pop(l.value);
+  pop(l.value, "loot");
   const y = l.kind === "rock" ? 3.6 : l.kind === "case" ? 2.8 : 1.6;
   if (l.kind === "case") {
     game.fx.push({ kind: "shards", x: l.x, y, z: l.z, count: 70 });
@@ -281,50 +247,141 @@ export function talk() {
   setTeller(true);
 }
 
+/** Caught by the police (city-police.tsx): the loot's gone. */
+export function busted() {
+  const w = game.wanted;
+  game.wanted = null;
+  sound.alarm(false);
+  closeAlarmedSites();
+  sound.busted();
+  return w?.haul ?? 0;
+}
+
+function closeAlarmedSites() {
+  for (const key of ["bank", "jewelry"] as SiteKey[]) if (game.sites[key].alarm) closeSite(key);
+}
+
+// ---- Lasers ---------------------------------------------------------------------------------
+
+/** Where the vault's two sweeping laser beams are right now (in the bank's frame: lz), and how high. */
+export function vaultLasers(now: number) {
+  const z0 = BANK_PLAN.vaultWall.lz0 - 1;
+  const z1 = -BANK_PLAN.depth + 2;
+  const mid = (z0 + z1) / 2;
+  const half = (z0 - z1) / 2;
+  return [
+    { lz: mid + Math.sin(now * 1.3) * half, y: 0.75 },
+    { lz: mid + Math.sin(now * 1.3 + Math.PI) * half, y: 0.75 },
+  ];
+}
+/** Are the vault lasers on? (Once the vault's open, until it's empty.) */
+export const vaultLasersOn = () => vaultOpen() && LOOT.some((l) => l.site === "bank" && !isTaken(l.id));
+
+/**
+ * The jewelry shop's laser fence round the Big Rock: three beams that sweep
+ * up and down, and every few seconds all rise out of the way for a moment
+ * (that's your chance). Returns each beam's height.
+ */
+export function jewelryLasers(now: number) {
+  const t = now % 6;
+  // 0–4 s: down low and bobbing; 4–4.6 s: rising; 4.6–5.6 s: up out of reach; 5.6–6 s: coming back down.
+  const lift = t < 4 ? 0 : t < 4.6 ? (t - 4) / 0.6 : t < 5.6 ? 1 : 1 - (t - 5.6) / 0.4;
+  return [0, 1, 2].map((k) => 0.7 + k * 0.85 + Math.sin(now * 2 + k * 2.1) * 0.3 * (1 - lift) + lift * 4.2);
+}
+export const jewelryLasersOn = () => !isTaken("rock") && !isClosed("jewelry");
+
+/** Does a beam at height `beamY` pass through you (feet at `y`)? */
+const throughYou = (beamY: number, y: number) => beamY > y + 0.05 && beamY < y + 3.3;
+
+function laserCheck(x: number, z: number, y: number) {
+  // Vault beams.
+  if (vaultLasersOn() && inVault(x, z)) {
+    const { lz } = toLocal(BANK, x, z);
+    for (const b of vaultLasers(game.now)) if (Math.abs(lz - b.lz) < 0.35 && throughYou(b.y, y)) return true;
+  }
+  // The jewelry fence: crossing its edge while a beam's at your height.
+  if (jewelryLasersOn() && inJewelry(x, z)) {
+    const { lx, lz } = toLocal(JEWELRY, x, z);
+    const L = JEWELRY_PLAN.lasers;
+    const inside = lx > L.lx0 - 0.35 && lx < L.lx1 + 0.35 && lz > L.lz0 - 0.35 && lz < L.lz1 + 0.35;
+    const edge = Math.min(Math.abs(lx - L.lx0), Math.abs(lx - L.lx1), Math.abs(lz - L.lz0), Math.abs(lz - L.lz1));
+    if (inside && edge < 0.35 && jewelryLasers(game.now).some((h) => throughYou(h, y))) return true;
+  }
+  return false;
+}
+
 // ---- Every frame ------------------------------------------------------------------------------
 
 /**
  * Called every frame by the 3D scene with the clock and where you are (on
- * foot, or in a car). Works out what you can do here, and runs the chase.
+ * foot, or in a car). Works out what you can do here, the lasers, the
+ * deadline, delivering the loot, and reopening places.
  */
-export function tick(now: number, dt: number, you: { x: number; z: number; onFoot: boolean; driving: boolean }) {
+export function tick(now: number, dt: number, you: { x: number; z: number; y: number; onFoot: boolean; driving: boolean }) {
   game.now = now;
+  game.wallClock = Date.now();
   game.shake = Math.max(0, game.shake - dt * 2.5);
   let dirty = false;
 
-  // ---- The chase ----
+  // ---- The deadline, and stashing the loot at the base ----
   const w = game.wanted;
   if (w) {
-    const c = SITE_CENTER[w.site];
-    game.distance = Math.hypot(you.x - c.x, you.z - c.z);
-    if (game.distance > ESCAPE_DISTANCE) {
-      endChase(true);
+    game.distance = Math.hypot(you.x - DROP_ZONE.x, you.z - DROP_ZONE.z);
+    if (game.distance < DROP_ZONE.r && w.haul > 0) {
+      game.wanted = null;
+      earn(w.haul);
+      sound.alarm(false);
+      sound.win();
+      banner("escaped", "Loot stashed!", `${usd(w.haul)} is yours. Put it in the bank so you don't lose it.`);
+      pop(w.haul);
+      closeAlarmedSites();
       dirty = true;
     } else if (now > w.until) {
-      endChase(false);
+      game.wanted = null;
+      sound.alarm(false);
+      banner("busted", "Too slow!", w.haul > 0 ? `The loot got too hot. You dumped ${usd(w.haul)}.` : "The police lost interest.");
+      closeAlarmedSites();
       dirty = true;
     }
   }
 
-  // ---- Restocking once it's all over and you've gone ----
+  // ---- Walking out of a place you've robbed closes it ----
   for (const key of ["bank", "jewelry"] as SiteKey[]) {
     const s = game.sites[key];
-    if (!s.restockAt || now < s.restockAt) continue;
-    const c = SITE_CENTER[key];
-    if (Math.hypot(you.x - c.x, you.z - c.z) < 70) continue;
-    game.sites[key] = freshSite();
-    for (const l of LOOT) if (l.site === key) game.taken.delete(l.id);
-    dirty = true;
+    const inside = key === "bank" ? inBank(you.x, you.z) : inJewelry(you.x, you.z);
+    if (s.alarm && !inside && !isClosed(key) && LOOT.some((l) => l.site === key && isTaken(l.id))) {
+      closeSite(key);
+      dirty = true;
+    }
+    // Opens again (restocked) once its 30 minutes are up.
+    if (s.closedUntil && game.wallClock > s.closedUntil && !inside) {
+      game.sites[key] = freshSite();
+      for (const l of LOOT) if (l.site === key) game.taken.delete(l.id);
+      saveClosures();
+      dirty = true;
+    }
   }
 
-  // ---- Walking through the lasers sets them off ----
-  if (you.onFoot && !isTaken("rock") && !game.sites.jewelry.alarm && inLasers(you.x, you.z)) {
-    soundAlarm("jewelry", "You tripped the lasers! Grab the Big Rock and run!");
+  // ---- Lasers ----
+  if (you.onFoot && !life.dead && laserCheck(you.x, you.z, you.y)) {
+    kill("laser");
+    game.wanted = null;
+    sound.alarm(false);
+    closeAlarmedSites();
     dirty = true;
+  }
+  // Walking into the jewelry shop's laser fence before it's robbed sets the alarm off too.
+  if (you.onFoot && jewelryLasersOn() && !game.sites.jewelry.alarm && inJewelry(you.x, you.z)) {
+    const { lx, lz } = toLocal(JEWELRY, you.x, you.z);
+    const L = JEWELRY_PLAN.lasers;
+    if (lx > L.lx0 && lx < L.lx1 && lz > L.lz0 && lz < L.lz1) {
+      soundAlarm("jewelry", "You slipped past the lasers! Grab the Big Rock and run!");
+      dirty = true;
+    }
   }
 
   // ---- What can you do here? ----
-  const prompt = you.onFoot && !you.driving ? promptAt(you.x, you.z) : null;
+  const prompt = you.onFoot && !you.driving && !life.dead ? promptAt(you.x, you.z) : null;
   if ((prompt?.id ?? null) !== (game.prompt?.id ?? null)) {
     game.prompt = prompt;
     if (!prompt?.talk && game.teller) game.teller = false;
@@ -333,51 +390,27 @@ export function tick(now: number, dt: number, you: { x: number; z: number; onFoo
   if (dirty) changed();
 }
 
-function endChase(escaped: boolean) {
-  const w = game.wanted!;
-  game.wanted = null;
-  sound.alarm(false);
-  for (const key of ["bank", "jewelry"] as SiteKey[]) {
-    const s = game.sites[key];
-    if (s.alarm && !s.restockAt) {
-      s.restockAt = game.now + RESTOCK_AFTER;
-      s.copsLeftAt = game.now;
-    }
-  }
-  if (escaped) {
-    banner("escaped", "You got away!", w.haul > 0 ? `You kept ${usd(w.haul)}. Put it in the bank to keep it safe.` : "Clean getaway... but empty-handed!");
-    sound.win();
-  } else {
-    const lost = Math.min(game.cash, w.haul);
-    game.cash -= lost;
-    saveMoney();
-    banner("busted", "Busted!", lost > 0 ? `The police took back ${usd(lost)}.` : "Next time, get further away!");
-    sound.busted();
-  }
-}
-
 function promptAt(x: number, z: number): Prompt | null {
   // ---- The bank ----
   if (inBank(x, z)) {
     const { lx, lz } = toLocal(BANK, x, z);
     const bank = game.sites.bank;
     const C = BANK_PLAN.counter;
+    const atCounter = lx > C.lx0 - 1 && lx < C.lx1 + 1 && lz > C.lz1 && lz < C.lz1 + 4.5;
+    if (isClosed("bank")) return atCounter ? { id: "bank-teller-closed", talk: { text: "Talk to the teller" } } : null;
     // In the vault (or at its open door): the nearest pile of loot.
     if (vaultOpen() && (inVault(x, z) || lz < BANK_PLAN.vaultWall.lz1 + 3)) {
       const l = nearestLoot("bank", x, z);
       if (l) return { id: `grab-${l.id}`, rob: { text: `Grab ${l.label} · ${usd(l.value)}`, loot: l.id } };
     }
     if (bank.vaultAt >= 0) return null;
-    if (bank.restockAt) return null;
-    // At the counter: bank, or rob.
-    const atCounter = lx > C.lx0 - 1 && lx < C.lx1 + 1 && lz > C.lz1 && lz < C.lz1 + 4.5;
     const atVault = Math.abs(lx) < 8 && lz < BANK_PLAN.vaultWall.lz1 + 5 && lz > BANK_PLAN.vaultWall.lz1;
     if (atCounter) return { id: "bank-counter", talk: { text: "Talk to the teller" }, rob: { text: "Rob the bank!", start: "bank" } };
     if (atVault) return { id: "bank-vault", rob: { text: "Crack the vault!", start: "bank" } };
     return null;
   }
   // ---- The jewelry shop ----
-  if (inJewelry(x, z)) {
+  if (inJewelry(x, z) && !isClosed("jewelry")) {
     const l = nearestLoot("jewelry", x, z);
     if (!l) return null;
     return { id: `grab-${l.id}`, rob: { text: l.kind === "rock" ? `Grab the Big Rock · ${usd(l.value)}` : `Smash the case · ${l.label} · ${usd(l.value)}`, loot: l.id } };
@@ -399,10 +432,36 @@ function nearestLoot(site: SiteKey, x: number, z: number) {
   return best;
 }
 
-/** Things that block you only some of the time: the vault door (till it's open) and the piles of loot in the vault (till they're taken). */
+/**
+ * Things that block you only some of the time: the vault door (till it's
+ * open), the piles of loot in the vault (till they're taken), and the doors
+ * of a place that's closed.
+ */
 export function heistBlocks(x: number, z: number, r: number) {
-  if (Math.abs(x - BANK.x) > 40 || Math.abs(z - BANK.z) > 50) return false;
-  if (!vaultOpen() && hitsBox(x, z, r, VAULT_DOOR_BOX)) return true;
-  for (const id in LOOT_BOXES) if (!isTaken(id) && hitsBox(x, z, r, LOOT_BOXES[id])) return true;
+  if (Math.abs(x - BANK.x) < 40 && Math.abs(z - BANK.z) < 50) {
+    if (!vaultOpen() && hitsBox(x, z, r, VAULT_DOOR_BOX)) return true;
+    for (const id in LOOT_BOXES) if (!isTaken(id) && hitsBox(x, z, r, LOOT_BOXES[id])) return true;
+    if (isClosed("bank") && !inBank(x, z) && hitsBox(x, z, r, BANK_DOORWAY)) return true;
+  }
+  if (isClosed("jewelry") && Math.abs(x - JEWELRY.x) < 30 && Math.abs(z - JEWELRY.z) < 30 && !inJewelry(x, z) && hitsBox(x, z, r, JEWELRY_DOORWAY)) return true;
   return false;
 }
+const doorway = (site: typeof BANK, half: number, wall: number) => {
+  const p = toWorld(site, 0, -wall / 2);
+  return { x: p.x, z: p.z, hw: half, hd: wall / 2 + 0.2, turn: site.turn };
+};
+const BANK_DOORWAY = doorway(BANK, BANK_PLAN.doorHalf, BANK_PLAN.wall);
+const JEWELRY_DOORWAY = doorway(JEWELRY, JEWELRY_PLAN.doorHalf, JEWELRY_PLAN.wall);
+
+/** The middle of each building (for the closed signs). */
+export { SITE_CENTER };
+
+// What you can do here, for the on-screen prompt (interact.ts).
+provide("heist", () => {
+  const p = game.prompt;
+  if (!p) return null;
+  const out = [];
+  if (p.rob) out.push({ key: "R" as const, text: p.rob.text, run: rob, tone: "crime" as const });
+  if (p.talk) out.push({ key: "E" as const, text: p.talk.text, run: talk });
+  return out;
+});

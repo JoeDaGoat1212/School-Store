@@ -9,6 +9,16 @@ import { MPH_PER_UNIT, SMOKE_SLIP, stepCar, type Motion } from "./car-physics";
 import { puff } from "./smoke";
 import { PARKED_CARS } from "./exterior";
 import { walkerSpots } from "./town";
+import { groundAt } from "./terrain";
+
+/** Where a car sits on the ground: its height, and how far its nose tips up or down on a slope. */
+export function carOnGround(x: number, z: number, heading: number) {
+  const fx = -Math.sin(heading);
+  const fz = -Math.cos(heading);
+  const front = groundAt(x + fx * 1.75, z + fz * 1.75);
+  const back = groundAt(x - fx * 1.75, z - fz * 1.75);
+  return { y: (front + back) / 2, pitch: Math.atan2(front - back, 3.5) };
+}
 
 /*
  * Moving around with the keyboard (and, on phones, on-screen buttons):
@@ -111,6 +121,8 @@ export const drive = {
   speed: 0,
   gear: "P" as "P" | "D" | "R",
   braking: false,
+  /** Where the camera sits behind it (planes and big things want it further back). */
+  cam: { back: 12, up: 5.2 },
 };
 
 /** Each parked car's wheels and lights (one per car). */
@@ -237,9 +249,10 @@ export function Cars({
     look.roll = calm ? 0 : THREE.MathUtils.clamp(yawRate * Math.hypot(motion.vx, motion.vz) * 0.004, -0.07, 0.07);
 
     const g = groups.current[driving];
-    g?.position.set(c.x, 0, c.z);
-    g?.rotation.set(0, c.heading, 0);
-    drive.pos.set(c.x, 0, c.z);
+    const ground = carOnGround(c.x, c.z, c.heading);
+    g?.position.set(c.x, ground.y, c.z);
+    g?.rotation.set(ground.pitch, c.heading, 0, "YXZ");
+    drive.pos.set(c.x, ground.y, c.z);
     drive.heading = c.heading;
     drive.speed = fwdNow;
     drive.braking = braking;
@@ -255,8 +268,9 @@ export function Cars({
             groups.current[i] = g;
             // Put it where it is now (set here, not as props, so a re-render never moves a car back).
             const c = parkedSpots[i];
-            g?.position.set(c.x, 0, c.z);
-            g?.rotation.set(0, c.heading, 0);
+            const ground = carOnGround(c.x, c.z, c.heading);
+            g?.position.set(c.x, ground.y, c.z);
+            g?.rotation.set(ground.pitch, c.heading, 0, "YXZ");
           }}
           onClick={(e) => {
             if (canPick !== i || e.delta > 8) return;

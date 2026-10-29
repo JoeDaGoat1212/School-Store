@@ -3,7 +3,8 @@
 import { useEffect, useLayoutEffect, useRef } from "react";
 import { useFrame, useThree } from "@react-three/fiber";
 import * as THREE from "three";
-import { inStore, parkedSpots, player, walkBlocked } from "./bump";
+import { inStore, parkedSpots, player, viewBlocked, walkBlocked } from "./bump";
+import { groundAt } from "./terrain";
 import { drive, input, moving } from "./drive";
 import { game } from "./heist";
 import { doors, EYE_HEIGHT, INSIDE_WORLD, nearestStation, STORE_SCALE, type Blocker, type Station, type StationKey } from "./world-layout";
@@ -23,6 +24,12 @@ import { doors, EYE_HEIGHT, INSIDE_WORLD, nearestStation, STORE_SCALE, type Bloc
 
 const WALK_SPEED = 6.5;
 const RUN_SPEED = 12;
+/** Jumping: how fast you leave the ground, and how hard you're pulled back down. */
+const JUMP = 8.2;
+const GRAVITY = 24;
+/** Third person: how far back the camera starts, and the furthest it goes. */
+const THIRD_ZOOM = 7;
+const MAX_ZOOM = 16;
 const TURN_SPEED = 1.9;
 /** The doors open when someone's this close to them, and shut again past SHUT. */
 const OPEN = 7;
@@ -126,6 +133,8 @@ export function CameraRig({
     inside: null as boolean | null,
     /** The normal field of view (it widens a little at high speed). */
     fov: 56,
+    /** Where the camera really is (behind you in third person). */
+    view: new THREE.Vector3(),
   });
 
   // Wider view on tall phone screens.
@@ -168,11 +177,30 @@ export function CameraRig({
       last = null;
       r.current.dragging = false;
     };
+    // Mouse wheel: zoom out to third person (and back in to your own eyes).
+    const wheel = (e: WheelEvent) => {
+      if (currentRef.current === "outside" || drive.active) return;
+      player.zoom = clamp(player.zoom + e.deltaY * 0.012, 0, MAX_ZOOM);
+      player.view = player.zoom > 1.2 ? "third" : "first";
+      if (player.view === "first") player.zoom = 0;
+    };
+    // V: switch between your own eyes and third person.
+    const key = (e: KeyboardEvent) => {
+      if (e.code !== "KeyV" || e.repeat || e.ctrlKey || e.metaKey) return;
+      const t = e.target as HTMLElement | null;
+      if (t && ["INPUT", "TEXTAREA", "SELECT"].includes(t.tagName)) return;
+      player.view = player.view === "first" ? "third" : "first";
+      player.zoom = player.view === "third" ? THIRD_ZOOM : 0;
+    };
+    el.addEventListener("wheel", wheel, { passive: true });
+    window.addEventListener("keydown", key);
     el.addEventListener("pointerdown", down);
     window.addEventListener("pointermove", move);
     window.addEventListener("pointerup", up);
     window.addEventListener("pointercancel", up);
     return () => {
+      el.removeEventListener("wheel", wheel);
+      window.removeEventListener("keydown", key);
       el.removeEventListener("pointerdown", down);
       window.removeEventListener("pointermove", move);
       window.removeEventListener("pointerup", up);
@@ -259,13 +287,13 @@ export function CameraRig({
       const fx = -Math.sin(drive.heading);
       const fz = -Math.cos(drive.heading);
       // Pull back further the faster you go.
-      const back = 12 + Math.abs(drive.speed) * 0.18;
-      const want = new THREE.Vector3(drive.pos.x - fx * back, 5.2, drive.pos.z - fz * back);
+      const back = drive.cam.back + Math.abs(drive.speed) * 0.18;
+      const want = new THREE.Vector3(drive.pos.x - fx * back, drive.pos.y + drive.cam.up, drive.pos.z - fz * back);
       if (!s.started) s.pos.copy(want);
       s.pos.x = THREE.MathUtils.damp(s.pos.x, want.x, 5, dt);
       s.pos.y = THREE.MathUtils.damp(s.pos.y, want.y, 5, dt);
       s.pos.z = THREE.MathUtils.damp(s.pos.z, want.z, 5, dt);
-      const look = yawPitchOf(s.pos, new THREE.Vector3(drive.pos.x + fx * 6, 1.6, drive.pos.z + fz * 6));
+      const look = yawPitchOf(s.pos, new THREE.Vector3(drive.pos.x + fx * 6, drive.pos.y + 1.6, drive.pos.z + fz * 6));
       s.yaw = look.yaw;
       s.pitch = look.pitch;
       s.started = true;
@@ -276,6 +304,7 @@ export function CameraRig({
       shutDoors(drive.pos.x, drive.pos.z, false);
       cam.position.copy(s.pos);
       cam.lookAt(dirOf(s.yaw, s.pitch).add(s.pos));
+      s.view.copy(s.pos);
       shake(cam);
       return;
     }
@@ -284,9 +313,12 @@ export function CameraRig({
     // ---- Just got out of a car: hop down beside it ----
     if (player.hop) {
       player.hop = false;
-      const to = new THREE.Vector3(player.x, EYE_HEIGHT, player.z);
+      const ground = groundAt(player.x, player.z);
+      const to = new THREE.Vector3(player.x, ground + EYE_HEIGHT, player.z);
       const from = s.pos.clone();
       const far = from.distanceTo(to);
+      player.y = ground;
+      player.vy = 0;
       // A long hop (to the city and back): up over the rooftops and down again.
       const curve =
         far > 60
@@ -296,15 +328,19 @@ export function CameraRig({
               "centripetal",
             )
           : null;
-      s.flight = { from, fromYaw: s.yaw, fromPitch: s.pitch, to, toYaw: player.yaw, toPitch: -0.05, start: -1, duration: calm ? 0.01 : curve ? 3.2 : 0.9, curve, key: "walk" };
+      s.flight = { from, fromYaw: s.yaw, fromPitch: s.pitch, to, toYaw: player.yaw, toPitch: -0.05, start: -1, duration: calm || player.snap ? 0.01 : curve ? 3.2 : 0.9, curve, key: "walk" };
+      player.snap = false;
     }
 
     // ---- Walking with the keys (inside and out) ----
-    if (currentRef.current !== "outside" && !s.flight && moving()) {
+    const walking = currentRef.current !== "outside" && !s.flight;
+    player.speed = 0;
+    if (walking && moving() && !player.frozen) {
       s.yaw += (Number(input.turnRight) - Number(input.turnLeft)) * TURN_SPEED * dt;
       const fwd = Number(input.forward) - Number(input.back);
       const side = Number(input.strafeRight) - Number(input.strafeLeft);
       const speed = (input.run ? RUN_SPEED : WALK_SPEED) * dt;
+      if (fwd !== 0 || side !== 0) player.speed = input.run ? RUN_SPEED : WALK_SPEED;
       const mx = (Math.sin(s.yaw) * fwd + Math.cos(s.yaw) * side) * speed;
       const mz = (-Math.cos(s.yaw) * fwd + Math.sin(s.yaw) * side) * speed;
       const b = blockersRef.current;
@@ -314,7 +350,6 @@ export function CameraRig({
         s.pos.z += mz;
       } else if (!walkBlocked(s.pos.x + mx, s.pos.z, b)) s.pos.x += mx;
       else if (!walkBlocked(s.pos.x, s.pos.z + mz, b)) s.pos.z += mz;
-      s.pos.y = THREE.MathUtils.damp(s.pos.y, EYE_HEIGHT, 8, dt);
       // Level the view a little while walking.
       s.pitch = THREE.MathUtils.damp(s.pitch, Math.min(s.pitch, 0.05), 2, dt);
       // Tell the page when you've walked up to a spot (or away from one).
@@ -324,6 +359,24 @@ export function CameraRig({
         s.walkedTo = near;
         onWalkRef.current?.(near);
       }
+    }
+
+    // ---- Jumping, falling, and walking up and down hills ----
+    if (walking) {
+      const ground = groundAt(s.pos.x, s.pos.z);
+      if (input.brake && player.grounded && !player.frozen) {
+        player.vy = JUMP;
+        player.grounded = false;
+      }
+      player.vy -= GRAVITY * dt;
+      player.y += player.vy * dt;
+      // On the ground (and stepping down small drops without leaving it).
+      if (player.y <= ground || (player.grounded && player.y - ground < 0.9)) {
+        player.y = ground;
+        player.vy = 0;
+        player.grounded = true;
+      } else player.grounded = false;
+      s.pos.y = player.y + EYE_HEIGHT;
     }
 
     // ---- Outside: ← → and ↑ ↓ fly the drone round ----
@@ -371,6 +424,8 @@ export function CameraRig({
       }
       if (t >= 1) {
         s.flight = null;
+        player.y = Math.max(groundAt(s.pos.x, s.pos.z), s.pos.y - EYE_HEIGHT);
+        player.vy = 0;
         onArriveRef.current(f.key);
       }
     }
@@ -403,8 +458,33 @@ export function CameraRig({
       onNearCarRef.current?.(near);
     }
 
-    cam.position.copy(s.pos);
-    cam.lookAt(dirOf(s.yaw, s.pitch).add(s.pos));
+    // ---- Through your eyes, or from behind you ----
+    const third = player.view === "third" && currentRef.current !== "outside" && (!s.flight || s.flight.key === "walk");
+    const look = dirOf(s.yaw, s.pitch);
+    if (third) {
+      const zoom = Math.max(2, player.zoom);
+      const back = new THREE.Vector3(-look.x, 0, -look.z).normalize();
+      // Above and behind your head, tilting with where you look.
+      const lift = 0.9 + zoom * 0.22 - s.pitch * zoom * 0.8;
+      // Pull in if a wall's in the way.
+      let reach = zoom;
+      const b = blockersRef.current;
+      for (let d = 0.6; d <= zoom; d += 0.4)
+        if (viewBlocked(s.pos.x + back.x * d, s.pos.z + back.z * d, b)) {
+          reach = Math.max(0.6, d - 0.6);
+          break;
+        }
+      const want = new THREE.Vector3(s.pos.x + back.x * reach, s.pos.y + lift * (reach / zoom), s.pos.z + back.z * reach);
+      want.y = Math.max(want.y, groundAt(want.x, want.z) + 0.8);
+      if (s.view.distanceTo(want) > 30) s.view.copy(want);
+      s.view.lerp(want, 1 - Math.exp(-14 * dt));
+      cam.position.copy(s.view);
+      cam.lookAt(s.pos.x + look.x * 4, s.pos.y - 0.3 + look.y * 4, s.pos.z + look.z * 4);
+    } else {
+      s.view.copy(s.pos);
+      cam.position.copy(s.pos);
+      cam.lookAt(look.add(s.pos));
+    }
     shake(cam);
   });
 

@@ -5,7 +5,14 @@ import { useFrame } from "@react-three/fiber";
 import * as THREE from "three";
 import { player } from "./bump";
 import { drive } from "./drive";
-import { game, loadMoney, tick, type Fx } from "./heist";
+import { sound } from "./city-audio";
+import { banner, game, pop, tick, type Fx } from "./heist";
+import { homeSpot } from "./homes";
+import { tickInteract } from "./interact";
+import { tickJail } from "./jail";
+import { tickPolice } from "./police";
+import { life, revive, tickLife } from "./life";
+import { loseCash, profile } from "./profile";
 import { noRaycast, toonRamp } from "./paint";
 import { puff } from "./smoke";
 
@@ -18,11 +25,39 @@ import { puff } from "./smoke";
  */
 
 export function CityGame({ calm }: { calm: boolean }) {
-  useEffect(() => loadMoney(), []);
+  const respawnAt = useRef(0);
+  useEffect(() => sound.mute(profile.muted), []);
   useFrame((state, delta) => {
-    const you = drive.active ? { x: drive.pos.x, z: drive.pos.z } : { x: player.x, z: player.z };
-    tick(state.clock.elapsedTime, Math.min(delta, 0.1), { ...you, onFoot: player.onFoot, driving: drive.active });
+    const dt = Math.min(delta, 0.1);
+    const you = drive.active ? { x: drive.pos.x, z: drive.pos.z, y: drive.pos.y } : { x: player.x, z: player.z, y: player.y };
+    tick(state.clock.elapsedTime, dt, { ...you, onFoot: player.onFoot, driving: drive.active });
+    tickPolice(state.clock.elapsedTime, dt);
+    tickJail(state.clock.elapsedTime, dt);
+    tickInteract({ ...you, yaw: player.yaw, onFoot: player.onFoot, driving: drive.active }, life.dead || player.frozen || !player.onFoot);
     if (calm) game.shake = 0;
+
+    // Hunger and health (paused while you're in a cutscene or the menus).
+    const warn = tickLife(dt, !player.onFoot && !drive.active);
+    if (warn === "hungry") banner("info", "You're hungry", "Grab something to eat at Restaurant Row in the city.", 4);
+    if (warn === "starving") banner("dead", "Starving!", "Eat something fast, or you'll pass out.", 4);
+
+    // Dying: fall over, the screen says why, then wake up at home (or the store) without the cash you had on you.
+    if (life.dead && !respawnAt.current) {
+      respawnAt.current = state.clock.elapsedTime + 4.5;
+      player.frozen = true;
+      if (drive.active) player.hidden = false;
+      const why = life.death?.reason === "laser" ? "Zapped by a laser!" : life.death?.reason === "fall" ? "That was a long way down." : life.death?.reason === "crash" ? "You crashed!" : "You passed out from hunger.";
+      banner("dead", "Wasted", `${why} You lose the cash you were carrying.`, 4.5);
+    }
+    if (life.dead && respawnAt.current && state.clock.elapsedTime > respawnAt.current) {
+      respawnAt.current = 0;
+      const lost = loseCash();
+      revive();
+      const home = homeSpot();
+      Object.assign(player, { x: home.x, z: home.z, yaw: home.yaw, hop: true, snap: true, frozen: false });
+      player.anim.down = 0;
+      if (lost > 0) pop(-lost);
+    }
   });
   return <Effects calm={calm} />;
 }

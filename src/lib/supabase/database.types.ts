@@ -1042,6 +1042,32 @@ export type Database = {
         };
         Relationships: [];
       };
+      game_players: {
+        Row: { id: string; id_number: string; display_name: string; state: Json; created_at: string; updated_at: string };
+        ComputedFields: never;
+        Insert: { id: string; id_number: string; display_name: string; state?: Json; created_at?: string; updated_at?: string };
+        Update: { id_number?: string; display_name?: string; state?: Json; updated_at?: string };
+        Relationships: [];
+      };
+      game_job_applications: {
+        Row: {
+          id: string;
+          player_id: string;
+          business: string;
+          answers: Json;
+          status: string;
+          level: number;
+          staff_note: string | null;
+          decided_at: string | null;
+          decided_by: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        ComputedFields: never;
+        Insert: { id?: string; player_id: string; business: string; answers: Json; status?: string; level?: number; staff_note?: string | null };
+        Update: { status?: string; level?: number; staff_note?: string | null; decided_at?: string | null; decided_by?: string | null; updated_at?: string };
+        Relationships: [];
+      };
       item_request_status: {
         Row: { item_key: string; status: string; staff_note: string | null; updated_at: string };
         ComputedFields: never;
@@ -1177,6 +1203,11 @@ export type Database = {
         Returns: Json;
       };
       popular_requests: { Args: { p_limit?: number }; Returns: Json };
+      get_game_player: { Args: Record<PropertyKey, never>; Returns: Json };
+      save_game_state: { Args: { p_state: Json }; Returns: undefined };
+      apply_for_job: { Args: { p_business: string; p_answers: Json }; Returns: undefined };
+      leave_job: { Args: { p_business: string; p_reason: string }; Returns: undefined };
+      record_job_level: { Args: { p_business: string; p_level: number }; Returns: undefined };
       quote_cart: { Args: { p_bundles?: Json; p_items: Json; p_reward_id?: string }; Returns: Json };
       save_profile: { Args: { p_first_name: string; p_grade: string; p_last_name: string; p_username?: string | null }; Returns: undefined };
       username_available: { Args: { p_username: string }; Returns: boolean };

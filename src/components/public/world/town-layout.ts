@@ -16,6 +16,7 @@
 
 import { CITY_AVENUES_Z, CITY_KEEP_CLEAR, CITY_SPAN_X, CITY_SPAN_Z, CITY_STREETS_X, inCity } from "./city-plan";
 import { seededRandom } from "./paint";
+import { AIRPORT_ROAD, ESTATES_ROAD, JAIL_ROAD, WORLD_BOUNDS } from "./world-map";
 
 export const ROAD_HALF = 8; // half a road's width (two lanes)
 export const LANE = 4; // how far a lane's middle is from the road's middle
@@ -31,8 +32,8 @@ export const STREET_SPAN: [number, number] = [-290, 410];
 
 /** The town's own land (houses and meadow trees stay in here). */
 const TOWN = { minX: -470, maxX: 470, minZ: -320, maxZ: 440 };
-/** How far you can walk or drive: the town and the city. */
-export const WORLD = { minX: TOWN.minX, maxX: 1110, minZ: TOWN.minZ, maxZ: TOWN.maxZ };
+/** How far you can walk or drive: the whole map (world-map.ts). */
+export const WORLD = WORLD_BOUNDS;
 
 /** The store's block: no houses here (store, lot, trees). */
 const STORE_BLOCK = { minX: -78, maxX: 78, minZ: -80, maxZ: 46 };
@@ -47,6 +48,10 @@ export const ROADS: Road[] = [
   // The city's own grid.
   ...CITY_AVENUES_Z.map((z) => ({ axis: "x" as const, at: z, from: CITY_SPAN_X[0], to: CITY_SPAN_X[1] })),
   ...CITY_STREETS_X.map((x) => ({ axis: "z" as const, at: x, from: CITY_SPAN_Z[0], to: CITY_SPAN_Z[1] })),
+  // The main road carries on west to the airport and east to the jail, and a road runs south to Crescent Heights.
+  { axis: "x", at: AIRPORT_ROAD.z, from: AIRPORT_ROAD.from, to: AIRPORT_ROAD.to },
+  { axis: "x", at: JAIL_ROAD.z, from: JAIL_ROAD.from, to: JAIL_ROAD.to },
+  { axis: "z", at: ESTATES_ROAD.x, from: ESTATES_ROAD.from, to: ESTATES_ROAD.to },
 ];
 
 /** Where the roads running the other way cross this one (including at its very ends). */

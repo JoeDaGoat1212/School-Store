@@ -20,9 +20,12 @@ import { Cars, drive, input } from "./drive";
 import { Town } from "./town";
 import { City } from "./city";
 import { CityGame } from "./city-fx";
-import { Police } from "./city-police";
-import { Bank, Jewelry } from "./city-sites";
+import { Police } from "./police";
+import { Bank, ClosedSign, Jewelry } from "./city-sites";
 import { game } from "./heist";
+import { Mountains } from "./mountains";
+import { Jail } from "./jail";
+import { PlayerAvatar } from "./player-avatar";
 import { Smoke } from "./smoke";
 import { Traffic } from "./traffic";
 import { BULLETIN, BUILDING, LANES, STORE_SCALE, blockers, doors, placeUnits, stations, unitAt, worldStations, type Place, type StationKey } from "./world-layout";
@@ -131,8 +134,16 @@ export default function WorldScene(props: WorldSceneProps) {
           <City />
           <Bank />
           <Jewelry />
+          <ClosedSign site="bank" height={30} />
+          <ClosedSign site="jewelry" height={22} />
           <Police />
           <CityGame calm={calm} />
+          {/* The jail, east of the city */}
+          <Jail />
+          {/* The mountains to the north, with the road up to the secret base */}
+          <Mountains />
+          {/* You, seen in third person */}
+          <PlayerAvatar />
           <Smoke />
           {/* The parked cars: walk up to one and press E (or tap it) to drive it */}
           <Cars driving={props.driving} canPick={props.driving === null && !moving ? props.nearCar : null} calm={calm} onPick={props.onPickCar} onBump={props.onBump} />

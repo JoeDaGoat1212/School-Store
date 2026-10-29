@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { BANK, CITY_PARKED, COP_ROUTES, JEWELRY, LOOT, TOWERS, hitsCity, inBank, inJewelry, inVault, toWorld } from "./city-layout";
+import { BANK, CITY_PARKED, JEWELRY, LOOT, TOWERS, hitsCity, inBank, inJewelry, inVault, toWorld } from "./city-layout";
 import { BANK_SITE, JEWELRY_SITE, inCity } from "./city-plan";
-import { ESCAPE_TIME, game, heistBlocks, isTaken, rob, setTeller, talk, tick, transfer, vaultOpen } from "./heist";
+import { DELIVER_TIME, DROP_ZONE, game, heistBlocks, isClosed, isTaken, jewelryLasers, rob, setTeller, talk, tick, vaultLasers, vaultOpen } from "./heist";
+import { life, revive } from "./life";
+import { profile, transfer } from "./profile";
 import { CURB, HOUSES, INTERSECTIONS, LOOPS, ROAD_HALF, ROADS, SIDEWALKS, WALKERS } from "./town-layout";
 
 /* The city's layout (no towers on roads, the bank and shop can be walked into) and a robbery from start to finish. */
@@ -19,7 +21,7 @@ function walkable(...pts: { x: number; z: number }[]) {
   }
   return true;
 }
-const you = (p: { x: number; z: number }) => ({ ...p, onFoot: true, driving: false });
+const you = (p: { x: number; z: number }, y = 0) => ({ x: p.x, z: p.z, y, onFoot: true, driving: false });
 
 describe("the city's layout", () => {
   it("has no houses, and lots of people on its sidewalks", () => {
@@ -75,14 +77,13 @@ describe("the city's layout", () => {
     expect(blocked(B(0, -22.6))).toBe(true);
   });
 
-  it("leaves room round the getaway cars and where the police park", () => {
+  it("leaves room round the getaway cars", () => {
     for (const c of CITY_PARKED) for (const d of [1.75, -1.75]) expect(hitsCity(c.x - Math.sin(c.turn) * d, c.z - Math.cos(c.turn) * d, 1.8)).toBe(false);
-    for (const routes of Object.values(COP_ROUTES)) for (const r of routes) expect(hitsCity(r[r.length - 1].x, r[r.length - 1].z, 1.8)).toBe(false);
   });
 });
 
 describe("robbing the city", () => {
-  it("goes: rob the bank, crack the vault, grab the loot, get away, restock", () => {
+  it("goes: rob the bank, crack the vault, dodge the lasers, grab the loot, stash it at the base, closed for 30 minutes", () => {
     let t = 1;
     tick(t, 0.016, you(B(0, -11)));
     expect(game.prompt?.talk).toBeTruthy();
@@ -91,10 +92,10 @@ describe("robbing the city", () => {
     // The teller: deposit some cash.
     talk();
     expect(game.teller).toBe(true);
-    const cash = game.cash;
+    const cash = profile.cash;
     expect(transfer(100)).toBe(true);
-    expect(game.cash).toBe(cash - 100);
-    expect(transfer(game.cash + 1)).toBe(false);
+    expect(profile.cash).toBe(cash - 100);
+    expect(transfer(profile.cash + 1)).toBe(false);
     setTeller(false);
 
     rob();
@@ -105,41 +106,59 @@ describe("robbing the city", () => {
     expect(vaultOpen()).toBe(true);
     expect(heistBlocks(B(0, -22.6).x, B(0, -22.6).z, 0.9)).toBe(false);
 
+    // Grab everything, jumping over the lasers (standing in a beam's path on the floor would kill you).
     const bankLoot = LOOT.filter((l) => l.site === "bank");
     for (const l of bankLoot) {
-      tick(t, 0.016, you(l));
+      tick(t, 0.016, you(l, 2));
       rob();
     }
+    expect(life.dead).toBe(false);
     expect(bankLoot.every((l) => isTaken(l.id))).toBe(true);
     const haul = bankLoot.reduce((n, l) => n + l.value, 0);
     expect(game.wanted?.haul).toBe(haul);
+    // Not yours until it's at the base.
+    expect(profile.cash).toBe(cash - 100);
 
-    // Drive far away: got away with it.
-    tick(t + 5, 0.016, { x: BANK.x + 300, z: BANK.z, onFoot: false, driving: true });
+    // Walking out closes the bank.
+    tick(t, 0.016, you(B(0, 14)));
+    expect(isClosed("bank")).toBe(true);
+
+    // Drive it to the secret base.
+    tick(t + 60, 0.016, { x: DROP_ZONE.x, z: DROP_ZONE.z, y: 46, onFoot: false, driving: true });
     expect(game.wanted).toBeNull();
     expect(game.banner?.kind).toBe("escaped");
-    expect(game.cash).toBe(cash - 100 + haul);
-
-    // Later (and away from it), the bank's back to normal.
-    tick(t + 100, 0.016, { x: BANK.x + 300, z: BANK.z, onFoot: false, driving: true });
-    expect(isTaken("gold-l")).toBe(false);
-    expect(game.sites.bank.alarm).toBe(false);
+    expect(profile.cash).toBe(cash - 100 + haul);
+    // The bank stays shut: nothing to grab.
+    tick(t + 61, 0.016, you(B(0, -11)));
+    expect(game.prompt?.rob).toBeUndefined();
   });
 
-  it("goes: smash a case, grab the Big Rock, get busted (and lose it)", () => {
+  it("kills you if you walk into a vault laser", () => {
+    revive();
+    const beam = vaultLasers(0)[0];
+    game.sites.bank = { alarm: true, alarmAt: 0, vaultAt: -10, closedUntil: 0 };
+    game.taken.clear();
+    tick(0, 0.016, you(B(0, beam.lz)));
+    expect(life.dead).toBe(true);
+    revive();
+  });
+
+  it("goes: smash a case, grab the Big Rock between the lasers, run out of time (and lose it)", () => {
     let t = 500;
-    const cash = game.cash;
+    const cash = profile.cash;
     tick(t, 0.016, you(J(-8.5, -6)));
     expect(game.prompt?.rob?.loot).toMatch(/^case-/);
     rob();
     expect(game.sites.jewelry.alarm).toBe(true);
+    // Wait for the lasers to lift, then step inside.
+    while (jewelryLasers(t).some((h) => h < 3.6)) t += 0.05;
     tick(t, 0.016, you(J(0, -10.8)));
+    expect(life.dead).toBe(false);
     expect(game.prompt?.rob?.loot).toBe("rock");
     rob();
-    expect(game.cash).toBeGreaterThan(cash);
-    t += ESCAPE_TIME + 1;
+    t += DELIVER_TIME + 1;
     tick(t, 0.016, you(J(0, -10)));
-    expect(game.banner?.kind).toBe("busted");
-    expect(game.cash).toBe(cash);
+    expect(game.wanted).toBeNull();
+    expect(profile.cash).toBe(cash);
   });
 });

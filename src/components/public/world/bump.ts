@@ -1,7 +1,10 @@
 import { hitsCity } from "./city-layout";
 import { LAMPS, PARKED_CARS, TREES } from "./exterior";
 import { heistBlocks } from "./heist";
-import { hitsBox, townObstaclesNear, WORLD, type Box } from "./town-layout";
+import { hitsBaseRock, hitsPine } from "./terrain";
+import { jailBlocks } from "./jail-layout";
+import { hitsBox, townObstaclesNear, type Box } from "./town-layout";
+import { WORLD_BOUNDS as WORLD } from "./world-map";
 import { doors, STORE, STORE_SCALE, type Blocker } from "./world-layout";
 
 /*
@@ -20,6 +23,27 @@ export const player = {
   onFoot: false,
   /** Just got out of a car: the camera should hop to (x, z) and face `yaw`. */
   hop: false,
+  /** With `hop`: jump straight there, no flight (respawning, being taken to jail…). */
+  snap: false,
+  /** Your feet: how high off the ground you are (jumping, falling, the mountains). */
+  y: 0,
+  /** Falling or jumping speed (up is +). */
+  vy: 0,
+  grounded: true,
+  /** Seeing through your own eyes, or from behind yourself. */
+  view: "first" as "first" | "third",
+  /** How far back the camera is in third person (0 = through your eyes). */
+  zoom: 0,
+  /** Can't move: cutscenes, working a shift, handcuffed, dead. */
+  frozen: false,
+  /** How fast you're walking right now (units a second), for your character's legs. */
+  speed: 0,
+  /** What your body is doing (0…1 each), for your character in third person and cutscenes. */
+  anim: { handsUp: 0, cuffed: 0, down: 0, sit: 0, reach: 0 },
+  /** Your character is drawn even in first person (cutscenes: being cuffed, put in the car…). */
+  showBody: false,
+  /** Hidden completely (in the back of a police car, at the dealership's screen…). */
+  hidden: false,
 };
 
 // (The doors' open/shut state lives in world-layout.ts, so the doors in exterior.tsx can read it.)
@@ -72,6 +96,9 @@ export function inStore(x: number, z: number) {
 /** Trees, lamp posts, houses, street lights and the city's buildings: does a circle of radius r at (x, z) touch one? */
 function hitsScenery(x: number, z: number, r: number) {
   if (x > 470 && (hitsCity(x, z, r) || heistBlocks(x, z, r))) return true;
+  if (hitsPine(x, z, r)) return true;
+  if (x > 1200 && jailBlocks(x, z, r)) return true;
+  if (z < -700 && hitsBaseRock(x, z, r)) return true;
   for (const [lx, lz] of LAMPS) if (Math.hypot(x - lx, z - lz) < r + 0.35) return true;
   for (const [tx, tz, s] of TREES) if (Math.hypot(x - tx, z - tz) < r + 0.6 * s) return true;
   const near = townObstaclesNear(x, z);
@@ -107,6 +134,18 @@ export function walkBlocked(x: number, z: number, inside: Blocker[]) {
   }
   for (const b of PLANTERS) if (hitsBox(x, z, r, b)) return true;
   return hitsScenery(x, z, r) || hitsCar(x, z, r);
+}
+
+/** Is the camera's view blocked here (a wall or building between it and you)? Cars and trees don't count. */
+export function viewBlocked(x: number, z: number, inside: Blocker[]) {
+  for (const b of WALLS) if (hitsBox(x, z, 0.25, b)) return true;
+  if (inStore(x, z)) {
+    for (const b of inside) if (hitsBox(x, z, 0.1, b)) return true;
+    return false;
+  }
+  if (x > 470 && hitsCity(x, z, 0.25)) return true;
+  for (const b of townObstaclesNear(x, z).boxes) if (hitsBox(x, z, 0.25, b)) return true;
+  return false;
 }
 
 /** Would car `self`, moved to `c`, hit something there? (The store, scenery, other cars, or people walking.) */

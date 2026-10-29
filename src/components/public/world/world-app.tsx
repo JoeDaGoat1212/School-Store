@@ -23,6 +23,11 @@ import { unitLayout, type StoreItem } from "../store/layout";
 import type { TillDisplay, TillUnit } from "./checkout-scene";
 import { TouchPad, useMovementKeys } from "./drive";
 import { CityHud } from "./city-hud";
+import { useGameVersion } from "./game-events";
+import { life } from "./life";
+import { police } from "./police";
+import { loadProfile, profile, refreshProfile, type ServerPlayer } from "./profile";
+import { refreshGame, saveGame } from "@/app/(public)/game-actions";
 import { Speedometer } from "./speedometer";
 import type { BoardCard } from "./fixtures";
 import { LoadingScreen } from "./loading-screen";
@@ -111,6 +116,7 @@ export default function WorldApp({
   checkout: checkoutForm,
   season,
   requests,
+  gamePlayer = null,
 }: {
   priced: Priced[];
   deals: Deals;
@@ -125,6 +131,8 @@ export default function WorldApp({
   season: Season;
   /** What others have asked us to sell (for the request table). */
   requests: PopularRequest[];
+  /** The signed-in player's saved city game (null: a guest, or before database update 13). */
+  gamePlayer?: ServerPlayer | null;
 }) {
   const cartItems = useCart();
   const totals = cartTotals(cartItems);
@@ -151,8 +159,30 @@ export default function WorldApp({
   const [nearCar, setNearCar] = useState<number | null>(null);
   /** Are you in the store? (The Checkout button only shows in there.) */
   const [inside, setInside] = useState(startInside);
-  /** The city bank's teller window is open. */
+  /** A city panel (the teller, your wallet, a shop's menu…) is open. */
   const [cityPanel, setCityPanel] = useState(false);
+
+  // Your city game: from your account if you're signed in, else this browser.
+  useEffect(() => {
+    loadProfile(gamePlayer, { save: saveGame, refresh: refreshGame as () => Promise<ServerPlayer | null> });
+  }, [gamePlayer]);
+  // Waiting to hear about a job? Check now and then.
+  useEffect(() => {
+    const t = setInterval(() => {
+      if (profile.applications.some((a) => a.status === "pending")) void refreshProfile();
+    }, 45000);
+    return () => clearInterval(t);
+  }, []);
+  // Passing out in a car: you're out of the car.
+  useGameVersion();
+  useEffect(() => {
+    if (life.dead && driving !== null) setDriving(null);
+    // The police pulled you out of your car.
+    if (police.forceOut) {
+      police.forceOut = false;
+      if (driving !== null) setDriving(null);
+    }
+  });
   const counter = useRef(0);
   const sidebarScroll = useRef<HTMLDivElement>(null);
   const { progress, active } = useProgress();

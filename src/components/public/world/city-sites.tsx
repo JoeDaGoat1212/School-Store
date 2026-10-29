@@ -6,7 +6,8 @@ import * as THREE from "three";
 import { player } from "./bump";
 import { BANK, BANK_PLAN, JEWELRY, JEWELRY_PLAN, LOOT, toWorld, type Loot, type Site } from "./city-layout";
 import { drive } from "./drive";
-import { VAULT, game, isTaken, vaultTime } from "./heist";
+import { SITE_CENTER, VAULT, closedFor, game, isClosed, isTaken, jewelryLasers, jewelryLasersOn, vaultLasers, vaultLasersOn, vaultTime } from "./heist";
+import type { SiteKey } from "./city-layout";
 import { canvasTexture, noRaycast, seededRandom, signTexture, toonRamp } from "./paint";
 import { puff } from "./smoke";
 import { letterGeometry } from "./text3d";
@@ -510,6 +511,7 @@ export function Bank() {
       </mesh>
       <AlarmLight position={[0, 11.5, -D + t + 0.6]} on={alarmOn} />
       <VaultGlow />
+      <VaultLasers />
       {LOOT.filter((l) => l.site === "bank").map((l) => (
         <BankLoot key={l.id} loot={l} />
       ))}
@@ -1086,12 +1088,14 @@ function BigRock() {
       gem.current.position.y = 4.2 + Math.sin(t * 1.8) * 0.15;
     }
     if (dome.current) dome.current.position.y = 2.7 + (gone < 0 ? 0 : ease(clamp01(gone / 0.8)) * 3.5);
+    // The laser fence (heights from heist.ts, so what you see is what kills you).
+    const heights = jewelryLasers(game.now);
+    const on = jewelryLasersOn();
     beams.current.forEach((b, i) => {
       if (!b) return;
       // Off once it's taken (with a quick flicker first).
-      b.visible = gone < 0 || (gone < 0.6 && Math.sin(gone * 60 + i) > 0);
-      const line = lines[i];
-      b.position.y = 1.2 + line.h * 0.9 + Math.sin(t * 2 + line.h * 2.1) * 0.35;
+      b.visible = on || (gone >= 0 && gone < 0.6 && Math.sin(gone * 60 + i) > 0);
+      b.position.y = heights[lines[i].h];
     });
   });
   return (
@@ -1190,5 +1194,96 @@ function Sparkles() {
         </sprite>
       ))}
     </group>
+  );
+}
+
+/** The vault's two sweeping laser beams (jump over them!), with the emitters on the walls. */
+function VaultLasers() {
+  const P = BANK_PLAN;
+  const beams = useRef<(THREE.Group | null)[]>([]);
+  useFrame(() => {
+    const on = vaultLasersOn();
+    vaultLasers(game.now).forEach((b, i) => {
+      const g = beams.current[i];
+      if (!g) return;
+      g.visible = on;
+      g.position.set(0, b.y + 0.42, b.lz);
+    });
+  });
+  const width = P.halfW * 2 - P.wall * 2;
+  return (
+    <group>
+      {[0, 1].map((i) => (
+        <group
+          key={i}
+          ref={(g) => {
+            beams.current[i] = g;
+          }}
+          visible={false}
+        >
+          <mesh raycast={noRaycast}>
+            <boxGeometry args={[width, 0.05, 0.05]} />
+            <meshBasicMaterial color="#ff2a1a" toneMapped={false} />
+          </mesh>
+          <mesh raycast={noRaycast}>
+            <boxGeometry args={[width, 0.22, 0.22]} />
+            <meshBasicMaterial color="#ff2a1a" transparent opacity={0.25} blending={THREE.AdditiveBlending} depthWrite={false} toneMapped={false} />
+          </mesh>
+          {[-1, 1].map((s) => (
+            <mesh key={s} position-x={s * (width / 2 - 0.1)} raycast={noRaycast}>
+              <boxGeometry args={[0.3, 0.4, 0.4]} />
+              <meshStandardMaterial color="#2a2e33" roughness={0.4} metalness={0.6} />
+            </mesh>
+          ))}
+        </group>
+      ))}
+    </group>
+  );
+}
+
+/** "CLOSED 29:41": floats over a place that's been robbed, counting down until it reopens. */
+export function ClosedSign({ site, height }: { site: SiteKey; height: number }) {
+  const sprite = useRef<THREE.Sprite>(null);
+  const { canvas, texture } = useMemo(() => {
+    const c = document.createElement("canvas");
+    c.width = 512;
+    c.height = 160;
+    const t = new THREE.CanvasTexture(c);
+    t.colorSpace = THREE.SRGBColorSpace;
+    return { canvas: c, texture: t };
+  }, []);
+  const last = useRef("");
+  useFrame(() => {
+    const s = sprite.current;
+    if (!s) return;
+    const closed = isClosed(site);
+    s.visible = closed;
+    if (!closed) return;
+    const left = closedFor(site);
+    const text = `${Math.floor(left / 60)}:${String(left % 60).padStart(2, "0")}`;
+    if (text === last.current) return;
+    last.current = text;
+    const g = canvas.getContext("2d")!;
+    g.clearRect(0, 0, 512, 160);
+    g.fillStyle = "#c81e1e";
+    g.beginPath();
+    g.roundRect(6, 6, 500, 148, 26);
+    g.fill();
+    g.lineWidth = 8;
+    g.strokeStyle = "#ffffff";
+    g.stroke();
+    g.fillStyle = "#ffffff";
+    g.textAlign = "center";
+    g.font = "800 46px sans-serif";
+    g.fillText("CLOSED · ROBBED", 256, 64);
+    g.font = "800 60px monospace";
+    g.fillText(text, 256, 128);
+    texture.needsUpdate = true;
+  });
+  const c = SITE_CENTER[site];
+  return (
+    <sprite ref={sprite} position={[c.x, height, c.z]} scale={[16, 5, 1]} visible={false}>
+      <spriteMaterial map={texture} transparent depthWrite={false} toneMapped={false} />
+    </sprite>
   );
 }

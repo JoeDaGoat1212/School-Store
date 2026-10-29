@@ -11,6 +11,7 @@
 
 import { BANK_SITE, CITY_AVENUES_Z, CITY_STREETS_X, JEWELRY_SITE, inCity } from "./city-plan";
 import { seededRandom } from "./paint";
+import { DEALERSHIP, REALTOR, SHOPS } from "./world-map";
 import { AVENUES_Z, CURB, INTERSECTIONS, ROAD_HALF, ROADS, hitsBox, type Box, type Circle } from "./town-layout";
 
 /** Every avenue that crosses the city, in order (the city's own and the town's). */
@@ -26,7 +27,6 @@ export const CITY_BLOCKS: Block[] = CITY_STREETS_X.slice(0, -1).flatMap((x, i) =
 const isBlock = (b: Block, i: number, z0: number) => b.i === i && CITY_ROWS[b.j] === z0;
 /** The bank's block, the jewelry shop's (across the main road from it), the park, and the block with the tallest tower. */
 const BANK_BLOCK = (b: Block) => isBlock(b, 0, -26);
-const JEWELRY_BLOCK = (b: Block) => isBlock(b, 0, 58);
 const PARK_BLOCK = (b: Block) => isBlock(b, 2, -26);
 const GIANT_BLOCK = (b: Block) => isBlock(b, 2, 58);
 
@@ -69,7 +69,7 @@ export const BANK_PLAN = {
   doorHalf: 4,
   doorHeight: 8,
   /** The teller counter: across the hall, with gaps at both ends to walk round. */
-  counter: { lx0: -12, lx1: 12, lz0: -15, lz1: -13, height: 2 },
+  counter: { lx0: -12, lx1: 12, lz0: -15, lz1: -13, height: 1.45 },
   tellers: [-7, 0, 7],
   tellerZ: -16.6,
   /** The wall in front of the vault, with the big round door in the middle. */
@@ -181,44 +181,6 @@ export const SITE_CENTER: Record<SiteKey, { x: number; z: number }> = {
   jewelry: toWorld(JEWELRY, 0, -JEWELRY_PLAN.depth / 2),
 };
 
-// ---- Police ----------------------------------------------------------------------------------
-
-/** Each police car's drive in (points along the road, ending where it parks out front). */
-export const COP_ROUTES: Record<SiteKey, { x: number; z: number }[][]> = {
-  bank: [
-    [
-      { x: 800, z: 54 },
-      { x: 700, z: 54 },
-      { x: 664, z: 53 },
-      { x: 650, z: 47 },
-      { x: 641, z: 44.4 },
-    ],
-    [
-      { x: 430, z: 62 },
-      { x: 530, z: 62 },
-      { x: 574, z: 60 },
-      { x: 590, z: 48 },
-      { x: 600, z: 44.4 },
-    ],
-  ],
-  jewelry: [
-    [
-      { x: 430, z: 62 },
-      { x: 530, z: 62 },
-      { x: 560, z: 64 },
-      { x: 570, z: 72 },
-      { x: 577, z: 73.4 },
-    ],
-    [
-      { x: 800, z: 54 },
-      { x: 700, z: 54 },
-      { x: 652, z: 57 },
-      { x: 632, z: 69 },
-      { x: 621, z: 73.4 },
-    ],
-  ],
-};
-
 /** Getaway cars: parked beside the bank, ready to go (they join the town's drivable cars). */
 export const CITY_PARKED: { color: string; x: number; z: number; turn: number }[] = [
   { color: "#2f3338", x: 583, z: 15, turn: Math.PI },
@@ -273,6 +235,23 @@ function tower(rand: () => number, x0: number, x1: number, z0: number, z1: numbe
   };
 }
 
+/** Ground the skyscrapers keep off: the jewelry shop, the shops, the dealership and the realtor (with room round them). */
+const RESERVED = (() => {
+  const pad = 6;
+  const site = (x: number, z: number, turn: number, w: number, d: number) => {
+    // The building goes back `d` from its front at z (into -z if it faces +z, into +z if it faces -z).
+    const back = Math.cos(turn) > 0 ? z - d : z + d;
+    return { x0: x - w / 2 - pad, x1: x + w / 2 + pad, z0: Math.min(z, back) - pad, z1: Math.max(z, back) + pad };
+  };
+  return [
+    site(JEWELRY_SITE.x, JEWELRY_SITE.front, Math.PI, JEWELRY_SITE.w, JEWELRY_SITE.d),
+    ...Object.values(SHOPS).map((p) => site(p.x, p.z, p.turn, p.w, p.d)),
+    site(DEALERSHIP.x, DEALERSHIP.z, DEALERSHIP.turn, DEALERSHIP.w, DEALERSHIP.d),
+    { x0: DEALERSHIP.lot.x0 - pad, x1: DEALERSHIP.lot.x1 + pad, z0: DEALERSHIP.lot.z0 - pad, z1: DEALERSHIP.lot.z1 + pad },
+    site(REALTOR.x, REALTOR.z, REALTOR.turn, REALTOR.w, REALTOR.d),
+  ];
+})();
+
 export const TOWERS: Tower[] = (() => {
   const rand = seededRandom(4242);
   const list: Tower[] = [];
@@ -292,12 +271,6 @@ export const TOWERS: Tower[] = (() => {
       list.push(tower(rand, bx0 + 8, bx1 - 8, bz0 + 3, bz1 - 3, 360, b, { color: "#7ec8e3", style: 1, crown: "spire" }));
       continue;
     }
-    if (JEWELRY_BLOCK(b)) {
-      // One tower beside the jewelry shop.
-      const x0 = JEWELRY_SITE.x + JEWELRY_SITE.w / 2 + 9;
-      list.push(tower(rand, x0, bx1, bz0 + 2, bz1, 130, b, { color: "#c3aed6", style: 0 }));
-      continue;
-    }
     const w = bx1 - bx0;
     const d = bz1 - bz0;
     const cols = w / 3 >= 26 && rand() < 0.5 ? 3 : 2;
@@ -314,6 +287,8 @@ export const TOWERS: Tower[] = (() => {
         const sz = (z1 - z0) * (0.08 + rand() * 0.12);
         const ox = (rand() - 0.5) * sx;
         const oz = (rand() - 0.5) * sz;
+        // Not on top of the shops, the dealership, the realtor or the jewelry shop.
+        if (RESERVED.some((q) => x1 > q.x0 && x0 < q.x1 && z1 > q.z0 && z0 < q.z1)) continue;
         list.push(tower(rand, x0 + sx / 2 + ox, x1 - sx / 2 + ox, z0 + sz / 2 + oz, z1 - sz / 2 + oz, tall((x0 + x1) / 2, (z0 + z1) / 2), b));
       }
   }
