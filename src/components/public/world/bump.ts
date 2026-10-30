@@ -138,6 +138,8 @@ export function carBlocked(c: CarSpot, self: CarSpot, people: { x: number; z: nu
     // The store, with its sidewalk and planters out front.
     if (p.x > -HW - r && p.x < HW + r && p.z > -D - r && p.z < 2.6 + r) return true;
     if (hitsScenery(p.x, p.z, r) || hitsCar(p.x, p.z, r, self)) return true;
+    // (The downloaded models: the terminal.)
+    if (blocksWalk(p.x, p.z, r, 0)) return true;
     for (const w of people) if (Math.abs(w.x - p.x) < 4 && Math.hypot(w.x - p.x, w.z - p.z) < r + 0.6) return true;
   }
   return false;

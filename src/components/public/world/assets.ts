@@ -39,8 +39,14 @@ export type Asset = {
   url: string;
   /** What the game does with it. */
   use: string;
-  /** Fitting it to the world: the size it's scaled to (units: the longest side across the ground, or the height), and turned (radians) if it comes in facing the wrong way. */
-  fit: { size: number; by: "length" | "height"; turn?: number };
+  /**
+   * Fitting it to the world: the size it's scaled to (units: the longest
+   * side across the ground, or the height), turned (radians) if it comes in
+   * facing the wrong way, squared up first if it's sitting at an angle in its
+   * file (align), and stretched a little across and up (stretch: [across, up])
+   * to match the game's chunkier cars.
+   */
+  fit: { size: number; by: "length" | "height"; turn?: number; align?: boolean; stretch?: [number, number] };
   /** Who made it (CGTrader asks for credit). */
   credit: { author: string; page: string };
   /** False: listed for the record, but not used (see `use`). */
@@ -55,8 +61,9 @@ export const ASSETS: Record<AssetId, Asset> = {
     source: "Lamborghini Revuelto.glb",
     url: "/models/revuelto.glb",
     use: "The body of a new supercar at Apex Motors (the Vanta Revuelto), wherever it's parked, driven or shown in the dealership.",
-    // The game's supercars are 7.3 units nose to tail. Nose toward -z, like every car here; set turn: Math.PI if it comes out backwards.
-    fit: { size: 7.3, by: "length", turn: 0 },
+    // The game's own cars are drawn chunky: about 7.75 long, 4.5 wide and 2.2 tall. The real car is lower and narrower, so it's
+    // scaled to 8 long and filled out 15% across and up to sit right beside them. Its nose comes in toward +z: turned to face -z like every car here.
+    fit: { size: 8, by: "length", turn: Math.PI, stretch: [1.15, 1.15] },
     credit: { author: "AnatolianStudios", page: "https://www.cgtrader.com/items/7588572" },
     wired: true,
   },
@@ -66,8 +73,9 @@ export const ASSETS: Record<AssetId, Asset> = {
     downloads: ["modern+airport+terminal+3d+model.glb (22.8 MB)", "modern+airport+terminal+3d+model.fbx (33 MB)", "cgtrader_optimized_modern+airport+terminal+3d+model.fbx (30.3 MB)", "modern+airport+terminal+3d+model.usdz (35.2 MB)", "modern+airport+terminal+3d+model.stl (46 MB)", "modern+airport+terminal+3d+model.3mf (14.8 MB)", "modern+airport+terminal+3d+model.zip (15.2 MB)", "cgtrader_optimized_textures_…zip (930 KB)"],
     source: "modern+airport+terminal+3d+model.glb",
     url: "/models/terminal.glb",
-    use: "A second terminal and office tower at the airport, west of the terminal you can walk through (solid: you bump into it, and the camera won't go through it).",
-    fit: { size: 130, by: "length", turn: 0 },
+    use: "Firebird International's terminal and office tower, life size, in place of the old terminal and control tower (the runway, taxiway, apron, hangar and planes stay). Solid: you bump into it and the camera won't go through it.",
+    // Life size: the tower stands 150 units (about 85 m, 24 floors, at the game's scale of people). It sits at an angle in its file: squared up first.
+    fit: { size: 150, by: "height", align: true, turn: 0 },
     credit: { author: "CGTrader item 6830356", page: "https://www.cgtrader.com/items/6830356" },
     wired: true,
   },
@@ -213,21 +221,75 @@ export function useAsset(id: AssetId) {
  */
 export function fitted(root: THREE.Object3D, fit: Asset["fit"]) {
   root.removeFromParent();
-  root.updateWorldMatrix(true, true);
-  const box = new THREE.Box3().setFromObject(root);
+  // Squared up: turned so its footprint's edges run along x and z.
+  const spin = new THREE.Group();
+  spin.add(root);
+  if (fit.align) spin.rotation.y = footprintAngle(root);
+  spin.updateWorldMatrix(true, true);
+  const box = new THREE.Box3().setFromObject(spin);
   const size = box.getSize(new THREE.Vector3());
   const c = box.getCenter(new THREE.Vector3());
   // Centred, standing on the ground (moved by, not to: the model keeps its own placement inside).
-  root.position.x -= c.x;
-  root.position.y -= box.min.y;
-  root.position.z -= c.z;
+  spin.position.set(-c.x, -box.min.y, -c.z);
   const k = fit.by === "height" ? fit.size / Math.max(1e-3, size.y) : fit.size / Math.max(1e-3, Math.max(size.x, size.z));
-  const turn = new THREE.Group();
   // Longest side along z (as the cars are), then any turn the manifest asks for.
+  const turn = new THREE.Group();
   turn.rotation.y = (size.x > size.z ? Math.PI / 2 : 0) + (fit.turn ?? 0);
-  turn.scale.setScalar(k);
-  turn.add(root);
-  return turn;
+  turn.add(spin);
+  // The size (and any stretch across and up), applied after the turn so "across" really is across.
+  const out = new THREE.Group();
+  const [across, up] = fit.stretch ?? [1, 1];
+  out.scale.set(k * across, k * up, k);
+  out.add(turn);
+  return out;
+}
+
+/**
+ * The turn (about y) that squares a model's footprint up with x and z: the
+ * angle whose bounding rectangle round the model's points is smallest.
+ */
+export function footprintAngle(root: THREE.Object3D) {
+  root.updateWorldMatrix(true, true);
+  const xs: number[] = [];
+  const zs: number[] = [];
+  const v = new THREE.Vector3();
+  root.traverse((o) => {
+    const m = o as THREE.Mesh;
+    if (!m.isMesh) return;
+    const pos = m.geometry.attributes.position;
+    const step = Math.max(1, Math.floor(pos.count / 20000));
+    for (let i = 0; i < pos.count; i += step) {
+      v.fromBufferAttribute(pos, i).applyMatrix4(m.matrixWorld);
+      xs.push(v.x);
+      zs.push(v.z);
+    }
+  });
+  let best = 0;
+  let bestArea = Infinity;
+  for (let deg = 0; deg < 90; deg += 0.5) {
+    const a = (deg * Math.PI) / 180;
+    const c = Math.cos(a);
+    const s = Math.sin(a);
+    let u0 = Infinity;
+    let u1 = -Infinity;
+    let w0 = Infinity;
+    let w1 = -Infinity;
+    for (let i = 0; i < xs.length; i++) {
+      // (Where three.js's rotation.y = a puts the point.)
+      const u = xs[i] * c + zs[i] * s;
+      const w = -xs[i] * s + zs[i] * c;
+      if (u < u0) u0 = u;
+      if (u > u1) u1 = u;
+      if (w < w0) w0 = w;
+      if (w > w1) w1 = w;
+    }
+    const area = (u1 - u0) * (w1 - w0);
+    if (area < bestArea - 1e-6) {
+      bestArea = area;
+      best = a;
+    }
+  }
+  return best;
 }
 
 /**

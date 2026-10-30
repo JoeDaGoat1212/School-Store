@@ -12,11 +12,12 @@ import { drive, input, moving } from "./drive";
 import { game } from "./heist";
 import { cutscene } from "./cutscene";
 import { freecam, tickFreecam } from "./freecam";
-import { occluderDistance } from "./occluders";
+import { modelFloor, occluderDistance } from "./occluders";
 import { doors, EYE_HEIGHT, INSIDE_WORLD, nearestStation, STORE_SCALE, type Blocker, type Station, type StationKey } from "./world-layout";
 
 /** The floor under you: the bank's floors (which level you're on), or the ground. */
-const floorUnder = (x: number, z: number) => trackLevel(x, z) ?? groundAt(x, z);
+// The ground, the bank's floors, and the low parts of the downloaded models you can walk up onto (the terminal's forecourt).
+const floorUnder = (x: number, z: number) => trackLevel(x, z) ?? Math.max(groundAt(x, z), modelFloor(x, z));
 
 /*
  * The camera, like a person (or a drone) in the store.

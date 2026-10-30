@@ -34,7 +34,6 @@ import { Estates } from "./estates";
 import { Aircraft } from "./flight";
 import { Jail } from "./jail";
 import { Airport } from "./airport";
-import { TerminalLandmark } from "./asset-models";
 import { Birds, StreetProps } from "./street-props";
 import { Near } from "./near";
 import { RestaurantRow } from "./buildings";
@@ -181,8 +180,6 @@ export default function WorldScene(props: WorldSceneProps) {
           <RealtyOffice />
           <Homes />
           <Airport />
-          {/* The downloaded airport terminal (only once it's loaded) */}
-          <TerminalLandmark />
           <StreetProps />
           <Birds />
           {/* The mountains to the north, with the road up to the secret base */}
