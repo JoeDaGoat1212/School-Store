@@ -34,6 +34,7 @@ import { Instances, type Place } from "./town";
 import * as fx from "./buildings";
 import { Near } from "./near";
 import { Static } from "./static-merge";
+import { surface } from "./detail";
 
 /*
  * Draws the jail from jail-layout.ts: stained concrete walls, four cell blocks
@@ -91,7 +92,8 @@ function concreteTexture(seed: number, base: [number, number, number], repeat: [
 }
 
 const mat = {
-  concrete: new THREE.MeshStandardMaterial({ color: "#a8a49b", roughness: 0.95 }),
+  // Board-formed concrete, with its seams and tie holes (detail.ts).
+  concrete: surface("concrete", "#a8a49b", 0.95),
   inner: new THREE.MeshStandardMaterial({ color: "#c9c4b6", roughness: 0.9 }),
   steel: new THREE.MeshStandardMaterial({ color: "#6f767e", roughness: 0.38, metalness: 0.8 }),
   dark: new THREE.MeshStandardMaterial({ color: "#24272b", roughness: 0.55, metalness: 0.35 }),

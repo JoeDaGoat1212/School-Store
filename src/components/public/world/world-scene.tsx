@@ -144,7 +144,7 @@ export default function WorldScene(props: WorldSceneProps) {
       <hemisphereLight args={[spooky ? "#f1defa" : "#cfdbe6", "#6c6252", 0.72]} />
       <ambientLight intensity={0.1} />
       <Sun key={q.shadowMap} shadows={shadows} warm={spooky} mapSize={q.shadowMap} />
-      <Environment resolution={256} frames={1} environmentIntensity={0.6}>
+      <Environment resolution={256} frames={1} environmentIntensity={0.2}>
         <Lightformer intensity={2} position={[0, 10, 0]} rotation-x={Math.PI / 2} scale={[20, 20, 1]} />
         <Lightformer intensity={1.2} color="#ffe2c4" position={[-10, 3, 6]} rotation-y={Math.PI / 4} scale={[10, 4, 1]} />
         <Lightformer intensity={1} color="#c4f2ee" position={[10, 3, 6]} rotation-y={-Math.PI / 4} scale={[10, 4, 1]} />

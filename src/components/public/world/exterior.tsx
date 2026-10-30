@@ -6,15 +6,16 @@ import { RoundedBox, Sky as SkyShader } from "@react-three/drei";
 import * as THREE from "three";
 import { brand } from "@/config/brand";
 import { asphaltMaterial, grassMaterial } from "./surfaces";
+import { surface } from "./detail";
 import { CREAM, ORANGE, TEAL, TEAL_DEEP, canvasTexture, seededRandom, noRaycast, signTexture } from "./paint";
 import { advanceOf, flameGeometry, letterGeometry } from "./text3d";
 import { CITY_PARKED } from "./city-layout";
 import { BUILDING, INSIDE, STORE, doors } from "./world-layout";
 
 /*
- * Everything outside: the tan store with its sign, side windows and double
- * doors, the parking lot with cartoon cars, trees, lamp posts, grass and sky.
- * Cartoon "toon" shading outside; the doors can be tapped to walk in.
+ * Everything outside: the stone store with its sign, side windows and double
+ * doors, the parking lot with its cars, trees, lamp posts, grass and sky.
+ * The doors can be tapped to walk in.
  */
 
 function Toon({ color }: { color: string }) {
@@ -35,9 +36,14 @@ function Wall({ size, position, outside }: { size: [number, number, number]; pos
   return (
     <mesh position={position} castShadow raycast={noRaycast}>
       <boxGeometry args={size} />
-      {order.map((f, i) => (
-        <meshStandardMaterial key={f} attach={`material-${i}`} color={f === inside ? PAINT_IN : TAN} roughness={0.85} />
-      ))}
+      {order.map((f, i) =>
+        f === inside ? (
+          <meshStandardMaterial key={f} attach={`material-${i}`} color={PAINT_IN} roughness={0.85} />
+        ) : (
+          // Cut stone outside, like the bank (detail.ts).
+          <primitive key={f} object={surface("stone", TAN, 0.85)} attach={`material-${i}`} />
+        ),
+      )}
     </mesh>
   );
 }
@@ -72,9 +78,8 @@ export function Building({ onDoors, canEnter, openSign }: { onDoors: () => void;
 
       {/* A darker band along the bottom (either side of the doors, not across them), and the roof ledge (parapet) on top */}
       {[-1, 1].map((s) => (
-        <mesh key={s} position={[(s * (HW + doorHalf)) / 2, 0.7, 0.02]} raycast={noRaycast}>
-          <boxGeometry args={[HW - doorHalf + 0.05, 1.4, 0.06]} />
-          <Toon color={TAN_DARK} />
+        <mesh key={s} position={[(s * (HW + doorHalf)) / 2, 0.7, 0.08]} material={surface("stone", "#8a7d6a", 0.9)} raycast={noRaycast}>
+          <boxGeometry args={[HW - doorHalf + 0.05, 1.4, 0.18]} />
         </mesh>
       ))}
       {[
@@ -83,9 +88,20 @@ export function Building({ onDoors, canEnter, openSign }: { onDoors: () => void;
         [-HW - 0.05, H + 0.7, -D / 2, 0.8, 1.4, D],
         [HW + 0.05, H + 0.7, -D / 2, 0.8, 1.4, D],
       ].map(([x, y, z, w, h, d], i) => (
-        <mesh key={i} position={[x, y, z]} castShadow raycast={noRaycast}>
+        <mesh key={i} position={[x, y, z]} material={surface("stone", TAN_DARK, 0.85)} castShadow raycast={noRaycast}>
           <boxGeometry args={[w, h, d]} />
-          <Toon color={TAN_DARK} />
+        </mesh>
+      ))}
+      {/* Like the bank: a projecting cornice over the parapet, and stone piers up the front corners */}
+      <mesh position={[0, H + 1.55, -D / 2]} material={surface("stone", "#c9b48f", 0.85)} castShadow raycast={noRaycast}>
+        <boxGeometry args={[HW * 2 + 1.8, 0.35, D + 1.8]} />
+      </mesh>
+      <mesh position={[0, H - 0.25, 0.25]} material={surface("stone", "#c9b48f", 0.85)} raycast={noRaycast}>
+        <boxGeometry args={[HW * 2 + 0.4, 0.5, 0.5]} />
+      </mesh>
+      {[-1, 1].map((s) => (
+        <mesh key={`p${s}`} position={[s * (HW - 0.3), H / 2, 0.3]} material={surface("stone", TAN_DARK, 0.85)} castShadow raycast={noRaycast}>
+          <boxGeometry args={[1.8, H, 0.9]} />
         </mesh>
       ))}
       {/* Roof: grey on top, white ceiling underneath */}

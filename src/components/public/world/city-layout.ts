@@ -168,7 +168,8 @@ export type Tower = {
   door: { x: number; z: number; turn: number };
 };
 
-const TOWER_COLORS = ["#ff8fab", "#7ec8e3", "#ffd166", "#9bdeac", "#c3aed6", "#ff9f68", "#8ecae6", "#f4a261", "#b8c0ff", "#f7aef8", "#6fd3c2", "#ffb4a2", "#a0c4ff", "#fdffb6"];
+// Real facades: limestone, granite, precast concrete, sandstone, brick, bronze and glass-curtain greys (same number as before, so each tower keeps its look's place).
+const TOWER_COLORS = ["#c9c1b1", "#8f949a", "#b8ad98", "#6f7a84", "#a38a6e", "#7e5a48", "#d6d0c3", "#5a646d", "#9b8f7c", "#b0a796", "#46505a", "#c2b49a", "#8a8378", "#a9adb0"];
 const CROWNS: Crown[] = ["antenna", "pyramid", "water", "dome", "flat", "helipad", "antenna", "water"];
 const CITY_MIDDLE = { x: 840, z: 60 };
 

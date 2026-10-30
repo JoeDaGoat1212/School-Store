@@ -6,10 +6,12 @@ import * as THREE from "three";
 import { BENCHES, CROWN_SPOTS, FOUNTAIN, PARK, PARK_TREES, PAVED_BLOCKS, TIERS_BY_STYLE, TOWERS, ZEBRA, ALL_TIERS } from "./city-layout";
 import { noRaycast, signTexture } from "./paint";
 import { pavingMaterial } from "./surfaces";
+import { surface } from "./detail";
+import { windowMaterial } from "./tower-facade";
 import { Instances, type Place } from "./town";
 
 /*
- * Draws the city from city-layout.ts: cartoon skyscrapers (each window style
+ * Draws the city from city-layout.ts: skyscrapers (each window style
  * is one instanced mesh, with the windows painted on by the shader, so a
  * tower of any size gets neat rows of windows), their crowns (spires,
  * antennas with blinking lights, water towers, domes, helipads), paved
@@ -32,83 +34,6 @@ export function City() {
 
 // ---- Skyscrapers ------------------------------------------------------------------------------
 
-/** The ground floor (shop windows) is this tall; the windows of the floors above start from it. */
-const LOBBY = 7;
-
-/**
- * A cartoon material that paints windows on any side of a box, in world units
- * (so big and small towers get the same size windows), with big shop windows
- * on the ground floor. Far away, the windows blend into an even colour
- * instead of shimmering.
- */
-function windowMaterial(style: 0 | 1 | 2) {
-  const P = [
-    { cell: [3.4, 4.2], win: [0.2, 0.8, 0.24, 0.76] },
-    { cell: [1000, 4.2], win: [0, 1, 0.14, 0.72] },
-    { cell: [2.6, 8.4], win: [0.3, 0.7, 0.06, 0.94] },
-  ][style];
-  const cover = (P.win[1] - P.win[0]) * (P.win[3] - P.win[2]);
-  const f = (n: number) => n.toFixed(4);
-  const m = new THREE.MeshStandardMaterial({ roughness: 0.8, metalness: 0.05 });
-  m.onBeforeCompile = (shader) => {
-    shader.vertexShader = shader.vertexShader.replace("#include <common>", "#include <common>\nvarying vec3 vCityPos;\nvarying vec3 vCityNormal;").replace(
-      "#include <project_vertex>",
-      `#include <project_vertex>
-      vec4 cityP = vec4(transformed, 1.0);
-      vec3 cityN = objectNormal;
-      #ifdef USE_INSTANCING
-        cityP = instanceMatrix * cityP;
-        cityN = mat3(instanceMatrix) * cityN;
-      #endif
-      vCityPos = (modelMatrix * cityP).xyz;
-      vCityNormal = normalize(mat3(modelMatrix) * cityN);`,
-    );
-    shader.fragmentShader = shader.fragmentShader
-      .replace(
-        "#include <common>",
-        `#include <common>
-        varying vec3 vCityPos;
-        varying vec3 vCityNormal;
-        float cityHash(vec2 p) { return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453); }`,
-      )
-      .replace(
-        "#include <color_fragment>",
-        `#include <color_fragment>
-        float cityWin = 0.0;
-        {
-          vec3 n = normalize(vCityNormal);
-          if (abs(n.y) < 0.5) {
-            bool sideX = abs(n.x) > abs(n.z);
-            float u = sideX ? vCityPos.z : vCityPos.x;
-            float v = vCityPos.y;
-            vec3 wall = diffuseColor.rgb;
-            if (v < ${f(LOBBY)}) {
-              float fx = fract(u / 7.0);
-              float shop = step(0.1, fx) * step(fx, 0.9) * step(0.6, v) * step(v, ${f(LOBBY - 1.5)});
-              diffuseColor.rgb = mix(wall * 0.8, vec3(0.3, 0.52, 0.7), shop);
-              cityWin = shop;
-            } else {
-              vec2 cell = vec2(u / ${f(P.cell[0])}, (v - ${f(LOBBY)}) / ${f(P.cell[1])});
-              vec2 g = fract(cell);
-              float win = step(${f(P.win[0])}, g.x) * step(g.x, ${f(P.win[1])}) * step(${f(P.win[2])}, g.y) * step(g.y, ${f(P.win[3])});
-              float blur = length(fwidth(cell));
-              win = mix(win, ${f(cover)}, smoothstep(0.25, 0.75, blur));
-              float r = cityHash(floor(cell) + (sideX ? vec2(31.0, 7.0) : vec2(0.0)) + floor(vCityPos.x * 0.02 + vCityPos.z * 0.013) * 3.1);
-              vec3 glass = mix(vec3(0.66, 0.87, 1.0), vec3(0.4, 0.64, 0.92), fract(v * 0.0035 + r * 0.25));
-              glass = mix(glass, vec3(1.0, 0.92, 0.6), step(0.94, r));
-              diffuseColor.rgb = mix(wall, glass * 0.8, win);
-              cityWin = win;
-            }
-          }
-        }`,
-      )
-      .replace("#include <roughnessmap_fragment>", "#include <roughnessmap_fragment>\n        roughnessFactor = mix(roughnessFactor, 0.08, cityWin);")
-      .replace("#include <metalnessmap_fragment>", "#include <metalnessmap_fragment>\n        metalnessFactor = mix(metalnessFactor, 0.65, cityWin);");
-  };
-  m.customProgramCacheKey = () => `city-windows-${style}`;
-  return m;
-}
-
 const tierPlacer =
   (list: (typeof TIERS_BY_STYLE)[number]): Place =>
   (i, o) => {
@@ -118,11 +43,39 @@ const tierPlacer =
     return color;
   };
 const PLACE_TIERS = TIERS_BY_STYLE.map(tierPlacer);
-/** A white ledge round the top of every tier (the cartoon "outline" of the skyline). */
+/** A stone cornice round the top of every tier, in two steps (like the bank's). */
 const placeLedge: Place = (i, o) => {
   const t = ALL_TIERS[i];
   o.position.set(t.x, t.y1 + 0.5, t.z);
   o.scale.set(t.w + 1.4, 1.4, t.d + 1.4);
+};
+const placeCornice: Place = (i, o) => {
+  const t = ALL_TIERS[i];
+  o.position.set(t.x, t.y1 + 1.4, t.z);
+  o.scale.set(t.w + 2.2, 0.45, t.d + 2.2);
+};
+/** A band at the bottom of each set-back tier, where it sits on the one below. */
+const UPPER_TIERS = ALL_TIERS.filter((t) => t.y0 > 0);
+const placeBase: Place = (i, o) => {
+  const t = UPPER_TIERS[i];
+  o.position.set(t.x, t.y0 + 2.2, t.z);
+  o.scale.set(t.w + 0.6, 1.2, t.d + 0.6);
+};
+/** Stone piers up each corner of every tier (in the tower's own colour), so they're not plain boxes. */
+const COLORED_TIERS = TOWERS.flatMap((t) => t.tiers.map((tier) => ({ tier, color: t.color })));
+const placePier: Place = (k, o) => {
+  const { tier: t, color } = COLORED_TIERS[k >> 2];
+  const h = t.y1 - t.y0;
+  o.position.set(t.x + (k & 1 ? 1 : -1) * (t.w / 2 - 0.5), (t.y0 + t.y1) / 2, t.z + (k & 2 ? 1 : -1) * (t.d / 2 - 0.5));
+  o.scale.set(2.2, h, 2.2);
+  return color;
+};
+/** A dark granite plinth along the bottom of every tower. */
+const GROUND_TIERS = ALL_TIERS.filter((t) => t.y0 === 0);
+const placePlinth: Place = (i, o) => {
+  const t = GROUND_TIERS[i];
+  o.position.set(t.x, 0.55, t.z);
+  o.scale.set(t.w + 0.9, 1.1, t.d + 0.9);
 };
 
 function Towers() {
@@ -136,9 +89,25 @@ function Towers() {
           <primitive object={materials[s]} attach="material" />
         </Instances>
       ))}
+      <Instances count={COLORED_TIERS.length * 4} place={placePier} castShadow>
+        <boxGeometry />
+        <primitive object={surface("stone")} attach="material" />
+      </Instances>
       <Instances count={ALL_TIERS.length} place={placeLedge} castShadow>
         <boxGeometry />
-        <meshStandardMaterial color="#fff6e6" roughness={0.78} />
+        <primitive object={surface("stone", "#d2c9b8", 0.85)} attach="material" />
+      </Instances>
+      <Instances count={ALL_TIERS.length} place={placeCornice} castShadow>
+        <boxGeometry />
+        <primitive object={surface("stone", "#c7bead", 0.85)} attach="material" />
+      </Instances>
+      <Instances count={UPPER_TIERS.length} place={placeBase}>
+        <boxGeometry />
+        <primitive object={surface("stone", "#bdb4a2", 0.85)} attach="material" />
+      </Instances>
+      <Instances count={GROUND_TIERS.length} place={placePlinth} receiveShadow>
+        <boxGeometry />
+        <primitive object={surface("stone", "#3d3e42", 0.55)} attach="material" />
       </Instances>
     </group>
   );

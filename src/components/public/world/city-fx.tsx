@@ -12,6 +12,8 @@ import { tickInteract } from "./interact";
 import { tickJobs } from "./jobs";
 import { tickRealty } from "./realty";
 import { tickJail } from "./jail-state";
+// (Pickpocketing anyone on the street: registers its F action.)
+import "./pickpocket";
 import { tickPolice } from "./police-state";
 import { life, revive, tickLife } from "./life";
 import { loseCash, profile } from "./profile";
