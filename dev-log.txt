@@ -1,0 +1,15 @@
+▲ Next.js 16.4.3 (Turbopack)
+- Local:         http://localhost:3000
+- Network:       http://10.1.0.234:3000
+✓ Ready in 222ms
+✓ Running next.config.ts took 27ms
+Attention: Next.js now collects completely anonymous telemetry regarding usage.
+This information is used to shape Next.js' roadmap and prioritize features.
+You can learn more, including how to opt-out if you'd not like to participate in this anonymous program, by visiting the following URL:
+https://nextjs.org/telemetry
+
+
+ GET /dev/world 200 in 2.8s (next.js: 2.6s, proxy.ts: 62ms, application-code: 155ms)
+ GET /dev/world 200 in 55ms (next.js: 16ms, proxy.ts: 8ms, application-code: 31ms)
+[browser] THREE.Clock: This module has been deprecated. Please use THREE.Timer instead.
+[browser] THREE.WebGLRenderer: KHR_parallel_shader_compile extension not supported. (<anonymous>)

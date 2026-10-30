@@ -1,0 +1,22 @@
+[console.warning] THREE.Clock: This module has been deprecated. Please use THREE.Timer instead.
+[console.warning] THREE.WebGLRenderer: KHR_parallel_shader_compile extension not supported.
+ready after 14s
+shot 00-enter
+01-lot: {"calls":718,"tris":1449868,"res":["3:Group draws=14 cast=0 BoxGeometry@0,12","4:Group draws=22 cast=15 PlaneGeometry@0,0","5:Group draws=43 cast=17 PlaneGeometry@305,-110","7:Group draws=26 cast=12 BoxGeometry@0,0","13:Group draws=5 cast=0 BoxGeometry@0,0","38:Group draws=30 cast=10 CylinderGeometry@0,0","40:Group draws=6 cast=0 BufferGeometry@0,0","45:Group draws=510 cast=63 BoxGeometry@-14,0","   45.2 draws=93 cast=53 BoxGeometry@-14,0","   45.3 draws=292 cast=0 PlaneGeometry@0,-11","   45.4 draws=78 cast=10 ExtrudeGeometry@-12,-4","   45.5 draws=47 cast=0 BoxGeometry@-9,-9"]}
+shot 01-lot
+02-wheel: {"view":"third","zoom":10}
+shot 02-wheel
+03-town-street: {"calls":680,"tris":1320864,"res":["3:Group draws=17 cast=0 BoxGeometry@170,70","5:Group draws=57 cast=1 PlaneGeometry@305,-110","6:Group draws=12 cast=4 ExtrudeGeometry@352,-104","7:Group draws=9 cast=3 BoxGeometry@860,16","8:Group draws=44 cast=6 BufferGeometry@620,28","9:Group draws=149 cast=12 BoxGeometry@980,256","   9.35 draws=25 cast=0 CylinderGeometry@980,258","13:Group draws=5 cast=0 BoxGeometry@0,0","14:Group draws=96 cast=3 PlaneGeometry@1350,-5","   14.1 draws=17 cast=0 BufferGeometry@0,0","   14.2 draws=67 cast=2 PlaneGeometry@1351,-66","15:Group draws=18 cast=4 BufferGeometry@708,40","16:Group draws=18 cast=4 BufferGeometry@740,40","17:Group draws=18 cast=4 BufferGeometry@772,40","18:Group draws=18 cast=4 BufferGeometry@716,76","19:Group draws=18 cast=4 BufferGeometry@764,76","20:Group draws=16 cast=2 BufferGeometry@600,76","21:Group draws=40 cast=0 PlaneGeometry@634,75","22:Group draws=18 cast=4 BufferGeometry@740,154"]}
+shot 03-town-street
+04-city-street: {"calls":788,"tris":1266088,"res":["3:Group draws=9 cast=0 BoxGeometry@700,64","5:Group draws=34 cast=1 PlaneGeometry@305,-110","6:Group draws=82 cast=26 ExtrudeGeometry@796,45","7:Group draws=9 cast=3 BoxGeometry@860,16","9:Group draws=149 cast=12 BoxGeometry@980,256","   9.35 draws=25 cast=0 CylinderGeometry@980,258","13:Group draws=5 cast=0 BoxGeometry@0,0","14:Group draws=96 cast=3 PlaneGeometry@1350,-5","   14.1 draws=17 cast=0 BufferGeometry@0,0","   14.2 draws=67 cast=2 PlaneGeometry@1351,-66","16:Group draws=54 cast=7 BufferGeometry@740,40","17:Group draws=63 cast=7 BufferGeometry@772,40","   17.11 draws=45 cast=3 BoxGeometry@769,30","18:Group draws=52 cast=5 BufferGeometry@716,76","19:Group draws=129 cast=7 BufferGeometry@764,76","   19.11 draws=111 cast=3 BoxGeometry@767,86"]}
+shot 04-city-street
+05-city-crossing: {"calls":906,"tris":1387920}
+shot 05-city-crossing
+06-bank-front: {"calls":1029,"tris":2648618,"res":["3:Group draws=13 cast=0 BoxGeometry@650,80","5:Group draws=28 cast=1 PlaneGeometry@305,-110","6:Group draws=76 cast=21 ExtrudeGeometry@578,-114","   6.18 draws=24 cast=3 ExtrudeGeometry@647,54","8:Group draws=282 cast=19 BufferGeometry@620,28","   8.7 draws=274 cast=17 BufferGeometry@620,28","13:Group draws=5 cast=0 BoxGeometry@0,0","20:Group draws=5 cast=2 BufferGeometry@600,76","43:Group draws=21 cast=6 ExtrudeGeometry@577,-4"]}
+shot 06-bank-front
+07-skyline: {"calls":755,"tris":1330782}
+shot 07-skyline
+08-estates: {"calls":487,"tris":1184501}
+shot 08-estates
+09-ultra: "Graphics: High"
+shot 09-ultra
