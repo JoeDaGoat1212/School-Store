@@ -1,0 +1,60 @@
+[
+ {
+  "name": "00-enter",
+  "js": "[...document.querySelectorAll('button')].find(b=>/click to enter/i.test(b.textContent))?.click()",
+  "wait": 6000
+ },
+ {
+  "name": "01-lot",
+  "wait": 2000,
+  "log": "(()=>{const st=w.three(); const cam=st.camera; cam.updateMatrixWorld(); const M=cam.projectionMatrix.clone().multiply(cam.matrixWorldInverse); const F=new (w.THREE_Frustum||Object)(); const r=st.gl.info.render; const res=[]; const sph=(o)=>{const g=o.geometry; if(!g.boundingSphere)g.computeBoundingSphere(); const s=g.boundingSphere.clone(); s.applyMatrix4(o.matrixWorld); return s}; const inF=(s)=>{const e=M.elements; const c=s.center; const planes=[[e[3]+e[0],e[7]+e[4],e[11]+e[8],e[15]+e[12]],[e[3]-e[0],e[7]-e[4],e[11]-e[8],e[15]-e[12]],[e[3]+e[1],e[7]+e[5],e[11]+e[9],e[15]+e[13]],[e[3]-e[1],e[7]-e[5],e[11]-e[9],e[15]-e[13]],[e[3]+e[2],e[7]+e[6],e[11]+e[10],e[15]+e[14]],[e[3]-e[2],e[7]-e[6],e[11]-e[10],e[15]-e[14]]]; for(const p of planes){const l=Math.hypot(p[0],p[1],p[2]); if((p[0]*c.x+p[1]*c.y+p[2]*c.z+p[3])/l < -s.radius) return false} return true}; const walk=(o,acc)=>{if(!o.visible)return; if(o.isMesh||o.isInstancedMesh||o.isLine||o.isPoints){ if(!o.frustumCulled||inF(sph(o))){acc.n++; if(o.castShadow)acc.cast++; if(!acc.ex)acc.ex=o.geometry.type+'@'+Math.round(o.matrixWorld.elements[12])+','+Math.round(o.matrixWorld.elements[14])}} for(const c of o.children)walk(c,acc)}; st.scene.children.forEach((c,i)=>{const acc={n:0,cast:0,ex:''}; walk(c,acc); if(acc.n>4)res.push(i+':'+c.type+' draws='+acc.n+' cast='+acc.cast+' '+acc.ex); if(acc.n>60){c.children.forEach((cc,j)=>{const a2={n:0,cast:0,ex:''}; walk(cc,a2); if(a2.n>15)res.push('   '+i+'.'+j+' draws='+a2.n+' cast='+a2.cast+' '+a2.ex)})}}); return {calls:r.calls,tris:r.triangles,res}})()"
+ },
+ {
+  "name": "02-wheel",
+  "wheel": 600,
+  "wait": 2500,
+  "log": "({view:w.live.player.view, zoom:w.live.player.zoom})"
+ },
+ {
+  "name": "03-town-street",
+  "js": "const t=w.live.testView; t.pos=[170,6,70]; t.look=[230,3,58]; t.on=true; Object.assign(w.live.player,{x:170,z:70,hop:true,snap:true});",
+  "wait": 5000,
+  "log": "(()=>{const st=w.three(); const cam=st.camera; cam.updateMatrixWorld(); const M=cam.projectionMatrix.clone().multiply(cam.matrixWorldInverse); const F=new (w.THREE_Frustum||Object)(); const r=st.gl.info.render; const res=[]; const sph=(o)=>{const g=o.geometry; if(!g.boundingSphere)g.computeBoundingSphere(); const s=g.boundingSphere.clone(); s.applyMatrix4(o.matrixWorld); return s}; const inF=(s)=>{const e=M.elements; const c=s.center; const planes=[[e[3]+e[0],e[7]+e[4],e[11]+e[8],e[15]+e[12]],[e[3]-e[0],e[7]-e[4],e[11]-e[8],e[15]-e[12]],[e[3]+e[1],e[7]+e[5],e[11]+e[9],e[15]+e[13]],[e[3]-e[1],e[7]-e[5],e[11]-e[9],e[15]-e[13]],[e[3]+e[2],e[7]+e[6],e[11]+e[10],e[15]+e[14]],[e[3]-e[2],e[7]-e[6],e[11]-e[10],e[15]-e[14]]]; for(const p of planes){const l=Math.hypot(p[0],p[1],p[2]); if((p[0]*c.x+p[1]*c.y+p[2]*c.z+p[3])/l < -s.radius) return false} return true}; const walk=(o,acc)=>{if(!o.visible)return; if(o.isMesh||o.isInstancedMesh||o.isLine||o.isPoints){ if(!o.frustumCulled||inF(sph(o))){acc.n++; if(o.castShadow)acc.cast++; if(!acc.ex)acc.ex=o.geometry.type+'@'+Math.round(o.matrixWorld.elements[12])+','+Math.round(o.matrixWorld.elements[14])}} for(const c of o.children)walk(c,acc)}; st.scene.children.forEach((c,i)=>{const acc={n:0,cast:0,ex:''}; walk(c,acc); if(acc.n>4)res.push(i+':'+c.type+' draws='+acc.n+' cast='+acc.cast+' '+acc.ex); if(acc.n>60){c.children.forEach((cc,j)=>{const a2={n:0,cast:0,ex:''}; walk(cc,a2); if(a2.n>15)res.push('   '+i+'.'+j+' draws='+a2.n+' cast='+a2.cast+' '+a2.ex)})}}); return {calls:r.calls,tris:r.triangles,res}})()"
+ },
+ {
+  "name": "04-city-street",
+  "js": "const t=w.live.testView; t.pos=[700,5,64]; t.look=[790,6,58]; Object.assign(w.live.player,{x:700,z:64,hop:true,snap:true});",
+  "wait": 5000,
+  "log": "(()=>{const st=w.three(); const cam=st.camera; cam.updateMatrixWorld(); const M=cam.projectionMatrix.clone().multiply(cam.matrixWorldInverse); const F=new (w.THREE_Frustum||Object)(); const r=st.gl.info.render; const res=[]; const sph=(o)=>{const g=o.geometry; if(!g.boundingSphere)g.computeBoundingSphere(); const s=g.boundingSphere.clone(); s.applyMatrix4(o.matrixWorld); return s}; const inF=(s)=>{const e=M.elements; const c=s.center; const planes=[[e[3]+e[0],e[7]+e[4],e[11]+e[8],e[15]+e[12]],[e[3]-e[0],e[7]-e[4],e[11]-e[8],e[15]-e[12]],[e[3]+e[1],e[7]+e[5],e[11]+e[9],e[15]+e[13]],[e[3]-e[1],e[7]-e[5],e[11]-e[9],e[15]-e[13]],[e[3]+e[2],e[7]+e[6],e[11]+e[10],e[15]+e[14]],[e[3]-e[2],e[7]-e[6],e[11]-e[10],e[15]-e[14]]]; for(const p of planes){const l=Math.hypot(p[0],p[1],p[2]); if((p[0]*c.x+p[1]*c.y+p[2]*c.z+p[3])/l < -s.radius) return false} return true}; const walk=(o,acc)=>{if(!o.visible)return; if(o.isMesh||o.isInstancedMesh||o.isLine||o.isPoints){ if(!o.frustumCulled||inF(sph(o))){acc.n++; if(o.castShadow)acc.cast++; if(!acc.ex)acc.ex=o.geometry.type+'@'+Math.round(o.matrixWorld.elements[12])+','+Math.round(o.matrixWorld.elements[14])}} for(const c of o.children)walk(c,acc)}; st.scene.children.forEach((c,i)=>{const acc={n:0,cast:0,ex:''}; walk(c,acc); if(acc.n>4)res.push(i+':'+c.type+' draws='+acc.n+' cast='+acc.cast+' '+acc.ex); if(acc.n>60){c.children.forEach((cc,j)=>{const a2={n:0,cast:0,ex:''}; walk(cc,a2); if(a2.n>15)res.push('   '+i+'.'+j+' draws='+a2.n+' cast='+a2.cast+' '+a2.ex)})}}); return {calls:r.calls,tris:r.triangles,res}})()"
+ },
+ {
+  "name": "05-city-crossing",
+  "js": "const t=w.live.testView; t.pos=[812,9,154]; t.look=[800,3,140];",
+  "wait": 3000,
+  "log": "(()=>{const r=w.three().gl.info.render; return {calls:r.calls, tris:r.triangles}})()"
+ },
+ {
+  "name": "06-bank-front",
+  "js": "const t=w.live.testView; t.pos=[650,20,80]; t.look=[620,10,20]; Object.assign(w.live.player,{x:620,z:60,hop:true,snap:true});",
+  "wait": 4000,
+  "log": "(()=>{const st=w.three(); const cam=st.camera; cam.updateMatrixWorld(); const M=cam.projectionMatrix.clone().multiply(cam.matrixWorldInverse); const F=new (w.THREE_Frustum||Object)(); const r=st.gl.info.render; const res=[]; const sph=(o)=>{const g=o.geometry; if(!g.boundingSphere)g.computeBoundingSphere(); const s=g.boundingSphere.clone(); s.applyMatrix4(o.matrixWorld); return s}; const inF=(s)=>{const e=M.elements; const c=s.center; const planes=[[e[3]+e[0],e[7]+e[4],e[11]+e[8],e[15]+e[12]],[e[3]-e[0],e[7]-e[4],e[11]-e[8],e[15]-e[12]],[e[3]+e[1],e[7]+e[5],e[11]+e[9],e[15]+e[13]],[e[3]-e[1],e[7]-e[5],e[11]-e[9],e[15]-e[13]],[e[3]+e[2],e[7]+e[6],e[11]+e[10],e[15]+e[14]],[e[3]-e[2],e[7]-e[6],e[11]-e[10],e[15]-e[14]]]; for(const p of planes){const l=Math.hypot(p[0],p[1],p[2]); if((p[0]*c.x+p[1]*c.y+p[2]*c.z+p[3])/l < -s.radius) return false} return true}; const walk=(o,acc)=>{if(!o.visible)return; if(o.isMesh||o.isInstancedMesh||o.isLine||o.isPoints){ if(!o.frustumCulled||inF(sph(o))){acc.n++; if(o.castShadow)acc.cast++; if(!acc.ex)acc.ex=o.geometry.type+'@'+Math.round(o.matrixWorld.elements[12])+','+Math.round(o.matrixWorld.elements[14])}} for(const c of o.children)walk(c,acc)}; st.scene.children.forEach((c,i)=>{const acc={n:0,cast:0,ex:''}; walk(c,acc); if(acc.n>4)res.push(i+':'+c.type+' draws='+acc.n+' cast='+acc.cast+' '+acc.ex); if(acc.n>60){c.children.forEach((cc,j)=>{const a2={n:0,cast:0,ex:''}; walk(cc,a2); if(a2.n>15)res.push('   '+i+'.'+j+' draws='+a2.n+' cast='+a2.cast+' '+a2.ex)})}}); return {calls:r.calls,tris:r.triangles,res}})()"
+ },
+ {
+  "name": "07-skyline",
+  "js": "const t=w.live.testView; t.pos=[480,60,200]; t.look=[800,60,0];",
+  "wait": 3000,
+  "log": "(()=>{const r=w.three().gl.info.render; return {calls:r.calls, tris:r.triangles}})()"
+ },
+ {
+  "name": "08-estates",
+  "js": "const t=w.live.testView; t.pos=[60,25,700]; t.look=[0,6,650]; Object.assign(w.live.player,{x:0,z:700,hop:true,snap:true});",
+  "wait": 5000,
+  "log": "(()=>{const r=w.three().gl.info.render; return {calls:r.calls, tris:r.triangles}})()"
+ },
+ {
+  "name": "09-ultra",
+  "js": "const t=w.live.testView; t.pos=[700,5,64]; t.look=[790,6,58]; Object.assign(w.live.player,{x:700,z:64,hop:true,snap:true}); const b=()=>[...document.querySelectorAll('button')].find(b=>/Graphics/.test(b.textContent)); b()?.click(); b()?.click();",
+  "wait": 8000,
+  "log": "document.body.innerText.match(/Graphics: \\w+/)?.[0]"
+ }
+]

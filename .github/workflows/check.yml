@@ -1,0 +1,48 @@
+name: check
+on: push
+permissions:
+  contents: write
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm ci --no-audit --no-fund
+      - run: npx tsc --noEmit
+        continue-on-error: true
+      - run: npx eslint src/components/public/world src/app/admin src/app/dev
+        continue-on-error: true
+      - run: npx vitest run
+        continue-on-error: true
+      - run: npx next build
+        continue-on-error: true
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: https://example.supabase.co
+          NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: sb_publishable_x
+          SUPABASE_SECRET_KEY: sb_secret_x
+          IP_HASH_SALT: x
+      - run: npm i --no-save playwright@1 && npx playwright install --with-deps chromium
+      - name: Screenshots
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: https://example.supabase.co
+          NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: sb_publishable_x
+          SUPABASE_SECRET_KEY: sb_secret_x
+          IP_HASH_SALT: x
+        run: |
+          rm -rf .next
+          mkdir -p shots
+          (npx next dev -p 3000 > dev.log 2>&1 &)
+          for i in $(seq 1 90); do curl -s -o /dev/null http://localhost:3000/dev/world && break; sleep 2; done
+          node ci/shots.mjs || true
+          tail -50 dev.log > shots/dev-log.txt
+      - name: Publish screenshots
+        if: always()
+        run: |
+          cd shots
+          git init -q && git checkout -q -b ci-shots
+          git add -A && git -c user.name=ci -c user.email=ci@example.com commit -qm "shots ${GITHUB_SHA}"
+          git push -qf "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${GITHUB_REPOSITORY}.git" ci-shots
