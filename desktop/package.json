@@ -1,0 +1,29 @@
+{
+  "name": "firebirds-nest",
+  "productName": "Firebirds Nest",
+  "version": "1.0.0",
+  "description": "Firebirds Nest: the school store's 3D world, as an app.",
+  "author": "Firebirds Nest",
+  "main": "main.cjs",
+  "private": true,
+  "scripts": {
+    "start": "electron .",
+    "dist": "electron-builder --publish never"
+  },
+  "devDependencies": {
+    "electron": "^35.0.0",
+    "electron-builder": "^25.1.8"
+  },
+  "build": {
+    "appId": "store.firebirdsnest.app",
+    "productName": "Firebirds Nest",
+    "files": ["main.cjs", "build/icon.png"],
+    "directories": { "output": "dist", "buildResources": "build" },
+    "artifactName": "Firebirds-Nest-${version}-${os}-${arch}.${ext}",
+    "win": { "target": [{ "target": "nsis", "arch": ["x64"] }, { "target": "portable", "arch": ["x64"] }] },
+    "portable": { "artifactName": "Firebirds-Nest-${version}-portable.${ext}" },
+    "nsis": { "oneClick": true, "perMachine": false, "createDesktopShortcut": true, "shortcutName": "Firebirds Nest" },
+    "mac": { "target": [{ "target": "dmg", "arch": ["universal"] }], "category": "public.app-category.games", "identity": null },
+    "linux": { "target": [{ "target": "AppImage", "arch": ["x64"] }], "category": "Game" }
+  }
+}

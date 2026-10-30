@@ -12,7 +12,7 @@ import * as THREE from "three";
  */
 const groups = new Set<THREE.Group>();
 
-export function Near({ x, z, dist, children }: { x: number; z: number; dist: number; children: ReactNode }) {
+export function Near({ x, z, dist, when, children }: { x: number; z: number; dist: number; when?: (cam: THREE.Vector3) => boolean; children: ReactNode }) {
   const g = useRef<THREE.Group>(null);
   useEffect(() => {
     const me = g.current;
@@ -23,9 +23,19 @@ export function Near({ x, z, dist, children }: { x: number; z: number; dist: num
     };
   }, []);
   useFrame(({ camera }) => {
-    if (g.current) g.current.visible = (camera.position.x - x) ** 2 + (camera.position.z - z) ** 2 < dist * dist;
+    if (g.current) show(g.current, (camera.position.x - x) ** 2 + (camera.position.z - z) ** 2 < dist * dist && (!when || when(camera.position)));
   });
   return <group ref={g}>{children}</group>;
+}
+
+/**
+ * Show or hide something. Hidden, three.js also stops working out where
+ * everything inside it is each frame (it would otherwise go through every
+ * part of every hidden building, every frame).
+ */
+export function show(o: THREE.Object3D, on: boolean) {
+  o.visible = on;
+  o.matrixWorldAutoUpdate = on;
 }
 
 /*
@@ -45,6 +55,7 @@ export function Prewarm() {
         if (!o.visible && (groups.has(o as THREE.Group) || o.userData.lod)) {
           hidden.push(o);
           o.visible = true;
+          o.updateMatrixWorld(true);
         }
       });
       try {

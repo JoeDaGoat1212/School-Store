@@ -8,7 +8,7 @@ import { Block, Cyl, GLASS, mat, useDrawn } from "./buildings";
 import { drive } from "./drive";
 import { HOMES, ESTATE_WALL, access, doorOpenFor, homePlan, ownsHome, type Home } from "./houses-layout";
 import { Humanoid, newPose, randomLook } from "./humanoid";
-import { Near } from "./near";
+import { Near, show } from "./near";
 import { Static } from "./static-merge";
 import { noRaycast, signTexture } from "./paint";
 import { usd } from "./profile";
@@ -460,7 +460,7 @@ function HomeModel({ h }: { h: Home }) {
   const inner = useRef<THREE.Group>(null);
   useFrame(() => {
     // Only draw the furniture when you're close (or on the tour).
-    if (inner.current) inner.current.visible = access.touring === h.id || Math.hypot(player.x - h.site.x, player.z - h.site.z) < 70;
+    if (inner.current) show(inner.current, access.touring === h.id || Math.hypot(player.x - h.site.x, player.z - h.site.z) < 70);
   });
   const S = h.storey;
   return (

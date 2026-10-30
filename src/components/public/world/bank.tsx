@@ -63,6 +63,21 @@ function useMat(key: string, make: () => THREE.Material) {
 
 // ---- The building -------------------------------------------------------------------------------
 
+/** The vault level's underground: only drawn when the camera's inside the bank's footprint, below the hall floor. */
+function inBasement(cam: THREE.Vector3) {
+  const lx = cam.x - BANK.x;
+  const lz = cam.z - BANK.z;
+  // (Or at the back of the hall, where you can see down the ramp.)
+  return Math.abs(lx) < P.halfW + 1 && lz < 1 && lz > -P.depth - 1 && (cam.y < PODIUM + 1 || lz < P.ramp.top + 6);
+}
+/** The hall: from inside the bank, from its fire stairs, or from in front (through the doors). */
+function seesHall(cam: THREE.Vector3) {
+  const lx = cam.x - BANK.x;
+  const lz = cam.z - BANK.z;
+  if (Math.abs(lx) < P.halfW + 9 && lz < 2 && lz > -P.depth - 2) return true;
+  return lz > 0 && Math.hypot(lx, lz) < 110;
+}
+
 export function Bank() {
   const rustic = useCanvas(512, 512, (g) => stoneTexture(g, "#cdbf9f", "#9c8f74", 4), [6, 1]);
   const ashlar = useCanvas(512, 512, (g) => stoneTexture(g, "#efe6d2", "#cbbfa6", 8), [7, 3]);
@@ -197,14 +212,14 @@ export function Bank() {
         </group>
         <AlarmLight position={[-W + 1.2, H + 2.6, 1.2]} on={alarmOn} />
         <AlarmLight position={[W - 1.2, H + 2.6, 1.2]} on={alarmOn} />
-        <Near x={BANK.x} z={BANK.z - D / 2} dist={140}>
+        <Near x={BANK.x} z={BANK.z - D / 2} dist={140} when={seesHall}>
           <Hall floorMat={floorMat} />
         </Near>
       </group>
       <Static>
         <FireStairs />
       </Static>
-      <Near x={BANK.x} z={BANK.z - D / 2} dist={110}>
+      <Near x={BANK.x} z={BANK.z - D / 2} dist={110} when={inBasement}>
         <VaultLevel />
       </Near>
     </group>
@@ -1050,6 +1065,7 @@ function Loot({ loot }: { loot: BankLoot }) {
   return (
     <group position={[loot.lx, 0.16, loot.lz]}>
       <group ref={ref}>
+        <Static shadows={false}>
         {loot.kind === "gold" && (
           <group>
             <Block x0={-1.7} x1={1.7} y0={0} y1={0.3} z0={-1.3} z1={1.3} m={mat("#8a5a35", 0.8)} />
@@ -1099,6 +1115,7 @@ function Loot({ loot }: { loot: BankLoot }) {
             )}
           </group>
         )}
+        </Static>
       </group>
     </group>
   );

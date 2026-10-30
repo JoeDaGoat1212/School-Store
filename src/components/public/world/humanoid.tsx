@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useRef } from "react";
+import { show } from "./near";
 import { useFrame } from "@react-three/fiber";
 import * as THREE from "three";
 import { noRaycast } from "./paint";
@@ -124,8 +125,8 @@ export function Humanoid({ look, pose, castShadow = true }: { look: Look; pose: 
       const d2 = SEE.distanceToSquared(camera.position);
       // Up close: every detail, animated. Further off: a simple figure (5 parts instead of 40). Far away: nothing.
       const near = d2 < NEAR * NEAR;
-      r.visible = near;
-      if (simple.current) simple.current.visible = !near && d2 < FAR * FAR;
+      show(r, near);
+      if (simple.current) show(simple.current, !near && d2 < FAR * FAR);
       if (!near) return;
     }
     const p = pose;

@@ -10,6 +10,7 @@ import { canvasTexture, noRaycast, signTexture } from "./paint";
 import { Instances, type Place } from "./town";
 import * as fx from "./buildings";
 import { Near } from "./near";
+import { Static } from "./static-merge";
 
 /*
  * Draws the jail from jail-layout.ts: concrete walls, ten cells with bunks
@@ -133,6 +134,7 @@ function Facade() {
   });
   return (
     <group>
+      <Static>
       {/* Brick banding along the front, and a row of tall slit windows */}
       <fx.Block x0={B.x0} x1={B.x1} y0={0} y1={1.4} z0={z} z1={z + 0.3} m={brick} />
       <fx.Block x0={B.x0} x1={B.x1} y0={H - 1.2} y1={H} z0={z} z1={z + 0.35} m={band} />
@@ -165,6 +167,7 @@ function Facade() {
           </mesh>
         ))}
       </group>
+      </Static>
       {/* Flagpoles */}
       {[1396, 1444].map((x, i) => (
         <group key={x} position={[x, 0, z + 14]}>
@@ -175,6 +178,7 @@ function Facade() {
           </mesh>
         </group>
       ))}
+      <Static>
       {/* Watchtowers on the front corners */}
       {[B.x0 + 2, B.x1 - 2].map((x) => (
         <group key={x} position={[x, 0, z - 2]}>
@@ -187,6 +191,7 @@ function Facade() {
           </mesh>
         </group>
       ))}
+      </Static>
     </group>
   );
 }

@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useRef } from "react";
+import { show } from "./near";
 import { useFrame } from "@react-three/fiber";
 import * as THREE from "three";
 import { canvasTexture, noRaycast } from "./paint";
@@ -347,9 +348,9 @@ function Car({ color, look, kind }: { color: string; look: CarLook; kind: keyof 
     if (bodyRef.current) {
       bodyRef.current.getWorldPosition(CAR_AT);
       const near = CAR_AT.distanceToSquared(camera.position) < CAR_NEAR * CAR_NEAR;
-      if (detail.current) detail.current.visible = near;
-      if (nearWheels.current) nearWheels.current.visible = near;
-      if (farWheels.current) farWheels.current.visible = !near;
+      if (detail.current) show(detail.current, near);
+      if (nearWheels.current) show(nearWheels.current, near);
+      if (farWheels.current) show(farWheels.current, !near);
       if (!near) return;
     }
     steers.current.forEach((w, i) => {

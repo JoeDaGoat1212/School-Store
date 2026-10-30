@@ -1,0 +1,68 @@
+# Builds the Firebirds Nest desktop app (desktop/) for Windows, Mac and Linux
+# whenever it changes, and puts the downloads on the "Firebirds Nest app" release.
+name: Desktop app
+
+on:
+  push:
+    branches: [main, city-heist]
+    paths:
+      - "desktop/**"
+      - ".github/workflows/desktop.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            target: --win
+          - os: macos-latest
+            target: --mac
+          - os: ubuntu-latest
+            target: --linux
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        working-directory: desktop
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm install --no-audit --no-fund
+      - run: npx electron-builder ${{ matrix.target }} --publish never
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: "false"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: app-${{ matrix.os }}
+          path: |
+            desktop/dist/*.exe
+            desktop/dist/*.dmg
+            desktop/dist/*.AppImage
+          if-no-files-found: error
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: out
+          merge-multiple: true
+      - name: Put the downloads on the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          ls -la out
+          if ! gh release view desktop-app >/dev/null 2>&1; then
+            gh release create desktop-app --target "$GITHUB_SHA" --title "Firebirds Nest app" \
+              --notes "The store's 3D world as a desktop app: full screen, on your computer's fast graphics card, graphics on Ultra. Windows: the .exe installer, or the portable .exe (no install). Mac: the .dmg (first time: right-click the app → Open). It opens the real website, so it updates by itself."
+          fi
+          gh release upload desktop-app out/* --clobber

@@ -21,11 +21,13 @@ import { notify, useGameVersion } from "./game-events";
  *           extra effects passes (they're what costs the most). The default.
  *   Fast    no shadows, lower resolution: for older computers and phones.
  *
- * It starts on High (Fast on phones), drops a level by itself if the
+ * It starts on High (Fast on phones, Ultra in the desktop app), drops a level by itself if the
  * world's running slowly, and you can pick one yourself (it's remembered).
  */
 
 export type Quality = "ultra" | "high" | "fast";
+/** Running in the Firebirds Nest desktop app (desktop/), rather than a browser. */
+export const inApp = typeof navigator !== "undefined" && navigator.userAgent.includes("FirebirdsNestApp");
 const KEY = "nest:graphics";
 
 function initial(): { level: Quality; chosen: boolean } {
@@ -36,7 +38,8 @@ function initial(): { level: Quality; chosen: boolean } {
     // Private browsing.
   }
   const phone = typeof window !== "undefined" && (window.matchMedia?.("(pointer: coarse)").matches || window.innerWidth < 700);
-  return { level: phone ? "fast" : "high", chosen: false };
+  // The desktop app runs on the fast graphics card: start on Ultra (it still drops a level if it can't keep up).
+  return { level: inApp ? "ultra" : phone ? "fast" : "high", chosen: false };
 }
 
 export const graphics = { ...(typeof window === "undefined" ? { level: "high" as Quality, chosen: false } : initial()) };
@@ -64,7 +67,7 @@ export function useQuality() {
   return graphics.level;
 }
 export const QUALITY = {
-  ultra: { dpr: [1, 1.75] as [number, number], shadowMap: 4096, shadows: true, post: true, ao: true, shadowEvery: 1 },
+  ultra: { dpr: [1, inApp ? 2 : 1.75] as [number, number], shadowMap: 4096, shadows: true, post: true, ao: true, shadowEvery: 1 },
   high: { dpr: [1, 1.25] as [number, number], shadowMap: 2048, shadows: true, post: false, ao: false, shadowEvery: 2 },
   fast: { dpr: [0.75, 1] as [number, number], shadowMap: 1024, shadows: false, post: false, ao: false, shadowEvery: 3 },
 };
