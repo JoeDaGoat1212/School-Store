@@ -4252,6 +4252,99 @@ grant execute on function public.apply_for_job(text, jsonb) to authenticated;
 grant execute on function public.leave_job(text, text) to authenticated;
 grant execute on function public.record_job_level(text, int) to authenticated;
 
+-- >>>>>>>>>>>>>>>>>>>>>>>> 20261030000014_golf_rounds.sql >>>>>>>>>>>>>>>>>>>>>>>>
+-- =============================================================================
+-- Golf at Firebird Ridge (update 14)
+-- =============================================================================
+-- The 3D city has a 9-hole golf course. The game keeps the score; when a
+-- signed-in player finishes a round it's saved here, and everyone can see the
+-- leaderboard.
+--
+--   golf_rounds              one row per finished round: the strokes on each
+--                            hole (9 numbers), the total and the score to par.
+--
+--   record_golf_round()      saves the signed-in player's finished round.
+--   golf_leaderboard()       the best rounds (best one per player), with the
+--                            name on their in-game ID.
+--
+-- Nothing here is real: it's a game.
+-- =============================================================================
+
+create table public.golf_rounds (
+  id          uuid primary key default gen_random_uuid(),
+  player_id   uuid not null references public.game_players (id) on delete cascade,
+  holes       int[] not null check (array_length(holes, 1) = 9),
+  total       int not null check (total between 9 and 90),
+  to_par      int not null,
+  created_at  timestamptz not null default now()
+);
+create index on public.golf_rounds (total, created_at);
+create index on public.golf_rounds (player_id, created_at desc);
+
+-- Save a finished round. The game picks you up at 10 on a hole, so each hole is 1…10.
+create or replace function public.record_golf_round(p_holes int[])
+returns void
+language plpgsql security definer
+set search_path = public
+as $$
+declare
+  v_id    uuid := auth.uid();
+  v_total int;
+  v_par   int := 37; -- the course's par (golf-course.ts)
+begin
+  if v_id is null or public.is_admin() then
+    return;
+  end if;
+  if p_holes is null or array_length(p_holes, 1) <> 9 then
+    raise exception 'A round is 9 holes.';
+  end if;
+  if exists (select 1 from unnest(p_holes) h where h is null or h < 1 or h > 10) then
+    raise exception 'Each hole is between 1 and 10 strokes.';
+  end if;
+  -- Only players with a saved game (made the first time they play).
+  if not exists (select 1 from public.game_players where id = v_id) then
+    return;
+  end if;
+  -- Not more than one round a minute (a round takes a lot longer than that).
+  if exists (select 1 from public.golf_rounds where player_id = v_id and created_at > now() - interval '1 minute') then
+    return;
+  end if;
+  select sum(h) into v_total from unnest(p_holes) h;
+  insert into public.golf_rounds (player_id, holes, total, to_par)
+  values (v_id, p_holes, v_total, v_total - v_par);
+end;
+$$;
+
+-- The leaderboard: each player's best round, best first.
+create or replace function public.golf_leaderboard()
+returns jsonb
+language sql stable security definer
+set search_path = public
+as $$
+  select coalesce(jsonb_agg(row_to_json(t) order by t.total, t.date), '[]'::jsonb)
+  from (
+    select * from (
+      select distinct on (r.player_id)
+             p.display_name as name, r.total, r.to_par as "toPar", r.holes, r.created_at as date,
+             (r.player_id = auth.uid()) as you
+        from public.golf_rounds r
+        join public.game_players p on p.id = r.player_id
+       order by r.player_id, r.total, r.created_at
+    ) best
+    order by best.total, best.date
+    limit 20
+  ) t;
+$$;
+
+alter table public.golf_rounds enable row level security;
+create policy "admin full access" on public.golf_rounds for all to authenticated
+  using (public.is_admin()) with check (public.is_admin());
+
+revoke execute on function public.record_golf_round(int[]) from public, anon;
+grant execute on function public.record_golf_round(int[]) to authenticated;
+revoke execute on function public.golf_leaderboard() from public;
+grant execute on function public.golf_leaderboard() to anon, authenticated;
+
 -- >>>>>>>>>>>>>>>>>>>>>>>> record what was applied >>>>>>>>>>>>>>>>>>>>>>>>
 create schema if not exists supabase_migrations;
 create table if not exists supabase_migrations.schema_migrations (
@@ -4272,7 +4365,8 @@ insert into supabase_migrations.schema_migrations (version, name) values
   ('20261027000010', 'usernames'),
   ('20261028000011', 'teachers_room_service'),
   ('20261028000012', 'item_requests'),
-  ('20261029000013', 'city_game')
+  ('20261029000013', 'city_game'),
+  ('20261030000014', 'golf_rounds')
 on conflict (version) do nothing;
 
 -- Tell the API about the new tables and functions right away.

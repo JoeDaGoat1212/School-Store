@@ -4,6 +4,8 @@ import { LAMPS, TREES } from "./exterior";
 import { parkedSpots } from "./fleet";
 import { heistBlocks } from "./heist";
 import { hitsBaseRock, hitsPine } from "./terrain";
+import { golfBlocks } from "./golf-course";
+import { estateBlocks } from "./estates-layout";
 import { jailBlocks } from "./jail-layout";
 import { roomsBlock, roomWallsBlock } from "./rooms";
 import { bankBlocks, bankViewBlocked } from "./bank-layout";
@@ -74,6 +76,8 @@ function hitsScenery(x: number, z: number, r: number) {
   if (roomsBlock(x, z, r)) return true;
   if (x > 1050 && jailBlocks(x, z, r)) return true;
   if (z < -700 && hitsBaseRock(x, z, r)) return true;
+  if (z > 460 && x > 490 && golfBlocks(x, z, r)) return true;
+  if (z > 560 && x > -470 && x < 470 && estateBlocks(x, z, r)) return true;
   for (const [lx, lz] of LAMPS) if (Math.hypot(x - lx, z - lz) < r + 0.35) return true;
   for (const [tx, tz, s] of TREES) if (Math.hypot(x - tx, z - tz) < r + 0.6 * s) return true;
   const near = townObstaclesNear(x, z);

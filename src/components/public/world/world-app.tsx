@@ -27,6 +27,7 @@ import { fleet, syncOwned } from "./fleet";
 import { useGameVersion } from "./game-events";
 import { life } from "./life";
 import { police } from "./police-state";
+import { GolfHud } from "./golf-hud";
 import { loadProfile, profile, refreshProfile, type ServerPlayer } from "./profile";
 import { applyForJob, leaveJob, recordJobLevel, refreshGame, saveGame } from "@/app/(public)/game-actions";
 import { jobs } from "./jobs";
@@ -582,7 +583,7 @@ export default function WorldApp({
                 className="pointer-events-auto flex items-center gap-2 rounded-full bg-black/85 px-5 py-3 font-heading text-xl font-extrabold tracking-wide text-white uppercase shadow-lg backdrop-blur transition-transform hover:-translate-y-0.5 focus-visible:ring-3 focus-visible:ring-primary/60 focus-visible:outline-none animate-in fade-in zoom-in-95 duration-200"
               >
                 <kbd className="grid size-8 place-items-center rounded-lg bg-primary font-heading text-lg text-black">E</kbd>
-                {fleet[nearCar]?.body === "plane" ? "Fly this plane" : fleet[nearCar]?.body === "heli" ? "Fly this helicopter" : fleet[nearCar]?.body === "moto" ? "Ride this bike" : "Drive this car"}
+                {fleet[nearCar]?.body === "plane" ? "Fly this plane" : fleet[nearCar]?.body === "heli" ? "Fly this helicopter" : fleet[nearCar]?.body === "moto" ? "Ride this bike" : fleet[nearCar]?.body === "cart" ? "Drive this golf cart" : "Drive this car"}
               </button>
             </div>
           )}
@@ -598,6 +599,8 @@ export default function WorldApp({
         calm={calm}
         onPanel={setCityPanel}
       />
+      {/* Golf at Firebird Ridge (when you're playing, or at the range) */}
+      {station !== "outside" && ready && <GolfHud />}
 
       {/* Top corners: the logo, and your rewards account */}
       <div className="pointer-events-none absolute inset-x-0 top-0 flex items-start justify-between gap-3 p-3 sm:p-4">
@@ -999,5 +1002,6 @@ function boardLine(body: string | undefined) {
   if (body === "plane") return "Ready for take-off! W for throttle, Space to pull up. E to jump out.";
   if (body === "heli") return "Rotors spinning! Space to climb. E to jump out.";
   if (body === "moto") return "You're riding! Press E to get off.";
+  if (body === "cart") return "Cart's ready. Drive to your ball, E to hop out.";
   return "You're driving! Press E to get out.";
 }

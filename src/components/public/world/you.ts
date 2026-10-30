@@ -28,7 +28,7 @@ export const player = {
   /** How fast you're walking right now (units a second), for your character's legs. */
   speed: 0,
   /** What your body is doing (0…1 each), for your character in third person and cutscenes. */
-  anim: { handsUp: 0, cuffed: 0, down: 0, sit: 0, reach: 0 },
+  anim: { handsUp: 0, cuffed: 0, down: 0, sit: 0, reach: 0, golf: 0, swing: 0 },
   /** Your character is drawn even in first person (cutscenes: being cuffed, put in the car…). */
   showBody: false,
   /** Hidden completely (in the back of a police car, at the dealership's screen…). */

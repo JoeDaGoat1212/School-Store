@@ -29,6 +29,8 @@ import { ClosedSign, Jewelry } from "./city-sites";
 import { Bank } from "./bank";
 import { game } from "./heist";
 import { Mountains } from "./mountains";
+import { Golf } from "./golf";
+import { Estates } from "./estates";
 import { Aircraft } from "./flight";
 import { Jail } from "./jail";
 import { Airport } from "./airport";
@@ -182,6 +184,8 @@ export default function WorldScene(props: WorldSceneProps) {
           <Birds />
           {/* The mountains to the north, with the road up to the secret base */}
           <Mountains />
+          <Golf />
+          <Estates />
           {/* You, seen in third person */}
           <PlayerAvatar />
           <Smoke />

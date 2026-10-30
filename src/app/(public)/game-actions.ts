@@ -66,3 +66,19 @@ export async function recordJobLevel(business: string, level: number) {
   const { error } = await supabase.rpc("record_job_level", { p_business: business, p_level: level });
   return error ? { error: error.message } : { ok: true };
 }
+
+/** Save a finished round of golf (the strokes on each of the 9 holes) to the leaderboard (database update 14). */
+export async function recordGolfRound(holes: number[]) {
+  if (!Array.isArray(holes) || holes.length !== 9 || holes.some((h) => !Number.isInteger(h) || h < 1 || h > 10)) return { error: "Not a round." };
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("record_golf_round", { p_holes: holes });
+  return error ? { error: error.message } : { ok: true };
+}
+
+/** The golf leaderboard: everyone's best rounds. */
+export async function golfLeaderboard() {
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("golf_leaderboard");
+  if (error || !Array.isArray(data)) return null;
+  return data as unknown as { name: string; total: number; toPar: number; holes: number[]; date: string; you: boolean }[];
+}

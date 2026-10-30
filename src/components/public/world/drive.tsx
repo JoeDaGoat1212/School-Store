@@ -196,7 +196,7 @@ export function Cars({
       drive.active = true;
       drive.vehicle = driving;
       drive.top = modelOf(v.model).top;
-      drive.cam = v.body === "plane" ? { back: 20, up: 6.5 } : v.body === "heli" ? { back: 17, up: 7 } : v.body === "moto" ? { back: 9, up: 4 } : { back: 12, up: 5.2 };
+      drive.cam = v.body === "plane" ? { back: 20, up: 6.5 } : v.body === "heli" ? { back: 17, up: 7 } : v.body === "moto" ? { back: 9, up: 4 } : v.body === "cart" ? { back: 9, up: 4.4 } : { back: 12, up: 5.2 };
       player.onFoot = false;
     } else {
       drive.active = false;
@@ -348,7 +348,8 @@ export function Cars({
  */
 function Rider({ i, body, driving, pose, riders }: { i: number; body: Vehicle["body"]; driving: boolean; pose: ReturnType<typeof newPose>; riders: React.RefObject<(THREE.Group | null)[]> }) {
   const seat = driverSeat(body);
-  const k = body === "moto" ? 1 : 0.55;
+  // (Bikes and golf carts are built to the size of the people; cars are a little small for them.)
+  const k = body === "moto" || body === "cart" ? 1 : 0.55;
   return (
     <group
       ref={(g) => {

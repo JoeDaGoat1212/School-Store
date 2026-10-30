@@ -3,7 +3,8 @@ import { newLook, type CarLook } from "./car-model";
 import { PARKED_CARS } from "./exterior";
 import { notify } from "./game-events";
 import { modelOf, type Body } from "./vehicles";
-import { AIRPORT, DEALERSHIP } from "./world-map";
+import { AIRPORT, DEALERSHIP, BASE_HELIPAD } from "./world-map";
+import { CLUB } from "./golf-course";
 
 /*
  * Every vehicle you can get into: the cars parked round the store and the
@@ -43,6 +44,11 @@ PARKED_CARS.forEach((c, i) => add({ id: `town-${i}`, model: TOWN_MODELS[i % TOWN
 add({ id: "plane-1", model: "plane", color: "#f2f4f7", spot: { x: -1000, z: 190, heading: Math.PI / 2 }, owned: false });
 add({ id: "plane-2", model: "plane", color: "#ffd21f", spot: { x: -960, z: 190, heading: Math.PI / 2 }, owned: false });
 AIRPORT.helipads.forEach((h, i) => add({ id: `heli-${i}`, model: "heli", color: i ? "#e5483b" : "#1d4f91", spot: { x: h.x, z: h.z, heading: Math.PI }, owned: false }));
+// The secret base's own helicopter, on the helipad in its valley.
+add({ id: "heli-base", model: "heli", color: "#1b1e22", spot: { x: BASE_HELIPAD.x, z: BASE_HELIPAD.z, heading: Math.PI * 0.75 }, owned: false, alt: 0.5 });
+
+// The golf carts, lined up at the cart barn by the clubhouse.
+CLUB.carts.forEach((c, i) => add({ id: `cart-${i}`, model: "golf-cart", color: i % 3 === 2 ? "#1f4d3a" : "#f2f0ea", spot: { x: c.x, z: c.z, heading: c.heading }, owned: false }));
 
 export const isAircraft = (v: Vehicle | undefined) => v?.body === "plane" || v?.body === "heli";
 

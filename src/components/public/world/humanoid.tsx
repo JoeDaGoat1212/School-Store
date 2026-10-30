@@ -67,6 +67,9 @@ export type Pose = {
   reach: number;
   /** Leaning forward from the hips (radians), like riding a sports bike. */
   lean?: number;
+  /** Standing over a golf ball, club in hand (0…1), and where the swing is (-1 top of the backswing, 0 impact, 1 the finish). */
+  golf?: number;
+  swing?: number;
   /** The keycard on the belt (guards) is there. */
   keycard: boolean;
 };
@@ -376,6 +379,7 @@ export function Humanoid({ look, pose, castShadow = true }: { look: Look; pose: 
   const gun = useRef<THREE.Group>(null);
   const card = useRef<THREE.Mesh>(null);
   const cuffs = useRef<THREE.Group>(null);
+  const club = useRef<THREE.Group>(null);
 
   const o = look.outfit ?? "casual";
   const skin = skinMat(look.skin);
@@ -465,6 +469,32 @@ export function Humanoid({ look, pose, castShadow = true }: { look: Look; pose: 
       e.rotation.set(ex, 0, 0);
     }
     // (Riders reach forward for the wheel or the bars too: no gun for them.)
+    // ---- Golf: the address, the coil and the finish ----
+    const gf = p.golf ?? 0;
+    if (gf > 0) {
+      const sw = p.swing ?? 0;
+      const back = Math.max(0, -sw);
+      const thru = Math.max(0, sw);
+      if (chest.current) {
+        chest.current.rotation.x = 0.42 * gf * (1 - thru * 0.6);
+        // Turn away on the backswing, through to face the target at the finish.
+        chest.current.rotation.y = (back * 1.45 - thru * 1.6) * gf;
+      }
+      if (hips.current) hips.current.rotation.y = (back * 0.45 - thru * 0.9) * gf;
+      if (head.current) head.current.rotation.x = 0.25 * gf * (1 - thru);
+      for (let i = 0; i < 2; i++) {
+        const s = i ? -1 : 1;
+        const a = sh.current[i];
+        const e = el.current[i];
+        if (a) a.rotation.set(-0.38 - (back + thru) * 1.75, 0, -s * 0.42 * (1 - (back + thru) * 0.3));
+        if (e) e.rotation.set(-0.08 - (i === (back > 0 ? 0 : 1) ? (back + thru) * 0.7 : 0), 0, 0);
+        const leg = hp.current[i];
+        const knee = kn.current[i];
+        if (leg) leg.rotation.x = -0.18 * gf;
+        if (knee) knee.rotation.x = 0.28 * gf;
+      }
+    }
+    if (club.current) club.current.visible = gf > 0;
     if (gun.current) gun.current.visible = o === "guard" || (p.aim > 0.3 && p.sit < 0.3);
     if (card.current) card.current.visible = o === "guard" && p.keycard;
     if (cuffs.current) cuffs.current.visible = p.cuffed > 0.5;
@@ -511,6 +541,14 @@ export function Humanoid({ look, pose, castShadow = true }: { look: Look; pose: 
           <mesh geometry={FOREARM} material={skin} castShadow={castShadow} raycast={noRaycast} />
           {longSleeves && <mesh geometry={FOREARM_SLEEVE} material={shirt} castShadow={castShadow} raycast={noRaycast} />}
           {hand(s)}
+          {/* A golf club, held in the right hand: grip, shaft and head */}
+          {i === 1 && (
+            <group ref={club} position={[0.03, -0.3, 0.02]} rotation={[0.25, 0, -0.55]} visible={false}>
+              <mesh geometry={G.cyl} material={dark} position-y={-0.08} scale={[0.012, 0.22, 0.012]} raycast={noRaycast} />
+              <mesh geometry={G.cyl} material={mat("#c9ced4", 0.25, 0.9)} position-y={-0.55} scale={[0.0055, 0.78, 0.0055]} raycast={noRaycast} />
+              <mesh geometry={G.box} material={mat("#2b2f36", 0.3, 0.8)} position={[0, -0.96, 0.04]} scale={[0.03, 0.05, 0.11]} raycast={noRaycast} />
+            </group>
+          )}
           {/* The rifle (guards), held in the right hand */}
           {i === 1 && (
             <group ref={gun} position={[0, -0.3, 0.05]} rotation={[Math.PI / 2, 0, 0]} visible={false}>

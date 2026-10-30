@@ -42,6 +42,7 @@ const TRIPS = [
   { key: "dealer", label: "Apex Motors (cars)", x: 640, z: 64, yaw: Math.PI },
   { key: "realty", label: "Keystone Realty (homes)", x: REALTOR.x, z: REALTOR.z - 8, yaw: Math.PI },
   { key: "estates", label: "Crescent Heights gate", x: ESTATES.gate.x + 6, z: ESTATES.gate.z - 18, yaw: Math.PI },
+  { key: "golf", label: "Firebird Ridge Golf Club", x: 736, z: 578, yaw: Math.PI },
 ];
 
 export function CityHud({

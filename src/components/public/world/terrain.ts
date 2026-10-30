@@ -1,4 +1,5 @@
 import { BASE, BASE_VALLEY, MOUNTAINS, MOUNTAIN_ROAD, WORLD_BOUNDS } from "./world-map";
+import { golfHeight, inGolf } from "./golf-course";
 
 /*
  * How high the ground is, anywhere. Almost everywhere it's flat (y = 0); to
@@ -129,7 +130,8 @@ export function rawHeight(x: number, z: number) {
     h = h + (road.y - h) * k;
   }
   // Under the hangar's floor (so the grass doesn't poke through it).
-  if (Math.abs(x - BASE.x) < BASE.halfW + 4 && z < BASE.doorZ - 2 && z > BASE.doorZ - BASE.depth - 4) h = Math.min(h, BASE_VALLEY.y - 1.5);
+  // (Out past the walls by more than a cell of the land's mesh, so no slope shows inside.)
+  if (Math.abs(x - BASE.x) < BASE.halfW + 14 && z < BASE.doorZ - 2 && z > BASE.doorZ - BASE.depth - 14) h = Math.min(h, BASE_VALLEY.y - 1.5);
   return h;
 }
 
@@ -161,7 +163,8 @@ export function inBase(x: number, z: number) {
 
 /** How high the ground is at (x, z). Fast: reads the grid. */
 export function groundAt(x: number, z: number) {
-  if (z > HILLS_START) return 0;
+  // (South of the hills it's flat, except the golf course's rolling land.)
+  if (z > HILLS_START) return inGolf(x, z) ? golfHeight(x, z) : 0;
   if (inBase(x, z)) return BASE_VALLEY.y;
   const h = grid();
   const fx = Math.min(NX - 1.001, Math.max(0, (x - GRID.x0) / GRID.cell));
@@ -186,11 +189,11 @@ export function slopeAt(x: number, z: number) {
 // ---- The secret base's mountain ----------------------------------------------------------------
 
 /** How wide and tall the base's entrance is. */
-export const BASE_DOOR = { halfW: 9, height: 12 };
+export const BASE_DOOR = { halfW: 15, height: 20 };
 /** The door's open amount (0 shut … 1 open), moved by mountains.tsx. */
 export const baseDoor = { open: 0 };
 /** The hollow mountain's footprint: an oval round its middle (its front is at the door). */
-export const BASE_DOME = { x: BASE.x, z: BASE.doorZ - 54, rx: 76, rz: 56 };
+export const BASE_DOME = { x: BASE.x, z: BASE.doorZ - BASE.depth / 2 - 4, rx: BASE.halfW + 50, rz: BASE.depth / 2 + 6 };
 
 /** Is (x, z) inside the hollow mountain's rock (not the tunnel or hangar), or in the doorway while it's shut? */
 export function hitsBaseRock(x: number, z: number, r: number) {
@@ -202,10 +205,44 @@ export function hitsBaseRock(x: number, z: number, r: number) {
   if (inside && (z < BASE.doorZ - 1.5 || doorway)) {
     // In the doorway while the rock door's shut: blocked.
     if (z > BASE.doorZ - 1.5 && baseDoor.open < 0.8) return true;
+    // The things standing in the hangar.
+    for (const b of BASE_PROPS) if (x > b.x0 - r && x < b.x1 + r && z > b.z0 - r && z < b.z1 + r) return true;
     return false;
   }
   return true;
 }
+
+/**
+ * What stands in the hangar (secret-base.tsx draws them), as boxes in the
+ * world: the command deck across the back, the lounge's bar and pool table,
+ * the stacks of gold and cash round the drop zone, the workshop bench and
+ * the crates.
+ */
+export const BASE_PROPS: { x0: number; x1: number; z0: number; z1: number }[] = (() => {
+  const X = BASE.x;
+  const Z = BASE.doorZ;
+  const D = BASE.depth;
+  const b = (x0: number, x1: number, z0: number, z1: number) => ({ x0: X + x0, x1: X + x1, z0: Z + z0, z1: Z + z1 });
+  const drop = -D * 0.62;
+  return [
+    // Command deck (raised, across the back).
+    b(-34, 34, -D, -D + 15),
+    // Lounge: the bar and the pool table.
+    b(30, 44, -58, -55),
+    b(30, 36, -40, -36.5),
+    // Gold and cash round the drop zone (leaving the middle clear to drive in).
+    b(-17, -12, drop - 3, drop + 3),
+    b(12, 17, drop - 3, drop + 3),
+    b(-7, 7, drop - 16.2, drop - 12.8),
+    // The car lift's posts.
+    b(-33.9, -32.9, -84.5, -83.5),
+    b(-27.1, -26.1, -84.5, -83.5),
+    // The workshop bench and the crates.
+    b(-45, -42, -30, -14),
+    b(-45, -38, -70, -62),
+    b(38, 45, -16, -8),
+  ];
+})();
 
 // ---- Pine trees on the slopes ---------------------------------------------------------------
 
@@ -223,6 +260,8 @@ export const PINES: { x: number; z: number; y: number; s: number }[] = (() => {
     if (Math.hypot(sx, sz) > 1.1) continue;
     if (nearestRoad(x, z).d < ROAD_HALF_W + 5) continue;
     if (Math.hypot(x - BASE_VALLEY.x, z - BASE_VALLEY.z) < BASE_VALLEY.r * 0.8) continue;
+    // Not on (or in) the hollow mountain.
+    if (((x - BASE.x) / (BASE.halfW + 56)) ** 2 + ((z - (BASE.doorZ - BASE.depth / 2 - 4)) / (BASE.depth / 2 + 14)) ** 2 < 1) continue;
     // Clumps: skip some spots by noise.
     if (noise(x * 0.02, z * 0.02) < 0.38) continue;
     out.push({ x, z, y, s: 0.8 + rand() * 0.9 });

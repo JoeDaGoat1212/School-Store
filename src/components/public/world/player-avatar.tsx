@@ -46,6 +46,8 @@ export function PlayerAvatar() {
     pose.down = life.dead ? Math.min(1, pose.down + delta * 2) : a.down;
     pose.sit = a.sit;
     pose.reach = a.reach;
+    pose.golf = a.golf;
+    pose.swing = a.swing;
     if (chute.current) {
       chute.current.visible = player.chute;
       chute.current.rotation.z = Math.sin(performance.now() / 600) * 0.06;
