@@ -35,6 +35,8 @@ import { Speedometer } from "./speedometer";
 import type { BoardCard } from "./fixtures";
 import { LoadingScreen } from "./loading-screen";
 import { unitAt, type StationKey } from "./world-layout";
+import { firstE } from "./interact";
+import { freecam } from "./freecam";
 import WorldScene from "./world-scene";
 
 /*
@@ -396,7 +398,8 @@ export default function WorldApp({
       if (t && (t.isContentEditable || ["INPUT", "TEXTAREA", "SELECT"].includes(t.tagName))) return;
       if (driving !== null) setDriving(null);
       // (Not while you're being arrested or locked up.)
-      else if (nearCar !== null && !moving && !police.arrest && !life.inJail) {
+      // (Unless E's for something that comes first here, like stepping up to your golf ball.)
+      else if (nearCar !== null && !moving && !police.arrest && !life.inJail && !firstE()) {
         setDriving(nearCar);
         say(boardLine(fleet[nearCar ?? -1]?.body));
       }
@@ -582,12 +585,12 @@ export default function WorldApp({
                 }}
                 className="pointer-events-auto flex items-center gap-2 rounded-full bg-black/85 px-5 py-3 font-heading text-xl font-extrabold tracking-wide text-white uppercase shadow-lg backdrop-blur transition-transform hover:-translate-y-0.5 focus-visible:ring-3 focus-visible:ring-primary/60 focus-visible:outline-none animate-in fade-in zoom-in-95 duration-200"
               >
-                <kbd className="grid size-8 place-items-center rounded-lg bg-primary font-heading text-lg text-black">E</kbd>
+                {!firstE() && <kbd className="grid size-8 place-items-center rounded-lg bg-primary font-heading text-lg text-black">E</kbd>}
                 {fleet[nearCar]?.body === "plane" ? "Fly this plane" : fleet[nearCar]?.body === "heli" ? "Fly this helicopter" : fleet[nearCar]?.body === "moto" ? "Ride this bike" : fleet[nearCar]?.body === "cart" ? "Drive this golf cart" : "Drive this car"}
               </button>
             </div>
           )}
-          <TouchPad mode="walk" />
+          {!freecam.on && <TouchPad mode="walk" />}
         </>
       )}
 

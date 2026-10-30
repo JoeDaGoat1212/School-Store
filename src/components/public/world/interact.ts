@@ -15,6 +15,8 @@ export type Action = {
   run: () => void;
   /** How the button looks: red for crimes, green for money, plain otherwise. */
   tone?: "crime" | "money" | "plain";
+  /** E for this beats getting into a car you're standing next to (stepping up to your golf ball beside your cart). */
+  first?: boolean;
 };
 type Provider = (you: You) => Action[] | Action | null | undefined | false;
 
@@ -44,9 +46,12 @@ export function tickInteract(you: You, paused: boolean) {
   } else interaction.actions = list;
 }
 
+/** Is there an E action here that comes before the car you're next to? */
+export const firstE = () => interaction.actions.some((a) => a.key === "E" && a.first);
+
 /** Pressed a key: run the first action on it. Returns true if something happened. */
 export function press(key: Action["key"]) {
-  const a = interaction.actions.find((x) => x.key === key);
+  const a = interaction.actions.find((x) => x.key === key && x.first) ?? interaction.actions.find((x) => x.key === key);
   if (!a) return false;
   a.run();
   return true;
