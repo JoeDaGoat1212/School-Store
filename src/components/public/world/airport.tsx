@@ -8,7 +8,8 @@ import { Humanoid, newPose, randomLook } from "./humanoid";
 import { Instances, type Place } from "./town";
 import { Static } from "./static-merge";
 import { noRaycast, signTexture } from "./paint";
-import { TERMINAL_PLAN, addSolid, roomOf } from "./rooms";
+import { TERMINAL_PLAN, addSolid, markOldAirport, roomOf } from "./rooms";
+import { TerminalLandmark, useTerminalSwap } from "./asset-models";
 import { AIRPORT } from "./world-map";
 
 /*
@@ -23,7 +24,8 @@ const A = AIRPORT;
 const UNIT = new THREE.BoxGeometry(1, 1, 1);
 const ORIGIN = { x: 0, z: 0, turn: 0 };
 // The tower, the hangar's walls and the airliner are solid.
-addSolid(ORIGIN, { lx0: A.tower.x - 4, lx1: A.tower.x + 4, lz0: A.tower.z - 4, lz1: A.tower.z + 4 }, true);
+// (The tower stands aside when the downloaded terminal, with its own tower, has loaded.)
+markOldAirport(addSolid(ORIGIN, { lx0: A.tower.x - 4, lx1: A.tower.x + 4, lz0: A.tower.z - 4, lz1: A.tower.z + 4 }, true));
 addSolid(ORIGIN, { lx0: A.hangar.x - A.hangar.w / 2, lx1: A.hangar.x + A.hangar.w / 2, lz0: A.hangar.z + A.hangar.d / 2 - 1, lz1: A.hangar.z + A.hangar.d / 2 }, true);
 for (const s of [-1, 1]) addSolid(ORIGIN, { lx0: A.hangar.x + s * (A.hangar.w / 2) - 0.6, lx1: A.hangar.x + s * (A.hangar.w / 2) + 0.6, lz0: A.hangar.z - A.hangar.d / 2, lz1: A.hangar.z + A.hangar.d / 2 }, true);
 /** The airliner parked at the gate. */
@@ -385,6 +387,28 @@ function Terminal() {
   );
 }
 
+/** Where the old terminal stood (between the road and the apron), once the new one's across the road: paved over, with a crossing to the apron. */
+function Forecourt() {
+  const T = A.terminal;
+  const concrete = mat("#bdb9b0", 0.92);
+  const paint = mat("#f2f2f2", 0.7);
+  const z0 = 70;
+  const z1 = A.apron.z0;
+  return (
+    <group>
+      <mesh position={[T.x, 0.04, (z0 + z1) / 2]} rotation-x={-Math.PI / 2} material={concrete} receiveShadow raycast={noRaycast}>
+        <planeGeometry args={[T.w + 40, z1 - z0]} />
+      </mesh>
+      {/* A zebra crossing over the road, from the terminal to here */}
+      {Array.from({ length: 8 }, (_, i) => (
+        <mesh key={i} position={[T.x - 14 + i * 4, 0.07, 58]} rotation-x={-Math.PI / 2} material={paint} raycast={noRaycast}>
+          <planeGeometry args={[2, 16]} />
+        </mesh>
+      ))}
+    </group>
+  );
+}
+
 function Windsock() {
   const sock = useRef<THREE.Group>(null);
   useFrame(({ clock }) => {
@@ -424,11 +448,14 @@ function FuelTruck() {
 }
 
 export function Airport() {
+  // The downloaded terminal (life size, across the road), once it's loaded: it takes the place of the old terminal and control tower.
+  const swapped = useTerminalSwap();
   return (
     <group>
       <Paving />
-      <Terminal />
-      <Tower />
+      {swapped ? <Forecourt /> : <Terminal />}
+      {!swapped && <Tower />}
+      <TerminalLandmark />
       <Static>
         <Hangar />
         <Airliner x={JET.x} z={JET.z} color="#f2f4f7" stripe="#ff5a1f" />

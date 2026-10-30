@@ -230,9 +230,27 @@ export function addRound(site: Site, lx: number, lz: number, r: number) {
   const circle = { x: p.x, z: p.z, r };
   addTo(p.x, p.z, r, (c) => c.circles.push(circle));
 }
+/**
+ * The airport's old buildings stand aside when the downloaded terminal has
+ * loaded (asset-models.tsx sets this): the old terminal's walls and desks
+ * and the old control tower stop being solid.
+ */
+export const airportSwap = { terminal: false };
+/** Boxes that belong to the old airport buildings (skipped while airportSwap.terminal is on). */
+const oldAirport = new Set<Box>();
+/** Mark a solid box as one of the old airport buildings' (airport.tsx: the control tower). */
+export const markOldAirport = (b: Box) => oldAirport.add(b);
+const skip = (b: Box) => airportSwap.terminal && oldAirport.has(b);
+
 for (const r of ROOMS) {
-  for (const w of roomWalls(r)) addSolid(r.site, w, true);
-  for (const b of r.solids) addSolid(r.site, b);
+  for (const w of roomWalls(r)) {
+    const b = addSolid(r.site, w, true);
+    if (r.key === "terminal") oldAirport.add(b);
+  }
+  for (const s of r.solids) {
+    const b = addSolid(r.site, s);
+    if (r.key === "terminal") oldAirport.add(b);
+  }
   for (const o of r.rounds) addRound(r.site, o.lx, o.lz, o.r);
 }
 
@@ -246,8 +264,8 @@ export function addSwitchable(box: Box, on: () => boolean) {
 export function roomsBlock(x: number, z: number, r: number) {
   const c = grid.get(`${Math.floor(x / CELL)},${Math.floor(z / CELL)}`);
   if (c) {
-    for (const b of c.walls) if (hitsBox(x, z, r, b)) return true;
-    for (const b of c.boxes) if (hitsBox(x, z, r, b)) return true;
+    for (const b of c.walls) if (!skip(b) && hitsBox(x, z, r, b)) return true;
+    for (const b of c.boxes) if (!skip(b) && hitsBox(x, z, r, b)) return true;
     for (const o of c.circles) if (Math.hypot(x - o.x, z - o.z) < r + o.r) return true;
   }
   for (const s of switchable) if (Math.abs(s.box.x - x) < 30 && Math.abs(s.box.z - z) < 30 && s.on() && hitsBox(x, z, r, s.box)) return true;
@@ -256,6 +274,6 @@ export function roomsBlock(x: number, z: number, r: number) {
 /** Just the walls (for the camera: it can see over counters). */
 export function roomWallsBlock(x: number, z: number, r: number) {
   const c = grid.get(`${Math.floor(x / CELL)},${Math.floor(z / CELL)}`);
-  if (c) for (const b of c.walls) if (hitsBox(x, z, r, b)) return true;
+  if (c) for (const b of c.walls) if (!skip(b) && hitsBox(x, z, r, b)) return true;
   return false;
 }
