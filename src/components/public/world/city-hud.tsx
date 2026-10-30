@@ -211,9 +211,11 @@ export function CityHud({
         {/* Wanted: stars, the countdown and the way to the secret base */}
         {w && (
           <div className="pointer-events-auto mt-1 flex items-center gap-3 rounded-2xl border-[3px] border-black bg-black/85 px-4 py-2 text-white shadow-lg" role="status">
-            <div className="grid size-11 place-items-center rounded-full bg-[#ffd21f]/15" title="The secret base is this way">
-              <NavigationIcon className="size-6 fill-[#ffd21f] text-[#ffd21f] transition-transform duration-200" style={{ transform: `rotate(${arrow}deg)` }} />
-            </div>
+            {w.site !== "street" && (
+              <div className="grid size-11 place-items-center rounded-full bg-[#ffd21f]/15" title="The secret base is this way">
+                <NavigationIcon className="size-6 fill-[#ffd21f] text-[#ffd21f] transition-transform duration-200" style={{ transform: `rotate(${arrow}deg)` }} />
+              </div>
+            )}
             <div className="flex flex-col items-start gap-0.5">
               <div className="flex gap-1">
                 {[0, 1, 2].map((k) => (
@@ -221,16 +223,22 @@ export function CityHud({
                 ))}
               </div>
               <p className="font-heading text-base leading-none font-extrabold tracking-wide uppercase">
-                {w.haul > 0 ? "Get the loot to the base!" : "Grab the loot!"}{" "}
+                {w.site === "street" ? "Lose the cops!" : w.haul > 0 ? "Get the loot to the base!" : "Grab the loot!"}{" "}
                 <span className={cn("tabular-nums", left <= 30 && "text-[#ff5a4a]")}>
                   {Math.floor(left / 60)}:{String(left % 60).padStart(2, "0")}
                 </span>
               </p>
               <div className="h-1.5 w-44 overflow-hidden rounded-full bg-white/20">
-                <div className="h-full rounded-full bg-[#ffd21f] transition-[width] duration-300" style={{ width: `${Math.max(0, (left / DELIVER_TIME) * 100)}%` }} />
+                <div className="h-full rounded-full bg-[#ffd21f] transition-[width] duration-300" style={{ width: `${Math.max(0, (left / (w.site === "street" ? Math.max(1, w.until - w.startedAt) : DELIVER_TIME)) * 100)}%` }} />
               </div>
               <p className="text-xs text-white/75">
-                {Math.round(g.distance)} m to the secret base · loot in your bag: <span className="font-bold text-[#ffd21f]">{usd(w.haul)}</span>
+                {w.site === "street" ? (
+                  "Don't let them catch you, or it's off to jail."
+                ) : (
+                  <>
+                    {Math.round(g.distance)} m to the secret base · loot in your bag: <span className="font-bold text-[#ffd21f]">{usd(w.haul)}</span>
+                  </>
+                )}
               </p>
             </div>
           </div>

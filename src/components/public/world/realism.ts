@@ -104,6 +104,11 @@ const LITE = { plain: patch("plain", true), textured: patch("textured", true), m
 /** Lite: just the colour (for the Fast graphics setting). Decided when each material is first seen. */
 export const realism = { lite: false };
 
+/** For materials with their own shader tweaks (detail.ts, the towers): add the real-life colour and weathering first. */
+export function realShader(shader: THREE.WebGLProgramParametersWithUniforms, kind: keyof typeof PATCHES = "plain") {
+  (realism.lite ? LITE : PATCHES)[kind](shader);
+}
+
 const seen = new WeakSet<THREE.Material>();
 
 /** Give one material the real-life treatment (once). */

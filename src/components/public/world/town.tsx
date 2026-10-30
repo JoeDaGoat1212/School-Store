@@ -6,6 +6,7 @@ import * as THREE from "three";
 import { Humanoid, newPose, type Look } from "./humanoid";
 import { canvasTexture, noRaycast, seededRandom } from "./paint";
 import { asphaltMaterial, pavingMaterial } from "./surfaces";
+import { surface } from "./detail";
 import {
   BUSHES,
   CURB,
@@ -354,6 +355,131 @@ const placePath: Place = (i, o) => {
   o.scale.set(2, 0.08, h.setback);
 };
 
+// ---- The finer details (like the bank: trim, sills, real surfaces) ----
+
+/** What each house's walls are made of: classics in brick, modern boxes rendered, the rest in lap siding. */
+const BRICK_HOUSES = HOUSE_IDS.filter((i) => styleOf(i) === 0);
+const RENDERED_HOUSES = FLAT;
+const SIDED_HOUSES = HOUSE_IDS.filter((i) => styleOf(i) !== 0 && styleOf(i) !== 2);
+const BRICKS = ["#8e3b2b", "#a0563f", "#7a4033", "#9a6a52", "#b07a5c"];
+const wallsOf =
+  (list: number[], color?: (i: number) => string): Place =>
+  (k, o) => {
+    const c = placeWall(list[k], o);
+    return color ? color(list[k]) : c;
+  };
+const placeBrickWall = wallsOf(BRICK_HOUSES, (i) => BRICKS[i % BRICKS.length]);
+const placeRenderWall = wallsOf(RENDERED_HOUSES);
+const placeSidedWall = wallsOf(SIDED_HOUSES);
+const TRIM = "#eeebe3";
+
+/** A concrete foundation showing under every house. */
+const placeFoundation: Place = (i, o) => {
+  const h = HOUSES[i];
+  onHouse(h, 0, 0.45, 0, o);
+  o.scale.set(h.w + 0.36, 0.9, h.d + 0.36);
+};
+/** Corner boards up each corner (not on the modern ones). */
+const CORNERED = HOUSE_IDS.filter((i) => styleOf(i) !== 2);
+const placeCorner: Place = (k, o) => {
+  const i = CORNERED[k >> 2];
+  const h = HOUSES[i];
+  onHouse(h, (k & 1 ? 1 : -1) * (h.w / 2), wallH(i) / 2 + 0.45, (k & 2 ? 1 : -1) * (h.d / 2), o);
+  o.scale.set(0.5, wallH(i) - 0.9, 0.5);
+};
+/** Fascia boards along the eaves (front and back), with a gutter under each. */
+const EAVED = [...GABLED, ...HIPPED];
+const eaveOut = (i: number) => (styleOf(i) === 3 ? 0.7 : 0.6);
+const placeFascia: Place = (k, o) => {
+  const i = EAVED[k >> 1];
+  const h = HOUSES[i];
+  onHouse(h, 0, wallH(i) + 0.1, (k & 1 ? 1 : -1) * (h.d / 2 + eaveOut(i)), o);
+  o.scale.set(h.w + eaveOut(i) * 2 + 0.1, 0.45, 0.22);
+};
+const placeGutter: Place = (k, o) => {
+  const i = EAVED[k >> 1];
+  const h = HOUSES[i];
+  onHouse(h, 0, wallH(i) - 0.1, (k & 1 ? 1 : -1) * (h.d / 2 + eaveOut(i) + 0.2), o);
+  o.rotation.z = Math.PI / 2;
+  o.scale.set(0.16, h.w + eaveOut(i) * 2, 0.16);
+};
+/** Hipped roofs have eaves on the sides too. */
+const placeHipSide: Place = (k, o) => {
+  const i = HIPPED[k >> 1];
+  const h = HOUSES[i];
+  onHouse(h, (k & 1 ? 1 : -1) * (h.w / 2 + 0.7), wallH(i) + 0.1, 0, o);
+  o.scale.set(0.22, 0.45, h.d + 1.5);
+};
+/** Rake boards up the gable ends. */
+const placeRake: Place = (k, o) => {
+  const i = GABLED[k >> 2];
+  const h = HOUSES[i];
+  const rise = h.roofH * (styleOf(i) === 4 ? 1.25 : 1);
+  const run = (h.d + 1.2) / 2;
+  const side = k & 1 ? 1 : -1;
+  const front = k & 2 ? 1 : -1;
+  onHouse(h, side * ((h.w + 1.2) / 2 + 0.05), wallH(i) + rise / 2, (front * run) / 2, o);
+  o.rotation.order = "YXZ";
+  o.rotation.x = front * Math.atan2(rise, run);
+  o.scale.set(0.2, 0.42, Math.hypot(rise, run) + 0.3);
+};
+/** A cap on each chimney. */
+const placeChimneyCap: Place = (k, o) => {
+  const i = WITH_CHIMNEY[k];
+  const h = HOUSES[i];
+  onHouse(h, h.w / 4, wallH(i) + h.roofH * 1.0 + 0.75, -h.d / 5, o);
+  o.scale.set(1.6, 0.3, 1.6);
+};
+/** Window sills under, and a head (lintel) over, each front window. */
+const placeSill: Place = (k, o) => {
+  const { i, side, y } = FRONT_WINDOWS[k];
+  const h = HOUSES[i];
+  onHouse(h, side * (h.w / 4 + 0.6), h.h * y - 1.35, h.d / 2 + 0.24, o);
+  o.scale.set(3.2, 0.22, 0.5);
+};
+const placeHead: Place = (k, o) => {
+  const { i, side, y } = FRONT_WINDOWS[k];
+  const h = HOUSES[i];
+  onHouse(h, side * (h.w / 4 + 0.6), h.h * y + 1.4, h.d / 2 + 0.16, o);
+  o.scale.set(3.1, 0.34, 0.32);
+  return styleOf(i) === 0 ? "#d8d2c4" : TRIM;
+};
+/** Glazing bars across each front window (a cross: one up, one across). */
+const placeMuntin: Place = (k, o) => {
+  const { i, side, y } = FRONT_WINDOWS[k >> 1];
+  const h = HOUSES[i];
+  onHouse(h, side * (h.w / 4 + 0.6), h.h * y, h.d / 2 + 0.19, o);
+  if (k & 1) o.scale.set(2.2, 0.09, 0.05);
+  else o.scale.set(0.09, 2.0, 0.05);
+};
+/** A frame round the front door, and a step in front of it. */
+const doorX = (i: number) => (styleOf(i) === 2 ? -HOUSES[i].w / 4 : 0);
+const placeDoorFrame: Place = (i, o) => {
+  const h = HOUSES[i];
+  onHouse(h, doorX(i), 1.95, h.d / 2 + 0.06, o);
+  o.scale.set(2.4, 3.9, 0.14);
+  return styleOf(i) === 2 ? "#2b2f36" : TRIM;
+};
+const placeStep: Place = (i, o) => {
+  const h = HOUSES[i];
+  onHouse(h, doorX(i), 0.22, h.d / 2 + 0.8, o);
+  o.scale.set(3, 0.44, 1.4);
+};
+/** Porch rails between the posts. */
+const placePorchRail: Place = (k, o) => {
+  const i = PORCHED[k];
+  const h = HOUSES[i];
+  onHouse(h, 0, 1.7, h.d / 2 + 3, o);
+  o.scale.set(h.w - 2.4, 0.16, 0.16);
+};
+/** The modern houses' roof edge: a thin metal coping. */
+const placeCoping: Place = (k, o) => {
+  const i = FLAT[k];
+  const h = HOUSES[i];
+  onHouse(h, 0, wallH(i) + 0.55, 0, o);
+  o.scale.set(h.w + 1.75, 0.12, h.d + 1.75);
+};
+
 function Houses() {
   const n = HOUSES.length;
   const roof = useMemo(() => roofGeometry(), []);
@@ -367,15 +493,82 @@ function Houses() {
   );
   return (
     <group>
-      <Instances count={n} place={placeWall} castShadow receiveShadow>
+      {/* Walls: brick, render or lap siding (detail.ts), on a concrete foundation */}
+      <Instances count={BRICK_HOUSES.length} place={placeBrickWall} castShadow receiveShadow>
         <boxGeometry />
-        <meshStandardMaterial roughness={0.85} />
+        <primitive object={surface("brick")} attach="material" />
       </Instances>
+      <Instances count={RENDERED_HOUSES.length} place={placeRenderWall} castShadow receiveShadow>
+        <boxGeometry />
+        <primitive object={surface("stucco", "#ffffff", 0.9)} attach="material" />
+      </Instances>
+      <Instances count={SIDED_HOUSES.length} place={placeSidedWall} castShadow receiveShadow>
+        <boxGeometry />
+        <primitive object={surface("siding")} attach="material" />
+      </Instances>
+      <Instances count={n} place={placeFoundation} receiveShadow>
+        <boxGeometry />
+        <primitive object={surface("concrete", "#9a968e", 0.95)} attach="material" />
+      </Instances>
+      {/* Shingled roofs */}
       <Instances count={GABLED.length} place={placeRoof} geometry={roof} castShadow>
-        <meshStandardMaterial roughness={0.8} />
+        <primitive object={surface("shingle", "#ffffff", 0.9)} attach="material" />
       </Instances>
       <Instances count={HIPPED.length} place={placeHip} geometry={hip} castShadow>
-        <meshStandardMaterial roughness={0.8} flatShading />
+        <primitive object={surface("shingle", "#ffffff", 0.9)} attach="material" />
+      </Instances>
+      {/* Trim: corner boards, fascias and gutters, rake boards, sills, window heads, glazing bars, door frames and steps */}
+      <Instances count={CORNERED.length * 4} place={placeCorner}>
+        <boxGeometry />
+        <meshStandardMaterial color={TRIM} roughness={0.6} />
+      </Instances>
+      <Instances count={EAVED.length * 2} place={placeFascia} castShadow>
+        <boxGeometry />
+        <meshStandardMaterial color={TRIM} roughness={0.6} />
+      </Instances>
+      <Instances count={EAVED.length * 2} place={placeGutter}>
+        <cylinderGeometry args={[1, 1, 1, 8]} />
+        <meshStandardMaterial color="#5b6066" roughness={0.4} metalness={0.6} />
+      </Instances>
+      <Instances count={HIPPED.length * 2} place={placeHipSide}>
+        <boxGeometry />
+        <meshStandardMaterial color={TRIM} roughness={0.6} />
+      </Instances>
+      <Instances count={GABLED.length * 4} place={placeRake}>
+        <boxGeometry />
+        <meshStandardMaterial color={TRIM} roughness={0.6} />
+      </Instances>
+      <Instances count={FRONT_WINDOWS.length} place={placeSill}>
+        <boxGeometry />
+        <meshStandardMaterial color={TRIM} roughness={0.6} />
+      </Instances>
+      <Instances count={FRONT_WINDOWS.length} place={placeHead}>
+        <boxGeometry />
+        <meshStandardMaterial roughness={0.7} />
+      </Instances>
+      <Instances count={FRONT_WINDOWS.length * 2} place={placeMuntin}>
+        <boxGeometry />
+        <meshStandardMaterial color="#ffffff" roughness={0.6} />
+      </Instances>
+      <Instances count={n} place={placeDoorFrame}>
+        <boxGeometry />
+        <meshStandardMaterial roughness={0.6} />
+      </Instances>
+      <Instances count={n} place={placeStep} receiveShadow>
+        <boxGeometry />
+        <primitive object={surface("concrete", "#b3aea4", 0.95)} attach="material" />
+      </Instances>
+      <Instances count={PORCHED.length} place={placePorchRail}>
+        <boxGeometry />
+        <meshStandardMaterial color="#f2f0ea" roughness={0.7} />
+      </Instances>
+      <Instances count={FLAT.length} place={placeCoping}>
+        <boxGeometry />
+        <meshStandardMaterial color="#7d848c" roughness={0.35} metalness={0.7} />
+      </Instances>
+      <Instances count={WITH_CHIMNEY.length} place={placeChimneyCap}>
+        <boxGeometry />
+        <primitive object={surface("concrete", "#8f8b84")} attach="material" />
       </Instances>
       <Instances count={FLAT.length} place={placeFlat} castShadow>
         <boxGeometry />
@@ -411,11 +604,11 @@ function Houses() {
       </Instances>
       <Instances count={WITH_CHIMNEY.length} place={placeChimney} castShadow>
         <boxGeometry />
-        <meshStandardMaterial color="#9a4a3a" roughness={0.9} />
+        <primitive object={surface("brick", "#8e4636")} attach="material" />
       </Instances>
       <Instances count={PORCHED.length} place={placePorch} receiveShadow>
         <boxGeometry />
-        <meshStandardMaterial roughness={0.8} />
+        <primitive object={surface("planks")} attach="material" />
       </Instances>
       <Instances count={PORCHED.length} place={placePorchRoof} castShadow>
         <boxGeometry />
@@ -427,15 +620,15 @@ function Houses() {
       </Instances>
       <Instances count={GARAGED.length} place={placeGarage} castShadow receiveShadow>
         <boxGeometry />
-        <meshStandardMaterial roughness={0.85} />
+        <primitive object={surface("siding")} attach="material" />
       </Instances>
       <Instances count={GARAGED.length} place={placeGarageDoor}>
         <boxGeometry />
-        <meshStandardMaterial color="#e9ecef" roughness={0.5} metalness={0.3} />
+        <primitive object={surface("panel", "#e2e4e6", 0.5, 0.2)} attach="material" />
       </Instances>
       <Instances count={n} place={placePath} receiveShadow>
         <boxGeometry />
-        <meshStandardMaterial color="#cfc8bb" roughness={0.9} />
+        <primitive object={surface("stone", "#c8c0b2", 0.92)} attach="material" />
       </Instances>
     </group>
   );
@@ -590,8 +783,8 @@ function walkerAt(w: (typeof WALKERS)[number], t: number) {
   };
 }
 
-/** Where everyone is walking right now (for cars to stop for them). */
-export const walkerSpots: { x: number; z: number }[] = WALKERS.map(() => ({ x: 0, z: 0 }));
+/** Where everyone is walking right now, and which way they're facing (for cars to stop for them, and for pickpocketing). */
+export const walkerSpots: { x: number; z: number; heading: number }[] = WALKERS.map(() => ({ x: 0, z: 0, heading: 0 }));
 
 /** How many of the nearest people are drawn in full detail (the rest are simpler, further off). */
 const NEAR_PEOPLE = 10;
@@ -685,6 +878,7 @@ function Walkers() {
       const p = walkerAt(w, t);
       walkerSpots[i].x = p.x;
       walkerSpots[i].z = p.z;
+      walkerSpots[i].heading = p.heading;
       // Drawn in full detail instead: tuck the simple one away.
       const s = nearSet.current.has(i) ? 0.0001 : w.height / 0.83;
       const swing = Math.sin(t * w.speed * 2.6 + i) * 0.5;

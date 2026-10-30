@@ -82,7 +82,7 @@ export const game = {
   /** What's been taken (loot id → when). */
   taken: new Map<string, number>(),
   /** While the police are after you: which robbery, when it started, the deadline, and the loot you're carrying. */
-  wanted: null as null | { site: SiteKey; startedAt: number; until: number; haul: number },
+  wanted: null as null | { site: SiteKey | "street"; startedAt: number; until: number; haul: number },
   prompt: null as Prompt | null,
   /** The bank's teller window is open. */
   teller: false,
@@ -181,6 +181,15 @@ export function vaultTime() {
   return at < 0 ? -1 : game.now - at;
 }
 export const vaultOpen = () => vaultTime() >= VAULT.openUntil - 0.6;
+
+/** A street crime someone saw (a pickpocketing gone wrong): the police come after you for a while. Lose them, or get busted. */
+export function streetChase(seconds: number, why: string) {
+  if (game.wanted) game.wanted.until = Math.max(game.wanted.until, game.now + seconds);
+  else game.wanted = { site: "street", startedAt: game.now, until: game.now + seconds, haul: 0 };
+  banner("alarm", "Police!", why);
+  sound.alarm(true);
+  changed();
+}
 
 export function soundAlarm(site: SiteKey, why: string) {
   const s = game.sites[site];
@@ -344,7 +353,8 @@ export function tick(now: number, dt: number, you: { x: number; z: number; y: nu
     } else if (now > w.until) {
       game.wanted = null;
       sound.alarm(false);
-      banner("busted", "Too slow!", w.haul > 0 ? `The loot got too hot. You dumped ${usd(w.haul)}.` : "The police lost interest.");
+      if (w.site === "street") banner("escaped", "You got away!", "The police lost you.");
+      else banner("busted", "Too slow!", w.haul > 0 ? `The loot got too hot. You dumped ${usd(w.haul)}.` : "The police lost interest.");
       closeAlarmedSites();
       dirty = true;
     }

@@ -131,9 +131,10 @@ export type House = {
   setback: number;
 };
 
-const WALLS = ["#f4e3c1", "#cfe3ef", "#f6c9b6", "#dbe8c9", "#f2f0ea", "#e8d1ea", "#fbe7a1", "#c9d9f2", "#e7c7a1"];
-const ROOFS = ["#7a3b2e", "#4b5563", "#2f4858", "#8b5a3c", "#5b3a5e", "#3f6b4f"];
-const DOORS = ["#c0392b", "#1f6f8b", "#2d6a4f", "#f2c14e", "#5c4033", "#ffffff"];
+// Real house paint, roofing and door colours (not toy pastels). Same number of each as before, so every house keeps its place.
+const WALLS = ["#e6dccb", "#b9c3c7", "#d3c2a8", "#a9b39b", "#ecebe6", "#c8bfae", "#d9c9a3", "#8d9aa3", "#c4a98a"];
+const ROOFS = ["#4a3f3a", "#3d4045", "#4b5056", "#5a463a", "#2f3236", "#5f5a52"];
+const DOORS = ["#7a2a22", "#2a3f4d", "#2f4a3a", "#b08a3e", "#4a3426", "#e9e6df"];
 
 export const HOUSES: House[] = (() => {
   const rand = seededRandom(1234);

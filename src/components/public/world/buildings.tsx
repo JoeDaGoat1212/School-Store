@@ -8,12 +8,13 @@ import { drive } from "./drive";
 import { Humanoid, newPose, randomLook, type Look } from "./humanoid";
 import { jobs, type Customer } from "./jobs";
 import { MENUS } from "./menus";
-import { canvasTexture, noRaycast, seededRandom, signTexture } from "./paint";
+import { canvasTexture, noRaycast, signTexture } from "./paint";
 import { roomOf, shopPlan, type Room } from "./rooms";
 import { SHOPS, type ShopKey } from "./world-map";
 import { toWorld } from "./city-layout";
 import { Near } from "./near";
 import { Static } from "./static-merge";
+import { surface } from "./detail";
 
 /*
  * The walk-in buildings on Restaurant Row (the five places you can work),
@@ -78,39 +79,11 @@ export type ShellStyle = {
   tallGlass?: boolean;
 };
 
-function brickTexture(color: string) {
-  const c = document.createElement("canvas");
-  c.width = 256;
-  c.height = 256;
-  const g = c.getContext("2d")!;
-  g.fillStyle = "#d8d0c4";
-  g.fillRect(0, 0, 256, 256);
-  const base = new THREE.Color(color);
-  const rand = seededRandom(color.length * 131 + color.charCodeAt(1));
-  for (let row = 0; row < 16; row++)
-    for (let col = 0; col < 8; col++) {
-      const k = 0.85 + rand() * 0.25;
-      g.fillStyle = `rgb(${(base.r * 255 * k) | 0},${(base.g * 255 * k) | 0},${(base.b * 255 * k) | 0})`;
-      g.fillRect(col * 32 + (row % 2) * 16 + 1, row * 16 + 1, 30, 14);
-    }
-  return canvasTexture(c, [1, 1]);
-}
-
-const brickCache = new Map<string, THREE.Texture>();
+/** The outside walls: real brick (with recessed mortar), render or metal panels (detail.ts). */
 function facadeMat(style: ShellStyle) {
-  const key = `${style.facade}|${style.wall}`;
-  let m = mats.get(key);
-  if (!m) {
-    if (style.facade === "brick") {
-      let t = brickCache.get(style.wall);
-      if (!t) brickCache.set(style.wall, (t = brickTexture(style.wall)));
-      t.wrapS = t.wrapT = THREE.RepeatWrapping;
-      t.repeat.set(3, 2);
-      m = new THREE.MeshStandardMaterial({ map: t, roughness: 0.92 });
-    } else m = new THREE.MeshStandardMaterial({ color: style.wall, roughness: style.facade === "panel" ? 0.35 : 0.85, metalness: style.facade === "panel" ? 0.35 : 0 });
-    mats.set(key, m);
-  }
-  return m;
+  if (style.facade === "brick") return surface("brick", style.wall, 0.92);
+  if (style.facade === "panel") return surface("panel", style.wall, 0.35, 0.35);
+  return surface("stucco", style.wall, 0.88);
 }
 
 /** Sliding glass doors in the middle of a front wall (they open as you walk up). */
@@ -146,6 +119,14 @@ export function SlideDoors({ room, height = 3.4 }: { room: Room; height?: number
     </group>
   );
 }
+
+/** Stone for the trim round every shop: the plinth, the piers and the cornice. */
+const stone = (color: string) => surface("stone", color, 0.85);
+const BASE = "#7f7b74";
+const PIER = "#c9bfac";
+const CAP = "#d6cdbb";
+/** Dark glass for the side windows (they're shut; the shop's inside is drawn behind its own walls). */
+const SIDE_GLASS = new THREE.MeshStandardMaterial({ color: "#1d2630", roughness: 0.08, metalness: 0.8 });
 
 /** Four walls with a glass shopfront, a roof, a sign and an awning. Children go inside (in the building's frame). */
 export function Shell({ room, style, children }: { room: Room; style: ShellStyle; children?: ReactNode }) {
@@ -225,6 +206,38 @@ export function Shell({ room, style, children }: { room: Room; style: ShellStyle
       <Block x0={-W - 0.2} x1={W + 0.2} y0={glassTop - 0.12} y1={glassTop + 0.05} z0={-t - 0.05} z1={0.12} m={trim} />
       {/* Roof with a parapet and some machinery */}
       <Block x0={-W - 0.3} x1={W + 0.3} y0={H} y1={H + 0.8} z0={-D - 0.3} z1={0.3} m={trim} cast />
+      {/* ---- The finer details (like the bank) ---- */}
+      {/* A stone plinth round the bottom (either side of the doors at the front) */}
+      <Block x0={-W - 0.18} x1={-W + 0.2} y0={0} y1={0.9} z0={-D - 0.18} z1={0.18} m={stone(BASE)} />
+      <Block x0={W - 0.2} x1={W + 0.18} y0={0} y1={0.9} z0={-D - 0.18} z1={0.18} m={stone(BASE)} />
+      <Block x0={-W - 0.18} x1={W + 0.18} y0={0} y1={0.9} z0={-D - 0.18} z1={-D + 0.2} m={stone(BASE)} />
+      {[-1, 1].map((s) => (
+        <Block key={s} x0={s < 0 ? -W - 0.18 : room.doorHalf + 0.1} x1={s < 0 ? -room.doorHalf - 0.1 : W + 0.18} y0={0} y1={0.75} z0={-0.1} z1={0.18} m={stone(BASE)} />
+      ))}
+      {/* Stone piers up the front corners, with a capital at the top */}
+      {[-1, 1].map((s) => (
+        <group key={s}>
+          <Block x0={s < 0 ? -W - 0.4 : W - 1} x1={s < 0 ? -W + 1 : W + 0.4} y0={0} y1={H} z0={-0.7} z1={0.4} m={stone(PIER)} cast />
+          <Block x0={s < 0 ? -W - 0.6 : W - 1.2} x1={s < 0 ? -W + 1.2 : W + 0.6} y0={H - 0.9} y1={H - 0.55} z0={-0.8} z1={0.6} m={stone(CAP)} />
+        </group>
+      ))}
+      {/* A cornice: a frieze band, a row of dentils under it, and a projecting lip over the parapet */}
+      <Block x0={-W - 0.3} x1={W + 0.3} y0={H - 0.55} y1={H} z0={-0.1} z1={0.35} m={stone(CAP)} />
+      {Array.from({ length: Math.floor((W * 2) / 0.9) }, (_, i) => -W + 0.45 + i * 0.9).map((x) => (
+        <Block key={x} x0={x - 0.18} x1={x + 0.18} y0={H - 0.85} y1={H - 0.55} z0={-0.05} z1={0.28} m={stone(CAP)} />
+      ))}
+      <Block x0={-W - 0.65} x1={W + 0.65} y0={H + 0.8} y1={H + 1.1} z0={-D - 0.65} z1={0.65} m={stone(CAP)} cast />
+      {/* Tall windows down both sides, each with a stone sill and lintel */}
+      {[-1, 1].flatMap((s) =>
+        Array.from({ length: Math.max(0, Math.floor((D - 6) / 7)) }, (_, i) => -4 - i * 7).map((z) => (
+          <group key={`${s}${z}`} position={[s * (W + 0.03), 0, z]}>
+            <Block x0={-0.02} x1={0.02} y0={1.6} y1={Math.min(H - 1.6, 6.2)} z0={-1.3} z1={1.3} m={SIDE_GLASS} />
+            <Block x0={-0.08} x1={0.08} y0={1.6} y1={Math.min(H - 1.6, 6.2)} z0={-0.06} z1={0.06} m={trim} />
+            <Block x0={-0.25} x1={0.25} y0={1.35} y1={1.6} z0={-1.6} z1={1.6} m={stone(CAP)} />
+            <Block x0={-0.15} x1={0.15} y0={Math.min(H - 1.6, 6.2)} y1={Math.min(H - 1.6, 6.2) + 0.45} z0={-1.55} z1={1.55} m={stone(CAP)} />
+          </group>
+        )),
+      )}
       <Block x0={-W * 0.5} x1={-W * 0.5 + 3} y0={H + 0.8} y1={H + 2.2} z0={-D * 0.6} z1={-D * 0.6 + 2.4} m={mat("#9aa3ad", 0.5, 0.6)} />
       {/* The sign */}
       <mesh position={[0, glassTop + (H - glassTop) / 2 + 0.3, 0.16]} raycast={noRaycast}>
