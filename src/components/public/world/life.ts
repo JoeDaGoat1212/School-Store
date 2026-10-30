@@ -1,19 +1,18 @@
 /*
- * Staying alive: hunger and health. Plain TypeScript (no 3D code).
+ * Staying alive: health. Plain TypeScript (no 3D code).
  *
- *   - Hunger runs down over about 18 minutes of play. Eat at Slice Society,
- *     Polar Scoops, Bean There or Smash Stack to fill it back up.
- *   - At empty, you start to starve: health drains, and at zero you pass out
- *     (die). You wake up at the store (or your house) and the cash you were
- *     carrying is gone. Money in the bank is safe.
+ *   - There's no hunger any more (you never have to eat; the food places
+ *     still sell food). life.hunger stays full.
+ *   - Lose all your health and you pass out (die). You wake up at the store
+ *     (or your house) and the cash you were carrying is gone. Money in the
+ *     bank is safe.
  *   - The lasers in the bank vault and the jewelry shop kill you instantly.
- *   - Health comes back slowly while you're fed.
+ *   - Health comes back slowly.
  *
  * Whoever's in charge of the world calls tickLife() every frame.
  */
 
 export const HUNGER_MINUTES = 18;
-const STARVE_SECONDS = 45;
 
 export type Death = { reason: "hunger" | "laser" | "fall" | "crash"; at: number };
 
@@ -53,21 +52,11 @@ export function revive() {
   life.warned = 0;
 }
 
-/** One frame. Returns "hungry" / "starving" the moment a warning is due (once each), else null. */
+/** One frame: health slowly comes back. (No hunger any more: you never need to eat. Food still tops you up.) */
 export function tickLife(dt: number, paused: boolean): "hungry" | "starving" | null {
   life.clock += dt;
   if (life.dead || paused) return null;
-  life.hunger = Math.max(0, life.hunger - (100 / (HUNGER_MINUTES * 60)) * dt);
-  if (life.hunger <= 0) life.health -= (100 / STARVE_SECONDS) * dt;
-  else if (life.hunger > 30) life.health = Math.min(100, life.health + 2 * dt);
-  if (life.health <= 0) kill("hunger");
-  if (life.hunger < 25 && life.warned < 1) {
-    life.warned = 1;
-    return "hungry";
-  }
-  if (life.hunger <= 0 && life.warned < 2) {
-    life.warned = 2;
-    return "starving";
-  }
+  life.hunger = 100;
+  life.health = Math.min(100, life.health + 2 * dt);
   return null;
 }

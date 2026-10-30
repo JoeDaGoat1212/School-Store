@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { BAG, CUP, PUTTER, carryOf, playOut, puttSpeed, rollBall, speedFor, strike } from "./golf-physics";
 import { HOLES, PAR, SURF, YARD, golfHeight, outOfBounds, surfaceAt, teeSpot, waterAt, type Surface } from "./golf-course";
 import type { Ground } from "./golf-physics";
-import { golf, quitGolf, releaseCharge, startCharge, startRange, startRound, tickGolf } from "./golf-state";
+import { PERFECT, golf, needle, needlePeriod, powerBar, pressSwing, quitGolf, startRange, startRound, tickGolf } from "./golf-state";
 import { interaction, tickInteract } from "./interact";
 
 // A flat fairway, for checking the clubs on their own.
@@ -90,15 +90,54 @@ describe("putting", () => {
   });
 });
 
+describe("the swing bars", () => {
+  it("fill the power bar to the top (and a little over) and back", () => {
+    expect(powerBar(0)).toBe(0);
+    expect(powerBar(1.3)).toBeCloseTo(1.1, 5);
+    expect(powerBar(2.6)).toBeCloseTo(0, 5);
+    expect(powerBar(0.65)).toBeCloseTo(0.55, 5);
+  });
+  it("swing the accuracy needle from the left, through the middle, to the right and back", () => {
+    const T = needlePeriod(false, 1);
+    expect(needle(0, T)).toBe(-1);
+    expect(Math.abs(needle(T / 4, T))).toBeLessThan(PERFECT);
+    expect(needle(T / 2, T)).toBeCloseTo(1, 5);
+    expect(needle(T, T)).toBeCloseTo(-1, 5);
+    // A putt's needle is slower.
+    expect(needlePeriod(true, 1)).toBeGreaterThan(T);
+  });
+});
+
+describe("hitting it with the accuracy bar", () => {
+  const club = BAG[0];
+  const go = (acc: number) => playOut(strike(club, 1, 0, 1, { x: 0, y: 0, z: 0 }, SURF.fairway, () => 0.5, acc).ball, flat).ball;
+  it("flies a dead-centre strike straight, and curves a miss the way the needle was", () => {
+    const mid = go(0);
+    const right = go(0.6);
+    const left = go(-0.6);
+    expect(Math.abs(mid.x / YARD)).toBeLessThan(5);
+    // Aiming down +z, right is −x.
+    expect(-right.x / YARD).toBeGreaterThan(20);
+    expect(left.x / YARD).toBeGreaterThan(20);
+    expect(Math.hypot(mid.x, mid.z)).toBeGreaterThan(Math.hypot(right.x, right.z));
+  });
+});
+
 describe("playing", () => {
   let t = 1;
   const tick = (frames: number) => {
     for (let i = 0; i < frames; i++) tickGolf((t += 1 / 60), 1 / 60);
   };
+  /** Space for the power (when the bar's about 90%), Space for the accuracy (when the needle's in the middle). */
   const swing = () => {
-    startCharge();
-    tick(60);
-    releaseCharge();
+    // Watch the bar and press as it rises through 90%.
+    for (let i = 0; i < 400 && !(golf.power > 0.88 && golf.power < 0.95); i++) tick(1);
+    pressSwing();
+    expect(golf.charging).toBe(true);
+    expect(golf.power).toBeGreaterThan(0.8);
+    tick(Math.round((needlePeriod(Boolean(BAG[golf.club].putter), golf.power) / 4) * 60));
+    pressSwing();
+    expect(Math.abs(golf.acc)).toBeLessThan(0.1);
     tick(30);
     const hit = golf.shot !== null;
     tick(900);

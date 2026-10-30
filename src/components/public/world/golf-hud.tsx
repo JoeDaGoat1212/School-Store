@@ -18,9 +18,11 @@ import {
   lookingAtTarget,
   onGreen,
   quitGolf,
-  releaseCharge,
+  GOOD,
+  PERFECT,
+  pressSwing,
+  puttReach,
   setGolfRemote,
-  startCharge,
   startRound,
   toPar,
   toPin,
@@ -50,7 +52,8 @@ export function GolfHud() {
     const loop = (t: number) => {
       raf = requestAnimationFrame(loop);
       if (golf.mode === "off") return;
-      if (t - last > (golf.charging ? 16 : 120)) {
+      // (The swing bars move all the time you're at the ball.)
+      if (t - last > (golf.stage === "address" ? 16 : 120)) {
         last = t;
         setTick((n) => n + 1);
       }
@@ -192,7 +195,7 @@ export function GolfHud() {
           )}
           {round && <HoleMap hole={h} />}
           <div className="pointer-events-auto absolute inset-x-0 bottom-3 flex flex-col items-center gap-2 px-2">
-            <PowerMeter />
+            <SwingMeters />
             <div className="flex max-w-full gap-1 overflow-x-auto rounded-2xl bg-black/70 p-1.5 shadow-xl backdrop-blur">
               {BAG.map((c, i) => (
                 <button
@@ -214,7 +217,7 @@ export function GolfHud() {
             <p className="rounded-full bg-black/60 px-4 py-1 text-center text-xs text-white/90 backdrop-blur">
               <b>{club.name}</b> {club.putter ? "· the dotted line reads the putt" : `· ${club.carry} yds stock carry`} · <Key>←</Key>
               <Key>→</Key> aim (Shift: fine) · <Key>↑</Key>
-              <Key>↓</Key> club · <Key>C</Key> see where it lands · hold <Key>Space</Key> to swing · <Key>Esc</Key> step away
+              <Key>↓</Key> club · <Key>C</Key> see where it lands · <Key>Space</Key> set power, <Key>Space</Key> set accuracy · <Key>Esc</Key> step away
             </p>
             <button
               type="button"
@@ -273,21 +276,55 @@ function Stat({ label, value, tone }: { label: string; value: string; tone?: "go
 }
 const Key = ({ children }: { children: React.ReactNode }) => <kbd className="mx-0.5 rounded bg-white/20 px-1 font-bold">{children}</kbd>;
 
-/** The swing meter: fills while you hold, red past the top (an overswing). */
-function PowerMeter() {
+/**
+ * The two swing bars. Power: fills and empties until you press Space (past
+ * the white line is an overswing). Accuracy: then the needle swings side to
+ * side; press Space again with it in the green. Left of the green hooks it
+ * left, right of it slices it right.
+ */
+function SwingMeters() {
   const club = BAG[golf.club];
-  const p = golf.charging ? golf.power : 0;
-  const yards = club.putter ? (Math.min(1.1, p) * PUTT_MAX) / YARD : Math.min(1.08, p) * club.carry;
+  const putt = Boolean(club.putter);
+  const p = golf.power;
+  const set = golf.charging;
+  const distance = putt ? `${Math.round(Math.min(1.1, p) * puttReach() * 3.281)} ft` : `${Math.round(Math.min(1.08, p) * club.carry)} yds`;
+  const needleAt = ((golf.acc + 1) / 2) * 100;
+  const zone = (w: number) => ({ left: `${50 - w * 50}%`, width: `${w * 100}%` });
   return (
-    <div className="flex items-center gap-3 rounded-2xl bg-black/70 px-4 py-2 text-white shadow-xl backdrop-blur">
-      <div className="relative h-4 w-64 overflow-hidden rounded-full bg-white/15 sm:w-80">
-        <div className="absolute inset-y-0 left-[90.9%] right-0 bg-[#a3172b]/50" />
-        <div className={cn("absolute inset-y-0 left-0 rounded-full", p > 1 ? "bg-[#ff5a4a]" : "bg-gradient-to-r from-[#7fd68a] to-[#ffe27a]")} style={{ width: `${(Math.min(1.1, p) / 1.1) * 100}%` }} />
-        <div className="absolute inset-y-0 left-[90.9%] w-0.5 bg-white" />
+    <div className="flex w-[22rem] max-w-full flex-col gap-2 rounded-2xl bg-black/75 px-4 py-3 text-white shadow-xl backdrop-blur sm:w-[26rem]">
+      {/* Power */}
+      <div className="flex items-center gap-3">
+        <span className={cn("w-20 text-[11px] font-bold tracking-widest uppercase", set ? "text-white/50" : "text-[#ffe27a]")}>{set ? "Power set" : "1 · Power"}</span>
+        <div className="relative h-4 flex-1 overflow-hidden rounded-full bg-white/15">
+          <div className="absolute inset-y-0 left-[90.9%] right-0 bg-[#a3172b]/55" />
+          <div className={cn("absolute inset-y-0 left-0 rounded-full", p > 1 ? "bg-[#ff5a4a]" : "bg-gradient-to-r from-[#7fd68a] to-[#ffe27a]")} style={{ width: `${(Math.min(1.1, p) / 1.1) * 100}%` }} />
+          <div className="absolute inset-y-0 left-[90.9%] w-0.5 bg-white" />
+        </div>
+        <span className="w-16 text-right text-sm font-bold tabular-nums">{distance}</span>
       </div>
-      <span className="w-24 text-sm tabular-nums">
-        {golf.charging ? (club.putter ? `${Math.round(yards * 3)} ft` : `${Math.round(yards)} yds`) : "Hold Space"}
-      </span>
+      {/* Accuracy */}
+      <div className={cn("flex items-center gap-3", !set && "opacity-45")}>
+        <span className={cn("w-20 text-[11px] font-bold tracking-widest uppercase", set ? "text-[#ffe27a]" : "text-white/70")}>2 · Accuracy</span>
+        <div className="relative h-4 flex-1 overflow-hidden rounded-full bg-white/15">
+          <div className="absolute inset-y-0 bg-[#7fd68a]/35" style={zone(GOOD)} />
+          <div className="absolute inset-y-0 bg-[#3ccf5a]" style={zone(PERFECT)} />
+          <span className="absolute inset-y-0 left-1.5 text-[9px] leading-4 font-bold text-white/60">HOOK</span>
+          <span className="absolute inset-y-0 right-1.5 text-[9px] leading-4 font-bold text-white/60">SLICE</span>
+          {set && <div className="absolute -inset-y-0.5 w-1 -translate-x-1/2 rounded-full bg-white shadow-[0_0_6px_rgba(255,255,255,0.9)]" style={{ left: `${needleAt}%` }} />}
+        </div>
+        <span className="w-16 text-right text-xs text-white/70">{set ? (Math.abs(golf.acc) < PERFECT ? "Now!" : "") : ""}</span>
+      </div>
+      <p className="text-center text-xs text-white/80">
+        {set ? (
+          <>
+            Press <Key>Space</Key> with the needle in the green
+          </>
+        ) : (
+          <>
+            Press <Key>Space</Key> to set the power
+          </>
+        )}
+      </p>
     </div>
   );
 }
@@ -326,11 +363,10 @@ function TouchControls() {
         className={cn(btn, "w-24 bg-[#d4b55a] text-black")}
         onPointerDown={(e) => {
           e.preventDefault();
-          startCharge();
+          pressSwing();
         }}
-        onPointerUp={releaseCharge}
       >
-        Swing
+        {golf.charging ? "Accuracy" : "Power"}
       </button>
       <button type="button" className={btn} onClick={toggleLookTarget} aria-label="See where it lands">
         <EyeIcon className="size-5" />
@@ -349,21 +385,28 @@ function useGolfKeys() {
     const down = (e: KeyboardEvent) => {
       if (golf.mode === "off" || golf.stage !== "address") return;
       const t = e.target as HTMLElement | null;
-      if (t && ["INPUT", "TEXTAREA", "SELECT"].includes(t.tagName)) return;
+      if (t && (t.isContentEditable || ["INPUT", "TEXTAREA", "SELECT"].includes(t.tagName))) return;
       const k = e.code;
       if (["ArrowLeft", "ArrowRight", "KeyA", "KeyD", "ArrowUp", "ArrowDown", "KeyW", "KeyS", "Space"].includes(k)) e.preventDefault();
       if (k === "Escape") cancelAddress();
+      if (k === "Space") {
+        // Space is the swing's, whatever else is listening or has the focus (it would otherwise press a button, jump…).
+        e.stopImmediatePropagation();
+        if (!e.repeat) pressSwing();
+        return;
+      }
       if (e.repeat) return;
       held.current.add(k);
       if (k === "ArrowUp" || k === "KeyW") changeClub(-1);
       if (k === "ArrowDown" || k === "KeyS") changeClub(1);
-      if (k === "Space") startCharge();
       if (k === "KeyC") toggleLookTarget();
     };
     const up = (e: KeyboardEvent) => {
       held.current.delete(e.code);
-      if (e.code === "Space") releaseCharge();
+      // (And stop a focused button being pressed by the Space key coming up.)
+      if (e.code === "Space" && golf.mode !== "off" && (golf.stage === "address" || golf.stage === "flight")) e.preventDefault();
     };
+    const blur = () => held.current.clear();
     let raf = 0;
     let last = performance.now();
     const loop = (t: number) => {
@@ -375,12 +418,15 @@ function useGolfKeys() {
       if (dir) turnAim(-dir, dt, h.has("ShiftLeft") || h.has("ShiftRight"));
     };
     raf = requestAnimationFrame(loop);
-    window.addEventListener("keydown", down);
-    window.addEventListener("keyup", up);
+    // (Capture: before anything else on the page gets the keys.)
+    window.addEventListener("keydown", down, { capture: true });
+    window.addEventListener("keyup", up, { capture: true });
+    window.addEventListener("blur", blur);
     return () => {
       cancelAnimationFrame(raf);
-      window.removeEventListener("keydown", down);
-      window.removeEventListener("keyup", up);
+      window.removeEventListener("keydown", down, { capture: true });
+      window.removeEventListener("keyup", up, { capture: true });
+      window.removeEventListener("blur", blur);
     };
   }, []);
 }
