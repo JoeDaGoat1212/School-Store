@@ -207,7 +207,7 @@ function Preview({ model, color }: { model: Model; color: string }) {
           drag.current.v = dx * 0.5;
         }}
       >
-        {model.body === "moto" ? <MotorbikeModel color={color} look={look} /> : <CarModel color={color} look={look} body={model.body} />}
+        {model.body === "moto" ? <MotorbikeModel color={color} look={look} /> : <CarModel color={color} look={look} body={model.body} model={model.id} />}
         <mesh rotation-x={-Math.PI / 2} position-y={0.01} receiveShadow>
           <circleGeometry args={[4.4, 48]} />
           <meshStandardMaterial color="#20232a" roughness={0.3} metalness={0.4} />

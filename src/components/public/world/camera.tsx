@@ -12,6 +12,7 @@ import { drive, input, moving } from "./drive";
 import { game } from "./heist";
 import { cutscene } from "./cutscene";
 import { freecam, tickFreecam } from "./freecam";
+import { occluderDistance } from "./occluders";
 import { doors, EYE_HEIGHT, INSIDE_WORLD, nearestStation, STORE_SCALE, type Blocker, type Station, type StationKey } from "./world-layout";
 
 /** The floor under you: the bank's floors (which level you're on), or the ground. */
@@ -39,6 +40,9 @@ const GRAVITY = 24;
 const THIRD_ZOOM = 7;
 const MAX_ZOOM = 16;
 const TURN_SPEED = 1.9;
+/** How quickly you get up to speed, and slow down (per second: higher is snappier). */
+const ACCEL = 5.5;
+const BRAKE = 9;
 /** The doors open when someone's this close to them, and shut again past SHUT. */
 const OPEN = 7;
 const SHUT = 9;
@@ -114,6 +118,10 @@ export function CameraRig({
   const currentRef = useRef(current);
   const r = useRef({
     pos: new THREE.Vector3(),
+    /** Walking speed (units a second, sideways and forward): built up and let off gradually. */
+    vel: new THREE.Vector3(),
+    /** Third person: how far back the camera is right now (pulled in when something's in the way, eased back out after). */
+    reach: -1,
     yaw: 0,
     pitch: 0,
     // Outside: the drone's angle round the store, and how high up.
@@ -366,6 +374,8 @@ export function CameraRig({
     // ---- Just got out of a car: hop down beside it ----
     if (player.hop) {
       player.hop = false;
+      // (No sliding on from where you were.)
+      s.vel.set(0, 0, 0);
       player.level = 0;
       const ground = floorUnder(player.x, player.z);
       const to = new THREE.Vector3(player.x, ground + EYE_HEIGHT, player.z);
@@ -395,33 +405,60 @@ export function CameraRig({
     }
 
     // ---- Walking with the keys (inside and out) ----
+    // Weighty: you build up to speed over a few steps and slow to a stop (quicker to stop than to start), rather than snapping. Walls take away the part of your speed going into them, so you slide along.
     const walking = currentRef.current !== "outside" && !s.flight;
     player.speed = 0;
-    if (walking && moving() && !player.frozen) {
-      s.yaw += (Number(input.turnRight) - Number(input.turnLeft)) * TURN_SPEED * dt;
-      const fwd = Number(input.forward) - Number(input.back);
-      const side = Number(input.strafeRight) - Number(input.strafeLeft);
-      const speed = (input.run ? RUN_SPEED : WALK_SPEED) * dt;
-      if (fwd !== 0 || side !== 0) player.speed = input.run ? RUN_SPEED : WALK_SPEED;
-      const mx = (Math.sin(s.yaw) * fwd + Math.cos(s.yaw) * side) * speed;
-      const mz = (-Math.cos(s.yaw) * fwd + Math.sin(s.yaw) * side) * speed;
-      const b = blockersRef.current;
-      // Slide along walls and shelves instead of stopping dead.
-      if (!walkBlocked(s.pos.x + mx, s.pos.z + mz, b)) {
-        s.pos.x += mx;
-        s.pos.z += mz;
-      } else if (!walkBlocked(s.pos.x + mx, s.pos.z, b)) s.pos.x += mx;
-      else if (!walkBlocked(s.pos.x, s.pos.z + mz, b)) s.pos.z += mz;
-      // Level the view a little while walking.
-      s.pitch = THREE.MathUtils.damp(s.pitch, Math.min(s.pitch, 0.05), 2, dt);
-      // Tell the page when you've walked up to a spot (or away from one).
-      // (Only in the store: outside you're just "walking".)
-      const near = (inStore(s.pos.x, s.pos.z) && nearestStation(stationsRef.current, s.pos.x, s.pos.z)) || "walk";
-      if (near !== currentRef.current) {
-        s.walkedTo = near;
-        onWalkRef.current?.(near);
+    if (walking && !player.frozen) {
+      const keys = moving();
+      if (keys) s.yaw += (Number(input.turnRight) - Number(input.turnLeft)) * TURN_SPEED * dt;
+      const fwd = keys ? Number(input.forward) - Number(input.back) : 0;
+      const side = keys ? Number(input.strafeRight) - Number(input.strafeLeft) : 0;
+      const top = input.run ? RUN_SPEED : WALK_SPEED;
+      let wx = Math.sin(s.yaw) * fwd + Math.cos(s.yaw) * side;
+      let wz = -Math.cos(s.yaw) * fwd + Math.sin(s.yaw) * side;
+      const len = Math.hypot(wx, wz);
+      if (len > 1) {
+        wx /= len;
+        wz /= len;
       }
-    }
+      wx *= top;
+      wz *= top;
+      // In the air you can't change direction much.
+      const grip = player.grounded ? 1 : 0.15;
+      const rate = (len > 0 ? (Math.hypot(s.vel.x, s.vel.z) > top + 0.5 ? BRAKE : ACCEL) : BRAKE) * grip;
+      const k = 1 - Math.exp(-rate * dt);
+      s.vel.x += (wx - s.vel.x) * k;
+      s.vel.z += (wz - s.vel.z) * k;
+      if (Math.hypot(s.vel.x, s.vel.z) < 0.05 && len === 0) s.vel.set(0, 0, 0);
+      const mx = s.vel.x * dt;
+      const mz = s.vel.z * dt;
+      if (mx !== 0 || mz !== 0) {
+        const b = blockersRef.current;
+        // Slide along walls and shelves instead of stopping dead (and lose the speed going into the wall).
+        if (!walkBlocked(s.pos.x + mx, s.pos.z + mz, b)) {
+          s.pos.x += mx;
+          s.pos.z += mz;
+        } else if (!walkBlocked(s.pos.x + mx, s.pos.z, b)) {
+          s.pos.x += mx;
+          s.vel.z = 0;
+        } else if (!walkBlocked(s.pos.x, s.pos.z + mz, b)) {
+          s.pos.z += mz;
+          s.vel.x = 0;
+        } else s.vel.set(0, 0, 0);
+      }
+      player.speed = Math.hypot(s.vel.x, s.vel.z);
+      if (keys) {
+        // Level the view a little while walking.
+        s.pitch = THREE.MathUtils.damp(s.pitch, Math.min(s.pitch, 0.05), 2, dt);
+        // Tell the page when you've walked up to a spot (or away from one).
+        // (Only in the store: outside you're just "walking".)
+        const near = (inStore(s.pos.x, s.pos.z) && nearestStation(stationsRef.current, s.pos.x, s.pos.z)) || "walk";
+        if (near !== currentRef.current) {
+          s.walkedTo = near;
+          onWalkRef.current?.(near);
+        }
+      }
+    } else s.vel.set(0, 0, 0);
 
     // ---- Jumping, falling (and parachuting), and walking up and down hills ----
     if (walking) {
@@ -550,17 +587,27 @@ export function CameraRig({
     if (third) {
       const zoom = Math.max(2, player.zoom);
       const back = new THREE.Vector3(-look.x, 0, -look.z).normalize();
+      // Over your right shoulder: a little to the side (less the further out it is).
+      const right = new THREE.Vector3(back.z, 0, -back.x);
+      const shoulder = 0.55 + Math.min(0.4, zoom * 0.03);
       // Above and behind your head, tilting with where you look.
       const lift = 0.9 + zoom * 0.22 - s.pitch * zoom * 0.8;
-      // Pull in if a wall's in the way.
+      // Camera occlusion: step out from your head toward where the camera wants to be, and stop short of the first wall
+      // (the store, buildings, scenery) or any loaded 3D model in the way, so you never see through or into a wall.
       let reach = zoom;
       const b = blockersRef.current;
       for (let d = 0.6; d <= zoom; d += 0.4)
-        if (viewBlocked(s.pos.x + back.x * d, s.pos.z + back.z * d, b)) {
+        if (viewBlocked(s.pos.x + back.x * d + right.x * shoulder * (d / zoom), s.pos.z + back.z * d + right.z * shoulder * (d / zoom), b)) {
           reach = Math.max(0.6, d - 0.6);
           break;
         }
-      const want = new THREE.Vector3(s.pos.x + back.x * reach, s.pos.y + lift * (reach / zoom), s.pos.z + back.z * reach);
+      const hitAt = occluderDistance(s.pos, back, right, shoulder, lift, zoom);
+      if (hitAt < reach) reach = Math.max(0.6, hitAt - 0.35);
+      // Pull in at once when something's in the way; ease back out when it's clear.
+      if (s.reach < 0) s.reach = reach;
+      s.reach = reach < s.reach ? reach : THREE.MathUtils.damp(s.reach, reach, 3, dt);
+      const t = s.reach / zoom;
+      const want = new THREE.Vector3(s.pos.x + back.x * s.reach + right.x * shoulder * t, s.pos.y + lift * t, s.pos.z + back.z * s.reach + right.z * shoulder * t);
       want.y = Math.max(want.y, (bankFloor(want.x, want.z)?.y ?? groundAt(want.x, want.z)) + 0.8);
       // Under the banking hall (the vault level), keep the camera below its ceiling.
       if (player.level === 0 && inFootprint(want.x, want.z, 1)) want.y = Math.min(want.y, PODIUM - 0.6);

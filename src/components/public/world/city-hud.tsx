@@ -13,6 +13,7 @@ import { police } from "./police-state";
 import { pockets, profile, transfer, usd } from "./profile";
 import { WalletPanel } from "./wallet-panel";
 import { FlyHud } from "./fly-hud";
+import { PhoneHud } from "./phone-hud";
 import { cutscene } from "./cutscene";
 import { graphics, setQuality, useQuality, type Quality } from "./effects";
 import { DealerPanel } from "./dealer-panel";
@@ -317,6 +318,9 @@ export function CityHud({
 
       {/* ---- Fly round the map ---- */}
       <FlyHud hidden={panel} />
+
+      {/* ---- Your phone (P) ---- */}
+      <PhoneHud hidden={panel || life.dead || Boolean(cutscene.on)} />
 
       {/* ---- Quick trips round the map ---- */}
       {canTravel && !w && !life.dead && !life.inJail && !police.arrest && (

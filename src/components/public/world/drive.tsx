@@ -327,7 +327,7 @@ export function Cars({
               document.body.style.cursor = "";
             }}
           >
-            <CarModel color={v.color} look={v.look} body={v.body} rider={<Rider i={i} body={v.body} driving={driving === i} pose={v.body === "moto" ? bikePose : carPose} riders={riders} />} />
+            <CarModel color={v.color} look={v.look} body={v.body} model={v.model} rider={<Rider i={i} body={v.body} driving={driving === i} pose={v.body === "moto" ? bikePose : carPose} riders={riders} />} />
             {/* An invisible box round the car to tap (the car's own parts ignore taps) */}
             <mesh position-y={1.6}>
               <boxGeometry args={[v.body === "moto" ? 1.6 : 3.6, 3.2, 7.4]} />
