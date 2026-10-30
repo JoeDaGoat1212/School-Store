@@ -10,6 +10,7 @@ import { puff } from "./smoke";
 import { Near } from "./near";
 import { BASE_DOOR, GRID, HILLS_START, PINES, ROAD_HALF_W, ROAD_PATH, baseDoor, groundAt, slopeAt } from "./terrain";
 import { Instances, type Place } from "./town";
+import { SpruceTrees } from "./nature";
 import { BASE, BASE_VALLEY } from "./world-map";
 
 /*
@@ -201,37 +202,11 @@ function MountainRoad() {
 
 // ---- Pine forests ---------------------------------------------------------------------------
 
-const placePineTrunk: Place = (i, o) => {
-  const p = PINES[i];
-  o.position.set(p.x, p.y + 1.6 * p.s, p.z);
-  o.scale.setScalar(p.s);
-};
-const pineTier =
-  (k: number): Place =>
-  (i, o) => {
-    const p = PINES[i];
-    o.position.set(p.x, p.y + (3 + k * 2.6) * p.s, p.z);
-    o.scale.set(p.s * (1 - k * 0.24), p.s, p.s * (1 - k * 0.24));
-    o.rotation.y = i * 1.7 + k;
-    return ["#2f5a32", "#35663a", "#2a5230"][(i + k) % 3];
-  };
-const PINE_TIERS = [0, 1, 2].map(pineTier);
+/** The mountain spruces (nature.tsx), standing on the slopes. */
+const MOUNTAIN_PINES = PINES.map((p) => ({ x: p.x, z: p.z, s: p.s, y: p.y }));
 
 function Pines() {
-  return (
-    <group>
-      <Instances count={PINES.length} place={placePineTrunk}>
-        <cylinderGeometry args={[0.25, 0.4, 3.2, 6]} />
-        <meshStandardMaterial color="#5b4030" roughness={0.9} />
-      </Instances>
-      {PINE_TIERS.map((place, k) => (
-        <Instances key={k} count={PINES.length} place={place}>
-          <coneGeometry args={[2.6, 4.2, 8]} />
-          <meshStandardMaterial roughness={0.85} />
-        </Instances>
-      ))}
-    </group>
-  );
+  return <SpruceTrees list={MOUNTAIN_PINES} shadows={false} />;
 }
 
 // ---- The secret base --------------------------------------------------------------------------

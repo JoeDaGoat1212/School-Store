@@ -82,7 +82,7 @@ export function onRoad(road: Road, along: number, side: number) {
   return road.axis === "x" ? { x: along, z: road.at + side } : { x: road.at + side, z: along };
 }
 
-const inStoreBlock = (x: number, z: number, pad = 0) =>
+export const inStoreBlock = (x: number, z: number, pad = 0) =>
   x > STORE_BLOCK.minX - pad && x < STORE_BLOCK.maxX + pad && z > STORE_BLOCK.minZ - pad && z < STORE_BLOCK.maxZ + pad;
 
 // ---- Sidewalks -------------------------------------------------------------------------------
@@ -205,7 +205,7 @@ export const STREET_LIGHTS: { x: number; z: number; turn: number }[] = ROADS.fla
 // ---- Trees and bushes ---------------------------------------------------------------------------
 
 /** Is this spot on a road or sidewalk? */
-function onPavement(x: number, z: number, pad: number) {
+export function onPavement(x: number, z: number, pad: number) {
   return ROADS.some((r) => {
     const across = r.axis === "x" ? z : x;
     const along = r.axis === "x" ? x : z;

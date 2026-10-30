@@ -17,7 +17,7 @@ import { realShader, realism } from "./realism";
  * away, fades the pattern to an even colour so it doesn't shimmer.
  */
 
-export type Surface = "brick" | "siding" | "shingle" | "stone" | "stucco" | "panel" | "planks" | "concrete";
+export type Surface = "brick" | "siding" | "shingle" | "stone" | "stucco" | "panel" | "planks" | "concrete" | "bark";
 
 const COMMON = /* glsl */ `
   varying vec3 vDetN;
@@ -127,6 +127,15 @@ const PATTERNS: Record<Surface, string> = {
     col *= 1.0 - gap * 0.55;
     detH = 1.0 - gap;
     scale = 0.5;`,
+  bark: `
+    // Deep vertical furrows between ridges of bark, broken up along their length, with lichen here and there.
+    float n = dNoise(vec2(uv.x * 7.0, uv.y * 0.9)) * 0.65 + dNoise(vec2(uv.x * 15.0, uv.y * 2.2)) * 0.35;
+    float ridge = smoothstep(0.32, 0.6, n);
+    col *= mix(0.42, 1.05, ridge) * (0.9 + 0.2 * dNoise(uv * 3.0));
+    col = mix(col, vec3(0.42, 0.47, 0.3), smoothstep(0.72, 0.9, dNoise(uv * 1.3 + 4.0)) * 0.35);
+    detH = ridge;
+    rough = 0.95;
+    scale = 0.14;`,
   concrete: `
     float e; vec2 c;
     vec2 j = bond(uv, vec2(2.4, 1.2), 0.0, e, c);
@@ -143,7 +152,7 @@ const PATTERNS: Record<Surface, string> = {
 };
 
 /** How strongly each surface is bumped. */
-const BUMP: Record<Surface, number> = { brick: 0.05, siding: 0.06, shingle: 0.07, stone: 0.07, stucco: 0.03, panel: 0.03, planks: 0.04, concrete: 0.03 };
+const BUMP: Record<Surface, number> = { brick: 0.05, siding: 0.06, shingle: 0.07, stone: 0.07, stucco: 0.03, panel: 0.03, planks: 0.04, concrete: 0.03, bark: 0.08 };
 
 function patch(surface: Surface) {
   return (shader: THREE.WebGLProgramParametersWithUniforms) => {
