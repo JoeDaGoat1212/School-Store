@@ -4,10 +4,10 @@ import { useEffect, useMemo, useRef } from "react";
 import { useFrame } from "@react-three/fiber";
 import * as THREE from "three";
 import { carBlocked, player, walkBlocked, type CarSpot } from "./bump";
-import { CarModel } from "./car-model";
+import { CarModel, driverSeat } from "./car-model";
 import { fleet, isAircraft, type Vehicle } from "./fleet";
 import { useGameVersion } from "./game-events";
-import { Humanoid, PLAYER_LOOK, newPose } from "./humanoid";
+import { Humanoid, PELVIS_BELOW, PLAYER_LOOK, hipsHeight, newPose } from "./humanoid";
 import { profile, saveProfile } from "./profile";
 import { modelOf, specOf } from "./vehicles";
 import { MPH_PER_UNIT, SMOKE_SLIP, stepCar, type Motion } from "./car-physics";
@@ -173,7 +173,9 @@ export function Cars({
   /** Puffs of smoke owed (smoke comes out at a steady rate, whatever the frame rate). */
   const smokeDue = useRef(0);
   const was = useRef<number | null>(null);
-  const riderPose = useMemo(() => ({ ...newPose(), sit: 0.75, aim: 0.55 }), []);
+  // You, in the seat: on a bike, leaning forward with your hands on the bars; in a car, hands on the wheel.
+  const bikePose = useMemo(() => ({ ...newPose(), sit: 0.8, aim: 1, lean: 0.7 }), []);
+  const carPose = useMemo(() => ({ ...newPose(), sit: 1, aim: 0.5 }), []);
 
   useEffect(() => {
     const before = was.current;
@@ -280,8 +282,8 @@ export function Cars({
     look.braking = braking;
     look.reversing = reversing && fwdNow < -0.1;
     look.pitch = calm ? 0 : THREE.MathUtils.clamp(-accel * 0.0035, -0.05, 0.06);
-    // Cars lean out of a turn; motorbikes lean into it.
-    look.roll = calm ? 0 : THREE.MathUtils.clamp(yawRate * Math.hypot(motion.vx, motion.vz) * (spec.moto ? -0.03 : 0.004), spec.moto ? -0.18 : -0.07, spec.moto ? 0.18 : 0.07);
+    // Motorbikes lean into a turn; cars' bodies roll out of it. (yawRate > 0 is turning left, and +roll tips the top to the left.)
+    look.roll = calm ? 0 : THREE.MathUtils.clamp(yawRate * Math.hypot(motion.vx, motion.vz) * (spec.moto ? 0.03 : -0.004), spec.moto ? -0.18 : -0.07, spec.moto ? 0.18 : 0.07);
 
     const g = groups.current[driving];
     const ground = carOnGround(c.x, c.z, c.heading);
@@ -292,12 +294,9 @@ export function Cars({
     drive.speed = fwdNow;
     drive.braking = braking;
     drive.gear = look.reversing || (input.back && fwdNow <= 0.5) ? "R" : Math.abs(fwdNow) < 0.1 && !input.forward ? "P" : "D";
-    // On a motorbike you're sitting on it.
+    // You're sitting in it (on a bike, on the seat).
     const rider = riders.current[driving];
-    if (rider) {
-      rider.visible = true;
-      riderPose.phase = 0;
-    }
+    if (rider) rider.visible = true;
   });
 
   return (
@@ -328,26 +327,40 @@ export function Cars({
               document.body.style.cursor = "";
             }}
           >
-            <CarModel color={v.color} look={v.look} body={v.body} />
+            <CarModel color={v.color} look={v.look} body={v.body} rider={<Rider i={i} body={v.body} driving={driving === i} pose={v.body === "moto" ? bikePose : carPose} riders={riders} />} />
             {/* An invisible box round the car to tap (the car's own parts ignore taps) */}
             <mesh position-y={1.6}>
               <boxGeometry args={[v.body === "moto" ? 1.6 : 3.6, 3.2, 7.4]} />
               <meshBasicMaterial transparent opacity={0} depthWrite={false} />
             </mesh>
-            {v.body === "moto" && (
-              <group
-                ref={(g) => {
-                  riders.current[i] = g;
-                }}
-                visible={driving === i}
-                position={[0, 0.35, 0.35]}
-              >
-                <Humanoid look={PLAYER_LOOK} pose={riderPose} />
-              </group>
-            )}
           </group>
         ),
       )}
+    </group>
+  );
+}
+
+/**
+ * You, sitting in the driver's seat (or on a bike's seat): hips on the
+ * cushion, feet down, hands on the wheel or the bars. In a car you're drawn a
+ * little smaller so you fit under the roof. Inside the car's own model, so you
+ * lean with the bike.
+ */
+function Rider({ i, body, driving, pose, riders }: { i: number; body: Vehicle["body"]; driving: boolean; pose: ReturnType<typeof newPose>; riders: React.RefObject<(THREE.Group | null)[]> }) {
+  const seat = driverSeat(body);
+  const k = body === "moto" ? 1 : 0.55;
+  return (
+    <group
+      ref={(g) => {
+        riders.current[i] = g;
+      }}
+      visible={driving}
+      position={[seat.x, seat.y + (PELVIS_BELOW - hipsHeight(pose.sit)) * k, seat.z]}
+      // (People face +z; vehicles face -z.)
+      rotation-y={Math.PI}
+      scale={k}
+    >
+      <Humanoid look={PLAYER_LOOK} pose={pose} />
     </group>
   );
 }

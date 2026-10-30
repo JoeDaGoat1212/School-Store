@@ -133,7 +133,8 @@ export function Aircraft({ driving, onBail }: { driving: number | null; onBail: 
       if (g) {
         g.visible = true;
         g.position.set(v.spot.x, a.y, v.spot.z);
-        g.rotation.set(a.pitch, v.spot.heading, -a.roll, "YXZ");
+        // Bank into the turn. (A plane's roll is + when turning left, a helicopter's is + when turning right; +z tips the top to the left.)
+        g.rotation.set(a.pitch, v.spot.heading, v.body === "plane" ? a.roll : -a.roll, "YXZ");
       }
       const p = props.current[i];
       if (p) {
