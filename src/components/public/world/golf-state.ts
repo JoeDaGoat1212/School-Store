@@ -19,7 +19,7 @@ import {
   teeSpot,
   type Surface,
 } from "./golf-course";
-import { BAG, PUTTER, PUTT_MAX, playOut, rollBall, scoreName, speedFor, launchBall, stepBall, strike, type Ball, type Ground, type Wind } from "./golf-physics";
+import { BAG, PUTTER, PUTT_MAX, playOut, puttSpeed, rollBall, scoreName, speedFor, launchBall, stepBall, strike, type Ball, type Ground, type Wind } from "./golf-physics";
 
 /*
  * Playing golf. Plain TypeScript; golf.tsx draws it and golf-hud.tsx is the
@@ -90,7 +90,14 @@ export const golf = {
   restAt: -1,
   /** The camera's spot while watching the ball. */
   cam: { x: 0, y: 0, z: 0, lx: 0, ly: 0, lz: 0, ready: false },
+  /** While aiming: when you last turned or changed club (the camera flies out to where it lands), how far out it's flown (0 at the ball, 1 over the landing spot), and whether you've asked to stay out there (C). */
+  aimAt: -10,
+  camBlend: 0,
+  lookTarget: false,
 };
+
+/** How long the camera stays out over the landing spot after you stop aiming. */
+const LOOK_HOLD = 2.4;
 
 let counter = 0;
 function say(title: string, line: string | undefined, tone: Note["tone"], seconds = 3.5) {
@@ -244,7 +251,11 @@ function address() {
   golf.charging = false;
   golf.swing = 0;
   golf.swingAt = -1;
+  golf.restAt = -1;
   golf.previewKey = "";
+  // Fly out and show where this club lands, then come back to the ball.
+  golf.aimAt = golf.now + 0.8;
+  golf.camBlend = 0;
   player.frozen = true;
   player.showBody = true;
   standAtBall();
@@ -297,16 +308,26 @@ export function turnAim(dir: number, dt: number, fine: boolean) {
   if (golf.stage !== "address" || golf.charging) return;
   const putt = BAG[golf.club].putter;
   golf.aim += dir * dt * (fine ? 0.05 : putt ? 0.16 : 0.5);
+  golf.aimAt = golf.now;
   standAtBall();
 }
 export function changeClub(step: number) {
   if (golf.stage !== "address" || golf.charging) return;
   golf.club = Math.min(BAG.length - 1, Math.max(0, golf.club + step));
+  golf.aimAt = golf.now;
   standAtBall();
+  notify();
+}
+/** C: fly out over the landing spot and stay there (or come back to the ball). */
+export function toggleLookTarget() {
+  if (golf.stage !== "address" || golf.charging) return;
+  golf.lookTarget = !golf.lookTarget;
+  if (!golf.lookTarget) golf.aimAt = -10;
   notify();
 }
 export function startCharge() {
   if (golf.stage !== "address" || golf.charging) return;
+  golf.lookTarget = false;
   golf.charging = true;
   golf.chargeAt = golf.now;
   golf.power = 0;
@@ -318,6 +339,8 @@ export function releaseCharge() {
   golf.swingAt = golf.now;
   golf.stage = "flight";
   golf.shot = null;
+  // (The last shot's "it's stopped" time mustn't end this one before the club gets to the ball.)
+  golf.restAt = -1;
   notify();
 }
 
@@ -362,7 +385,7 @@ function landed(b: Ball) {
     const back = Math.atan2(golf.last.x - b.dry.x, golf.last.z - b.dry.z);
     let x = b.dry.x;
     let z = b.dry.z;
-    for (let k = 0; k < 20 && (surfaceAt(x, z) === SURF.water || surfaceAt(x, z) === SURF.bunker); k++) {
+    for (let k = 0; k < 20 && (surfaceAt(x, z) === SURF.water || surfaceAt(x, z) === SURF.bunker || surfaceAt(x, z) === SURF.path); k++) {
       x += Math.sin(back) * 1.5;
       z += Math.cos(back) * 1.5;
     }
@@ -424,7 +447,7 @@ export function tickGolf(now: number, dt: number) {
     } else golf.swing = 0;
     player.anim.swing = golf.swing;
     updatePreview();
-    addressCamera(club.putter ?? false);
+    addressCamera(club.putter ?? false, dt);
   } else if (golf.stage === "flight") {
     const t = now - golf.swingAt;
     // Down to impact (0.22 s), then the follow-through.
@@ -469,17 +492,54 @@ export function tickGolf(now: number, dt: number) {
   }
 }
 
-function addressCamera(putt: boolean) {
+type V3 = [number, number, number];
+const mix = (a: V3, b: V3, t: number): V3 => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t];
+
+/**
+ * At the ball: the camera's behind you, looking down the line. When you
+ * aim or change club it flies out along the shot, up and over, to hang
+ * above where the ball comes down (looking at the ring and where it rolls
+ * to), then flies back once you've stopped aiming. C keeps it out there;
+ * starting the swing brings it straight back.
+ */
+function addressCamera(putt: boolean, dt: number) {
   const d = aimDir();
   const b = golf.ball;
   const back = putt ? 4.2 : 7;
   const up = putt ? 2.1 : 3.2;
-  const pos: [number, number, number] = [b.x - d.x * back, b.y + up, b.z - d.z * back];
+  const home: V3 = [b.x - d.x * back, b.y + up, b.z - d.z * back];
   const ahead = putt ? 9 : 45;
-  const look: [number, number, number] = [b.x + d.x * ahead, b.y + (putt ? 0 : 3), b.z + d.z * ahead];
+  const homeLook: V3 = [b.x + d.x * ahead, b.y + (putt ? 0 : 3), b.z + d.z * ahead];
+
+  const pv = golf.preview;
+  const land = pv ? (pv.carry ?? pv.end) : null;
+  const out = Boolean(land) && !golf.charging && (golf.lookTarget || golf.now - golf.aimAt < LOOK_HOLD);
+  const rate = out ? 2.3 : golf.charging ? 5 : 2.2;
+  golf.camBlend += ((out ? 1 : 0) - golf.camBlend) * (1 - Math.exp(-dt * rate));
+  if (golf.camBlend < 0.002) golf.camBlend = 0;
+  let pos = home;
+  let look = homeLook;
+  if (land && pv && golf.camBlend > 0) {
+    const e = golf.camBlend * golf.camBlend * (3 - 2 * golf.camBlend);
+    const span = Math.hypot(land.x - b.x, land.z - b.z);
+    // Behind and above the landing spot, looking down on it (and on where it runs out to). For a putt: up over the whole line.
+    const mid: V3 = [(b.x + land.x) / 2, (b.y + land.y) / 2, (b.z + land.z) / 2];
+    const tb = Math.max(16, span * 0.24);
+    const tu = Math.max(13, span * 0.17);
+    const there: V3 = putt ? [mid[0] - d.x * span * 0.45, mid[1] + Math.max(3.5, span * 0.95), mid[2] - d.z * span * 0.45] : [land.x - d.x * tb, land.y + tu, land.z - d.z * tb];
+    const thereLook: V3 = putt ? mid : [(land.x * 2 + pv.end.x) / 3, (land.y * 2 + pv.end.y) / 3, (land.z * 2 + pv.end.z) / 3];
+    pos = mix(home, there, e);
+    // Up and over on the way (like following the ball's flight).
+    pos[1] += Math.sin(Math.PI * e) * (putt ? 1.5 : Math.min(38, 6 + span * 0.16));
+    pos[1] = Math.max(pos[1], golfHeight(pos[0], pos[2]) + 1.4);
+    look = mix(homeLook, thereLook, Math.min(1, e * 1.25));
+  }
   setShot(pos, look);
   Object.assign(golf.cam, { x: pos[0], y: pos[1], z: pos[2], lx: look[0], ly: look[1], lz: look[2], ready: true });
 }
+
+/** Is the aiming camera out over the landing spot? (For the screen.) */
+export const lookingAtTarget = () => golf.stage === "address" && golf.camBlend > 0.5;
 
 function flightCamera(dt: number) {
   const b = golf.shot;
@@ -518,7 +578,7 @@ function updatePreview() {
     // The read: how a putt this hard rolls (at a guess of the distance before you start the stroke).
     const pin = pinOf();
     const guess = golf.charging ? power * PUTT_MAX : pin ? Math.min(PUTT_MAX, dist(b, pin) * 1.05) : 6;
-    const ball = rollBall(b.x, b.y, b.z, d.x, d.z, Math.sqrt(2 * 0.58 * guess));
+    const ball = rollBall(b.x, b.y, b.z, d.x, d.z, puttSpeed(guess));
     const { pts } = playOut(ball, ground, undefined, undefined, 20);
     golf.preview = { pts: pts.filter((_, i) => i % 3 === 0), carry: null, end: { x: ball.x, y: ball.y, z: ball.z } };
     return;
@@ -538,12 +598,12 @@ provide("golf", (you) => {
     // The starter's hut, the 1st tee and the clubhouse terrace.
     const s = CLUB.starter;
     const nearStart = Math.hypot(you.x - s.x, you.z - s.z) < 14 || Math.hypot(you.x - HOLES[0].tee.x, you.z - HOLES[0].tee.z) < 16 || (you.x > CLUB.terrace.x0 && you.x < CLUB.terrace.x1 && you.z > CLUB.terrace.z0 - 2 && you.z < CLUB.terrace.z1 + 6);
-    if (nearStart) return { key: "E", text: "Play 9 holes (par 37)", tone: "money", run: startRound };
+    if (nearStart) return { key: "E", text: "Play 9 holes (par 37)", tone: "money", run: startRound, first: true };
     const mat = RANGE.mats.findIndex((m) => Math.hypot(you.x - m.x, you.z - m.z) < 4);
-    if (mat >= 0) return { key: "E", text: "Hit balls at the driving range", tone: "plain", run: () => startRange(mat) };
+    if (mat >= 0) return { key: "E", text: "Hit balls at the driving range", tone: "plain", run: () => startRange(mat), first: true };
     return null;
   }
-  if (golf.mode === "round" && golf.stage === "walk" && Math.hypot(you.x - golf.ball.x, you.z - golf.ball.z) < 3.6) return { key: "E", text: "Step up to your ball", tone: "plain", run: address };
+  if (golf.mode === "round" && golf.stage === "walk" && Math.hypot(you.x - golf.ball.x, you.z - golf.ball.z) < 4.5) return { key: "E", text: "Step up to your ball", tone: "plain", run: address, first: true };
   return null;
 });
 

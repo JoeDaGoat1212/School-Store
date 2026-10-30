@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { FlagIcon, NavigationIcon, TrophyIcon, WindIcon, XIcon } from "lucide-react";
+import { EyeIcon, FlagIcon, NavigationIcon, TrophyIcon, WindIcon, XIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { golfLeaderboard, recordGolfRound } from "@/app/(public)/game-actions";
 import { useGameVersion } from "./game-events";
@@ -15,6 +15,7 @@ import {
   fmtPar,
   golf,
   loadBoard,
+  lookingAtTarget,
   onGreen,
   quitGolf,
   releaseCharge,
@@ -23,6 +24,7 @@ import {
   startRound,
   toPar,
   toPin,
+  toggleLookTarget,
   totalStrokes,
   turnAim,
 } from "./golf-state";
@@ -149,7 +151,7 @@ export function GolfHud() {
               <NavigationIcon className="size-5 fill-white" style={{ transform: `rotate(${arrow}deg)` }} />
             </span>
             <span className="text-sm">
-              {ballYards < 4 ? (
+              {ballYards < 4.5 / YARD ? (
                 <>
                   At your ball. Press <kbd className="rounded bg-white/20 px-1.5 font-bold">E</kbd> to step up
                 </>
@@ -174,6 +176,20 @@ export function GolfHud() {
       {/* ---- At the ball: the bag, the meter, the map ---- */}
       {at && (
         <>
+          {lookingAtTarget() && golf.preview && (
+            <div className="absolute inset-x-0 top-[16%] flex justify-center px-4">
+              <p className="rounded-full bg-black/65 px-4 py-1.5 text-sm text-white shadow-lg backdrop-blur">
+                {club.putter ? (
+                  <>Where this putt rolls to</>
+                ) : (
+                  <>
+                    <b className="text-[#ffe27a]">{club.name}</b> lands here: <b>{club.carry} yds</b> carry
+                    {pin && <span className="text-white/75"> · {fmtYd(pin.yards)} to the pin</span>}
+                  </>
+                )}
+              </p>
+            </div>
+          )}
           {round && <HoleMap hole={h} />}
           <div className="pointer-events-auto absolute inset-x-0 bottom-3 flex flex-col items-center gap-2 px-2">
             <PowerMeter />
@@ -182,7 +198,12 @@ export function GolfHud() {
                 <button
                   key={c.id}
                   type="button"
-                  onClick={() => changeClub(i - golf.club)}
+                  tabIndex={-1}
+                  onClick={(e) => {
+                    changeClub(i - golf.club);
+                    // (So Space swings, rather than pressing this button again.)
+                    e.currentTarget.blur();
+                  }}
                   className={cn("flex min-w-12 flex-col items-center rounded-xl px-2 py-1 text-white transition-colors", i === golf.club ? "bg-[#d4b55a] text-black" : "hover:bg-white/15")}
                 >
                   <span className="font-heading text-sm font-extrabold">{c.id}</span>
@@ -193,8 +214,19 @@ export function GolfHud() {
             <p className="rounded-full bg-black/60 px-4 py-1 text-center text-xs text-white/90 backdrop-blur">
               <b>{club.name}</b> {club.putter ? "· the dotted line reads the putt" : `· ${club.carry} yds stock carry`} · <Key>←</Key>
               <Key>→</Key> aim (Shift: fine) · <Key>↑</Key>
-              <Key>↓</Key> club · hold <Key>Space</Key> to swing · <Key>Esc</Key> step away
+              <Key>↓</Key> club · <Key>C</Key> see where it lands · hold <Key>Space</Key> to swing · <Key>Esc</Key> step away
             </p>
+            <button
+              type="button"
+              tabIndex={-1}
+              onClick={(e) => {
+                toggleLookTarget();
+                e.currentTarget.blur();
+              }}
+              className={cn("hidden rounded-full px-4 py-1.5 text-xs font-bold tracking-wide uppercase shadow-lg backdrop-blur sm:block", golf.lookTarget ? "bg-[#d4b55a] text-black" : "bg-black/60 text-white hover:bg-black/80")}
+            >
+              {golf.lookTarget ? "Back to the ball (C)" : "Fly to the landing spot (C)"}
+            </button>
             <TouchControls />
           </div>
         </>
@@ -300,6 +332,9 @@ function TouchControls() {
       >
         Swing
       </button>
+      <button type="button" className={btn} onClick={toggleLookTarget} aria-label="See where it lands">
+        <EyeIcon className="size-5" />
+      </button>
       <button type="button" className={btn} onClick={cancelAddress}>
         <XIcon className="size-5" />
       </button>
@@ -323,6 +358,7 @@ function useGolfKeys() {
       if (k === "ArrowUp" || k === "KeyW") changeClub(-1);
       if (k === "ArrowDown" || k === "KeyS") changeClub(1);
       if (k === "Space") startCharge();
+      if (k === "KeyC") toggleLookTarget();
     };
     const up = (e: KeyboardEvent) => {
       held.current.delete(e.code);

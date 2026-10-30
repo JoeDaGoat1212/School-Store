@@ -11,6 +11,7 @@ import { kill, life } from "./life";
 import { drive, input, moving } from "./drive";
 import { game } from "./heist";
 import { cutscene } from "./cutscene";
+import { freecam, tickFreecam } from "./freecam";
 import { doors, EYE_HEIGHT, INSIDE_WORLD, nearestStation, STORE_SCALE, type Blocker, type Station, type StationKey } from "./world-layout";
 
 /** The floor under you: the bank's floors (which level you're on), or the ground. */
@@ -189,7 +190,7 @@ export function CameraRig({
     };
     // Mouse wheel: zoom out to third person (and back in to your own eyes).
     const wheel = (e: WheelEvent) => {
-      if (currentRef.current === "outside" || drive.active) return;
+      if (currentRef.current === "outside" || drive.active || freecam.on) return;
       // Not while scrolling a panel or a list on screen.
       for (let n = e.target as HTMLElement | null; n && n !== document.body; n = n.parentElement) {
         if (n === el) break;
@@ -297,6 +298,11 @@ export function CameraRig({
     if (testView.on) {
       cam.position.set(...testView.pos);
       cam.lookAt(...testView.look);
+      return;
+    }
+    // Fly mode: the free camera has it.
+    if (freecam.on) {
+      tickFreecam(cam, Math.min(delta, 0.1));
       return;
     }
     // A cinematic shot (a house tour…).

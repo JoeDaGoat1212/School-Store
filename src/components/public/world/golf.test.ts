@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 import { BAG, CUP, PUTTER, carryOf, playOut, puttSpeed, rollBall, speedFor, strike } from "./golf-physics";
 import { HOLES, PAR, SURF, YARD, golfHeight, outOfBounds, surfaceAt, teeSpot, waterAt, type Surface } from "./golf-course";
 import type { Ground } from "./golf-physics";
+import { golf, quitGolf, releaseCharge, startCharge, startRange, startRound, tickGolf } from "./golf-state";
+import { interaction, tickInteract } from "./interact";
 
 // A flat fairway, for checking the clubs on their own.
 const flat: Ground = { height: () => 0, slope: () => ({ sx: 0, sz: 0 }), surface: () => SURF.fairway as Surface };
@@ -85,5 +87,51 @@ describe("putting", () => {
   it("knows how big the cup is", () => {
     expect(CUP).toBeGreaterThan(0.05);
     expect(CUP).toBeLessThan(0.12);
+  });
+});
+
+describe("playing", () => {
+  let t = 1;
+  const tick = (frames: number) => {
+    for (let i = 0; i < frames; i++) tickGolf((t += 1 / 60), 1 / 60);
+  };
+  const swing = () => {
+    startCharge();
+    tick(60);
+    releaseCharge();
+    tick(30);
+    const hit = golf.shot !== null;
+    tick(900);
+    return hit;
+  };
+
+  it("hits ball after ball at the range", () => {
+    tick(5);
+    startRange(0);
+    for (let i = 0; i < 4; i++) {
+      tick(120);
+      expect(golf.stage).toBe("address");
+      expect(swing()).toBe(true);
+    }
+    expect(golf.rangeShots.length).toBe(4);
+    quitGolf();
+  });
+
+  it("lets you hit again from where the ball stops (not just off the tee)", () => {
+    startRound();
+    for (let shot = 0; shot < 3; shot++) {
+      // Walk up to the ball and press E.
+      tickInteract({ x: golf.ball.x + 1.5, z: golf.ball.z + 1, y: 0, yaw: 0, onFoot: true, driving: false }, false);
+      const step = interaction.actions.find((a) => a.key === "E");
+      expect(step?.text).toBe("Step up to your ball");
+      expect(step?.first).toBe(true);
+      step!.run();
+      tick(120);
+      const before = golf.strokes;
+      expect(swing()).toBe(true);
+      if (golf.hole > 0) break;
+      expect(golf.strokes).toBeGreaterThan(before);
+    }
+    quitGolf();
   });
 });

@@ -6,12 +6,13 @@ import { cn } from "@/lib/utils";
 import { player } from "./bump";
 import { BANK } from "./city-layout";
 import { DELIVER_TIME, DROP_ZONE, game, setTeller, toggleMute, useGame } from "./heist";
-import { interaction, press, type Action } from "./interact";
+import { firstE, interaction, press, type Action } from "./interact";
 import { jail } from "./jail-state";
 import { life } from "./life";
 import { police } from "./police-state";
 import { pockets, profile, transfer, usd } from "./profile";
 import { WalletPanel } from "./wallet-panel";
+import { FlyHud } from "./fly-hud";
 import { cutscene } from "./cutscene";
 import { graphics, setQuality, useQuality, type Quality } from "./effects";
 import { DealerPanel } from "./dealer-panel";
@@ -141,7 +142,7 @@ export function CityHud({
       else if (e.code === "KeyF") press("F");
       else if (e.code === "KeyQ") press("Q");
       // E gets you into a car when you're next to one; otherwise it's for whatever's here.
-      else if (e.code === "KeyE" && !nearCar) press("E");
+      else if (e.code === "KeyE" && (!nearCar || firstE())) press("E");
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
@@ -156,7 +157,7 @@ export function CityHud({
 
   const w = g.wanted;
   const left = w ? Math.max(0, Math.ceil(w.until - g.now)) : 0;
-  const actions = interaction.actions.filter((a) => !(a.key === "E" && nearCar));
+  const actions = interaction.actions.filter((a) => !(a.key === "E" && nearCar && !a.first));
 
   return (
     <>
@@ -314,6 +315,9 @@ export function CityHud({
 
       {/* ---- How good it looks ---- */}
       {!life.dead && !panel && <GraphicsButton />}
+
+      {/* ---- Fly round the map ---- */}
+      <FlyHud hidden={panel} />
 
       {/* ---- Quick trips round the map ---- */}
       {canTravel && !w && !life.dead && !life.inJail && !police.arrest && (

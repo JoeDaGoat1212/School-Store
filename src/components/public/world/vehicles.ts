@@ -69,7 +69,7 @@ export const STOCK: Model[] = [
   { id: "town-pickup", name: "Pickup", category: "Trucks", body: "pickup", price: 0, top: 100, zeroToSixty: 8, grip: 0.9, blurb: "", colors: [] },
   { id: "plane", name: "Skyhawk light plane", category: "Trucks", body: "plane", price: 0, top: 160, zeroToSixty: 6, grip: 1, blurb: "", colors: [] },
   { id: "heli", name: "Hornet helicopter", category: "Trucks", body: "heli", price: 0, top: 140, zeroToSixty: 6, grip: 1, blurb: "", colors: [] },
-  { id: "golf-cart", name: "Golf cart", category: "Trucks", body: "cart", price: 0, top: 19, zeroToSixty: 12, grip: 0.9, blurb: "", colors: [] },
+  { id: "golf-cart", name: "Golf cart", category: "Trucks", body: "cart", price: 0, top: 42, zeroToSixty: 6.5, grip: 1.05, blurb: "", colors: [] },
 ];
 
 const ALL = new Map([...MODELS, ...STOCK].map((m) => [m.id, m]));
