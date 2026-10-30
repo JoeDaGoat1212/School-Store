@@ -66,7 +66,7 @@ type Style = {
   bed?: boolean;
 };
 
-const STYLES: Record<Exclude<Body, "moto" | "plane" | "heli">, Style> = {
+const STYLES: Record<Exclude<Body, "moto" | "plane" | "heli" | "cart">, Style> = {
   sedan: {
     body: [
       [-3.5, 0.62],
@@ -511,6 +511,7 @@ export function carGeometry(kind: keyof typeof STYLES) {
 /** The top of the driver's seat cushion in a car (or on a bike) of this body, and where their hips go (car-local units). */
 export function driverSeat(body: Body) {
   if (body === "moto") return { x: 0, y: MOTO_SEAT + 0.03, z: 0.55 };
+  if (body === "cart") return { x: -0.55, y: 1.12, z: 0.45 };
   const kind = (body in STYLES ? body : "sedan") as keyof typeof STYLES;
   return carGeometry(kind).seat;
 }
@@ -636,6 +637,7 @@ const FAR_TYRE = new THREE.CylinderGeometry(1, 1, 1, 12);
 
 export function CarModel({ color, look, body = "sedan", rider }: { color: string; look: CarLook; body?: Body; rider?: ReactNode }) {
   if (body === "moto") return <MotorbikeModel color={color} look={look} rider={rider} />;
+  if (body === "cart") return <CartModel color={color} look={look} rider={rider} />;
   const kind = (body in STYLES ? body : "sedan") as keyof typeof STYLES;
   return <Car color={color} look={look} kind={kind} rider={rider} />;
 }
@@ -754,6 +756,99 @@ function Car({ color, look, kind, rider }: { color: string; look: CarLook; kind:
           />
         ))}
       </group>
+    </group>
+  );
+}
+
+// ---- Golf carts --------------------------------------------------------------------------------
+
+/**
+ * A golf cart (sized for the world's people): a moulded body with a
+ * dashboard and cup holders, a two-seat bench, a canopy roof on four posts
+ * with a tinted windscreen, little wheels, and a golf bag strapped on the
+ * back. The driver sits on the bench (`rider`).
+ */
+export function CartModel({ color, look, rider }: { color: string; look: CarLook; rider?: ReactNode }) {
+  const steer = useRef<(THREE.Group | null)[]>([]);
+  const spins = useRef<(THREE.Group | null)[]>([]);
+  const p = paint(color);
+  const seat = mat("#e9e4d8", 0.6, 0);
+  const frame = mat("#2b2f36", 0.4, 0.5);
+  const bag = mat("#7a1f24", 0.6, 0.1);
+  useFrame(() => {
+    steer.current.forEach((g) => g && (g.rotation.y = look.steer));
+    spins.current.forEach((g) => g && (g.rotation.x = -look.spin * 2));
+  });
+  const r = 0.42;
+  const wheels: [number, number][] = [
+    [-1.0, -1.45],
+    [1.0, -1.45],
+    [-1.0, 1.4],
+    [1.0, 1.4],
+  ];
+  return (
+    <group>
+      {wheels.map(([x, z], i) => (
+        <group
+          key={i}
+          position={[x, r, z]}
+          ref={(g) => {
+            if (i < 2) steer.current[i] = g;
+          }}
+        >
+          <group
+            ref={(g) => {
+              spins.current[i] = g;
+            }}
+          >
+            <mesh geometry={WHEEL_GEO.tyre} material={M.tyre} scale={[0.36, r, r]} castShadow raycast={noRaycast} />
+            <mesh geometry={WHEEL_GEO.rim} material={M.rim} position-x={Math.sign(x) * 0.15} scale={[0.04, r * 0.6, r * 0.6]} raycast={noRaycast} />
+          </group>
+        </group>
+      ))}
+      {/* The body: floor, the nose with its dashboard, the rear deck */}
+      <mesh geometry={WHEEL_GEO.box} material={frame} position={[0, 0.55, 0]} scale={[1.9, 0.18, 3.9]} raycast={noRaycast} />
+      <mesh position={[0, 0.95, -1.55]} scale={[1.0, 0.5, 0.75]} material={p} castShadow raycast={noRaycast}>
+        <sphereGeometry args={[1, 24, 14]} />
+      </mesh>
+      <mesh geometry={WHEEL_GEO.box} material={p} position={[0, 1.2, -1.05]} rotation-x={-0.5} scale={[1.85, 0.12, 0.7]} castShadow raycast={noRaycast} />
+      <mesh geometry={WHEEL_GEO.box} material={frame} position={[0, 1.42, -0.92]} rotation-x={-0.55} scale={[1.6, 0.05, 0.35]} raycast={noRaycast} />
+      {[-0.4, 0.4].map((x) => (
+        <mesh key={x} geometry={WHEEL_GEO.rim} material={M.trim} position={[x, 1.46, -0.9]} rotation-z={Math.PI / 2} scale={[0.07, 0.08, 0.08]} raycast={noRaycast} />
+      ))}
+      <mesh geometry={WHEEL_GEO.box} material={p} position={[0, 0.8, 1.45]} scale={[1.9, 0.5, 1.1]} castShadow raycast={noRaycast} />
+      {[-1, 1].map((s) => (
+        <mesh key={`h${s}`} position={[s * 0.62, 0.95, -2.28]} scale={[0.16, 0.11, 0.04]} material={M.head} raycast={noRaycast}>
+          <sphereGeometry args={[1, 12, 8]} />
+        </mesh>
+      ))}
+      {/* The bench: cushion and backrest */}
+      <mesh geometry={WHEEL_GEO.box} material={seat} position={[0, 1.02, 0.45]} scale={[1.75, 0.22, 0.85]} castShadow raycast={noRaycast} />
+      <mesh geometry={WHEEL_GEO.box} material={seat} position={[0, 1.55, 0.92]} rotation-x={0.12} scale={[1.75, 0.8, 0.16]} raycast={noRaycast} />
+      {/* Steering wheel */}
+      <group position={[-0.55, 1.6, -0.55]} rotation-x={-0.9}>
+        <mesh geometry={WHEEL_GEO.lip} material={frame} scale={0.26} raycast={noRaycast} />
+        <mesh geometry={WHEEL_GEO.rim} material={frame} position-y={-0.3} rotation-z={Math.PI / 2} scale={[0.6, 0.03, 0.03]} raycast={noRaycast} />
+      </group>
+      {/* Four posts, the canopy roof and a tinted windscreen */}
+      {[
+        [-0.88, -0.75],
+        [0.88, -0.75],
+        [-0.88, 1.05],
+        [0.88, 1.05],
+      ].map(([x, z], i) => (
+        <mesh key={`p${i}`} geometry={WHEEL_GEO.rim} material={frame} position={[x, 2.25, z]} rotation-z={Math.PI / 2} scale={[2.6, 0.045, 0.045]} raycast={noRaycast} />
+      ))}
+      <mesh geometry={WHEEL_GEO.box} material={p} position={[0, 3.58, 0.15]} scale={[2.0, 0.1, 2.5]} castShadow raycast={noRaycast} />
+      <mesh geometry={WHEEL_GEO.box} material={M.glass} position={[0, 2.55, -0.78]} rotation-x={-0.08} scale={[1.72, 1.7, 0.03]} raycast={noRaycast} />
+      {/* The golf bag on the back, clubs sticking out */}
+      <group position={[0, 1.2, 1.9]} rotation-x={-0.3}>
+        <mesh geometry={WHEEL_GEO.rim} material={bag} position-y={0.55} rotation-z={Math.PI / 2} scale={[1.3, 0.24, 0.24]} castShadow raycast={noRaycast} />
+        {[-0.1, 0, 0.1].map((x, k) => (
+          <mesh key={k} geometry={WHEEL_GEO.box} material={M.chrome} position={[x, 1.3, (k - 1) * 0.06]} scale={[0.07, 0.15, 0.13]} raycast={noRaycast} />
+        ))}
+      </group>
+      {rider}
     </group>
   );
 }

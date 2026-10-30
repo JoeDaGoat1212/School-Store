@@ -13,6 +13,8 @@ import { inCity } from "./city-plan";
 import { PARK } from "./city-layout";
 import { HOMES } from "./houses-layout";
 import { AIRPORT, ESTATES, JAIL } from "./world-map";
+import { SURF, golfBlocks, inGolf, surfaceAt } from "./golf-course";
+import { GARDEN, estateBlocks } from "./estates-layout";
 
 /*
  * Nature, done properly. Plain three.js plus a few components.
@@ -352,11 +354,15 @@ function grassAt(x: number, z: number) {
   let ok = true;
   const inBox = (b: { minX: number; maxX: number; minZ: number; maxZ: number }) => px > b.minX && px < b.maxX && pz > b.minZ && pz < b.maxZ;
   const inPark = px > PARK.x0 + 3 && px < PARK.x1 - 3 && pz > PARK.z0 + 3 && pz < PARK.z1 - 3;
-  if (pz < HILLS_START + 10 || inBox(AIRPORT) || inBox(ESTATES) || inBox(JAIL)) ok = false;
+  if (pz < HILLS_START + 10 || inBox(AIRPORT) || inBox(JAIL)) ok = false;
+  // On the golf course, only in the rough (not on the fairways, greens, sand, paths or under the houses).
+  else if (inGolf(px, pz)) ok = surfaceAt(px, pz) === SURF.rough && !golfBlocks(px, pz, 1.5);
+  // In Crescent Heights: on the lawns, not in the pond or under the art houses.
+  else if (inBox(ESTATES) && (estateBlocks(px, pz, 1.5) || (px > GARDEN.x0 && px < GARDEN.x1 && pz > GARDEN.z0 && pz < GARDEN.z1))) ok = false;
   else if (!inPark && inCity(px, pz, 4)) ok = false;
   else if (onPavement(px, pz, 1.2) || inStoreBlock(px, pz, 2)) ok = false;
   else if (Math.abs(px - DRIVEWAY.x) < DRIVEWAY.halfWidth + 2 && pz > DRIVEWAY.fromZ - 2 && pz < DRIVEWAY.toZ + 2) ok = false;
-  else if (HOMES.some((h) => Math.hypot(h.site.x - px, h.site.z - pz) < Math.max(h.w, h.d) * 0.75 + 6)) ok = false;
+  else if (HOMES.some((h) => Math.hypot(h.site.x - px, h.site.z - pz) < Math.max(h.w, h.d) * (h.area === "estates" ? 1.15 : 0.75) + 6)) ok = false;
   else {
     const near = townObstaclesNear(px, pz);
     if (near.boxes.some((b) => Math.abs(px - b.x) < b.hw + 1.5 + Math.abs(Math.sin(b.turn)) * b.hd && Math.abs(pz - b.z) < b.hd + 1.5 + Math.abs(Math.sin(b.turn)) * b.hw)) ok = false;

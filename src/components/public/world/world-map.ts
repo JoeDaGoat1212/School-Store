@@ -10,9 +10,10 @@
  *        │ AIRPORT  │    TOWN      │    CITY     │   JAIL   │
  *  W(-x) │ runway,  │  the store,  │ bank, shops,│ cells,   │ E(+x)
  *        │ terminal │  houses      │ dealership  │ yard,gym │
- *        ├──────────┴──────┬───────┴─────────────┴──────────┘
- *        │ CRESCENT HEIGHTS│ (gated community of mansions)
- *        └─────────────────┘
+ *        ├──────────┴──────┬───────┴──────┬──────┴──────────┘
+ *        │ CRESCENT HEIGHTS│              │ FIREBIRD RIDGE  │
+ *        │ (gated mansions)│              │ GOLF CLUB       │
+ *        └─────────────────┘              └─────────────────┘
  *                        S (+z)
  *
  * World units are about a metre. The main road (z = 58, the store's avenue)
@@ -21,7 +22,7 @@
  */
 
 /** How far you can walk, drive or fly. */
-export const WORLD_BOUNDS = { minX: -1500, maxX: 1560, minZ: -1180, maxZ: 1000 };
+export const WORLD_BOUNDS = { minX: -1500, maxX: 1560, minZ: -1180, maxZ: 1820 };
 
 /** The main road (the store's avenue) and how far it now runs each way. */
 export const MAIN_ROAD_Z = 58;
@@ -83,6 +84,16 @@ export const ESTATES_ROAD = { x: 0, from: 220, to: 580 };
 export const ESTATE_DRIVE = { x: 0, from: 580, to: 900 };
 export const CROSS_DRIVE = { z: 770, from: -400, to: 400 };
 
+// ---- Firebird Ridge Golf Club (south-east, beside Crescent Heights) -------------------------
+
+/**
+ * The golf club: a 9-hole course, the clubhouse and the driving range
+ * (golf-course.ts has the holes). Real distances: a unit is a metre.
+ */
+export const GOLF = { x0: 500, x1: 1545, z0: 470, z1: 1800 };
+/** The road into the club: on from the city's street at x = 800, south to the clubhouse car park. */
+export const CLUB_ROAD = { x: 800, from: 330, to: 478 };
+
 // ---- The mountains (north) ------------------------------------------------------------------
 
 export const MOUNTAINS = { minX: -1100, maxX: 1500, minZ: -1180, maxZ: -330 };
@@ -91,14 +102,16 @@ export const BASE_VALLEY = { x: 990, z: -820, r: 110, y: 46 };
 export const BASE = {
   /** The middle of the hollow mountain. */
   x: 990,
-  z: -880,
+  z: -894,
   /** Its door faces the valley (+z), here: */
   doorZ: -830,
   /** The hangar inside: half-width, depth back from the door, height. */
-  halfW: 26,
-  depth: 54,
-  height: 16,
+  halfW: 46,
+  depth: 120,
+  height: 30,
 };
+/** The helipad out in the base's valley (with a helicopter you can fly). */
+export const BASE_HELIPAD = { x: 1040, z: -788, r: 12 };
 
 /**
  * The mountain road: from the city's north edge (the top of street x = 920)

@@ -1208,6 +1208,8 @@ export type Database = {
       apply_for_job: { Args: { p_business: string; p_answers: Json }; Returns: undefined };
       leave_job: { Args: { p_business: string; p_reason: string }; Returns: undefined };
       record_job_level: { Args: { p_business: string; p_level: number }; Returns: undefined };
+      record_golf_round: { Args: { p_holes: number[] }; Returns: undefined };
+      golf_leaderboard: { Args: Record<PropertyKey, never>; Returns: Json };
       quote_cart: { Args: { p_bundles?: Json; p_items: Json; p_reward_id?: string }; Returns: Json };
       save_profile: { Args: { p_first_name: string; p_grade: string; p_last_name: string; p_username?: string | null }; Returns: undefined };
       username_available: { Args: { p_username: string }; Returns: boolean };

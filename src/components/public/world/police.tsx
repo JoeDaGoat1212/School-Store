@@ -15,7 +15,7 @@ import { police, type Unit } from "./police-state";
 
 /*
  * Draws the police from police.ts: squad cars with flashing red and blue
- * lights, officers running after you, and the helicopter circling overhead
+ * lights, officers running after you, and the helicopter circling low among the towers (it climbs over any roof in its way)
  * with its searchlight on you. The searchlight stops at rooftops: it never
  * shines through a building.
  */
@@ -154,6 +154,13 @@ const SOLIDS = [
   })(),
 ];
 
+/** The highest rooftop within `r` of (x, z) (0 if there's none). */
+export function roofUnder(x: number, z: number, r: number) {
+  let top = 0;
+  for (const b of SOLIDS) if (x > b.x0 - r && x < b.x1 + r && z > b.z0 - r && z < b.z1 + r && b.y1 > top) top = b.y1;
+  return top;
+}
+
 /** How far along the line from a to b (0…1) the first building is, or 1 if nothing's in the way. */
 export function firstHit(a: THREE.Vector3, b: THREE.Vector3) {
   const d = new THREE.Vector3().subVectors(b, a);
@@ -199,7 +206,7 @@ function Helicopter() {
   const tail = useRef<THREE.Group>(null);
   const light = useRef<THREE.Group>(null);
   const spot = useRef<THREE.Mesh>(null);
-  const s = useRef({ since: -1, leftAt: -1, pos: new THREE.Vector3(9999, 300, 9999), cx: 0, cz: 0 });
+  const s = useRef({ since: -1, leftAt: -1, pos: new THREE.Vector3(9999, 300, 9999), cx: 0, cz: 0, clear: 0 });
   const cone = useMemo(() => new THREE.ConeGeometry(1, 1, 24, 1, true).rotateX(-Math.PI / 2).translate(0, 0, 0.5), []);
   const sign = useMemo(() => signTexture("Police", { bg: "transparent", fg: "#ffffff", height: 64 }), []);
 
@@ -227,7 +234,8 @@ function Helicopter() {
     st.cx += (you.x - st.cx) * Math.min(1, delta * 0.6);
     st.cz += (you.z - st.cz) * Math.min(1, delta * 0.6);
     const a = now * 0.32;
-    const orbit = new THREE.Vector3(st.cx + Math.cos(a) * 40, 55, st.cz + Math.sin(a) * 40);
+    // It flies low, down among the towers, and climbs over (or swings round) any building in its way instead of going through it.
+    const orbit = new THREE.Vector3(st.cx + Math.cos(a) * 40, 34, st.cz + Math.sin(a) * 40);
     const from = new THREE.Vector3(st.cx + 420, 180, st.cz - 320);
     const enter = Math.min(1, Math.max(0, (now - st.since - 3) / 7));
     const want = from.lerp(orbit, 1 - (1 - enter) ** 3);
@@ -240,6 +248,17 @@ function Helicopter() {
         return;
       }
     }
+    // Clearance: the tallest roof under the rotors, here and a little way ahead (so it climbs in time).
+    let roof = 0;
+    for (const ahead of [0, 0.25, 0.5]) {
+      const aa = a + ahead;
+      const px = ahead ? st.cx + Math.cos(aa) * 40 : want.x;
+      const pz = ahead ? st.cz + Math.sin(aa) * 40 : want.z;
+      roof = Math.max(roof, roofUnder(px, pz, 9));
+    }
+    const need = roof > 0 ? roof + 10 : 0;
+    st.clear += (need - st.clear) * Math.min(1, delta * (need > st.clear ? 4 : 0.7));
+    want.y = Math.max(want.y, st.clear, need - 2);
     h.visible = true;
     const dx = want.x - st.pos.x;
     const dz = want.z - st.pos.z;

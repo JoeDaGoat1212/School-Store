@@ -5,6 +5,7 @@ import { useFrame } from "@react-three/fiber";
 import * as THREE from "three";
 import { player } from "./bump";
 import { Block, Cyl, GLASS, mat, useDrawn } from "./buildings";
+import { surface } from "./detail";
 import { drive } from "./drive";
 import { HOMES, ESTATE_WALL, access, doorOpenFor, homePlan, ownsHome, type Home } from "./houses-layout";
 import { Humanoid, newPose, randomLook } from "./humanoid";
@@ -206,7 +207,8 @@ function Upper({ h }: { h: Home }) {
   const D = P.D;
   const S = h.storey;
   const up = (h.floors - 1) * S;
-  const wall = mat(h.wall, 0.85);
+  // Crescent Heights' mansions in real dressed stone and stucco.
+  const wall = h.area === "estates" ? surface(h.style === "chateau" || h.style === "crown" || h.style === "tuscan" ? "stone" : "stucco", h.wall, 0.85) : mat(h.wall, 0.85);
   const trim = mat(h.trim, 0.5);
   const top = h.floors * S;
   const aFrame = useMemo(() => gable(W + 2, D + 1.5, S * 2.4), [W, D, S]);
@@ -425,16 +427,7 @@ function Grounds({ h }: { h: Home }) {
         ))}
       </group>,
     );
-  // Hedges and trees round the bigger lots.
-  if (h.area === "estates")
-    for (const s of [-1, 1])
-      out.push(
-        <mesh key={`tree${s}`} position={[s * (W + 6), 3.4, 6]} castShadow raycast={noRaycast}>
-          <icosahedronGeometry args={[2.6, 1]} />
-          <meshStandardMaterial color="#3f7d3a" roughness={0.9} flatShading />
-        </mesh>,
-        <Cyl key={`trunk${s}`} x={s * (W + 6)} y={1} z={6} r={0.3} h={2} m={mat("#5b3a26", 0.9)} />,
-      );
+  // (The trees in front of the Crescent Heights mansions are drawn with the estate's grounds: estates.tsx.)
   return <>{out}</>;
 }
 
@@ -454,7 +447,8 @@ function ForSale({ h }: { h: Home }) {
 
 function HomeModel({ h }: { h: Home }) {
   const P = homePlan(h);
-  const wall = mat(h.wall, 0.85);
+  // Crescent Heights' mansions in real dressed stone and stucco.
+  const wall = h.area === "estates" ? surface(h.style === "chateau" || h.style === "crown" || h.style === "tuscan" ? "stone" : "stucco", h.wall, 0.85) : mat(h.wall, 0.85);
   const inside = mat("#f6f1e7", 0.9);
   const trim = mat(h.trim, 0.5);
   const inner = useRef<THREE.Group>(null);

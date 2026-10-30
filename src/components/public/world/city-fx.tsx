@@ -14,6 +14,7 @@ import { tickRealty } from "./realty";
 import { tickJail } from "./jail-state";
 // (Pickpocketing anyone on the street: registers its F action.)
 import "./pickpocket";
+import { tickGolf } from "./golf-state";
 import { tickPolice } from "./police-state";
 import { life, revive, tickLife } from "./life";
 import { loseCash, profile } from "./profile";
@@ -36,6 +37,7 @@ export function CityGame({ calm }: { calm: boolean }) {
     const you = drive.active ? { x: drive.pos.x, z: drive.pos.z, y: drive.pos.y } : { x: player.x, z: player.z, y: player.y };
     tick(state.clock.elapsedTime, dt, { ...you, onFoot: player.onFoot, driving: drive.active });
     tickPolice(state.clock.elapsedTime, dt);
+    tickGolf(state.clock.elapsedTime, dt);
     tickJail(state.clock.elapsedTime, dt);
     tickJobs(state.clock.elapsedTime, dt);
     tickRealty(state.clock.elapsedTime, you);

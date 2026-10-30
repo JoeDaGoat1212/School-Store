@@ -15,8 +15,11 @@ import { WORLD_BOUNDS } from "./world-map";
  *
  *   - Once you've set off an alarm, squad cars come after you (three at
  *     first, up to six the longer it goes on). They turn up on the roads
- *     nearby, always a bit faster than whatever you're driving, aim where
- *     you're going (so they cut you off and box you in), and ram you.
+ *     nearby and drive like real cars: they speed up and brake gradually,
+ *     can't turn sharply at speed (so they brake for corners and run wide),
+ *     and top out a little under what you're driving, so a good driver can
+ *     get away. They aim where you're going (to cut you off and box you
+ *     in), and ram you.
  *   - On foot, when one gets close it screeches to a stop and an officer
  *     jumps out and runs after you. Run! (They're a little faster than you,
  *     so get in a car.) If they catch you: hands up, handcuffs, walked to the car, put
@@ -27,11 +30,18 @@ import { WORLD_BOUNDS } from "./world-map";
  */
 
 const MAX_UNITS = 6;
-const CRUISE = 40;
+const CRUISE = 32;
 /** On foot, an officer runs at this speed: a touch faster than you (you run at 12), so don't stop for breath. */
 const OFFICER_RUN = 12.8;
-/** How fast squad cars go: always a bit faster than whatever you're driving. */
-const chaseTop = () => Math.max(CRUISE + 6, drive.active ? (drive.top / MPH_PER_UNIT) * 1.12 : 0);
+/**
+ * How fast squad cars go flat out: about a police interceptor's top speed
+ * (~110 mph), or a little under whatever you're driving if that's slower;
+ * a touch faster when they're far behind (so they don't lose you entirely).
+ */
+const chaseTop = (far = false) => Math.min(50, Math.max(CRUISE + 4, drive.active ? (drive.top / MPH_PER_UNIT) * (far ? 1.0 : 0.92) : CRUISE + 4));
+/** How quickly they pick up speed and brake (units/s²): a real car's, not a rocket's. */
+const ACCEL = 9;
+const BRAKE = 18;
 
 export type Officer = { active: boolean; x: number; z: number; yaw: number; speed: number; phase: number };
 export type Unit = {
@@ -181,7 +191,8 @@ export function tickPolice(now: number, dt: number) {
       const aim = { x: p.x + vx * lead, z: p.z + vz * lead };
       wantHeading = angleTo(u, holed ? goal : dist < 10 ? p : aim);
       const yours = Math.abs(drive.speed);
-      wantSpeed = dist > 60 ? top : dist > 25 ? Math.max(top * 0.75, yours + 8) : p.inCar ? Math.max(14, yours + 5) : 12;
+      const flatOut = dist > 160 ? chaseTop(true) : top;
+      wantSpeed = dist > 60 ? flatOut : dist > 25 ? Math.min(flatOut, Math.max(top * 0.7, yours + 4)) : p.inCar ? Math.min(flatOut, Math.max(12, yours + 3)) : 11;
       // Right on you in a car: they ram you and slow you down.
       if (p.inCar && dist < 5.5 && Math.abs(u.speed) > 6) {
         slowCar(Math.max(0, 1 - 1.4 * dt));
@@ -212,15 +223,20 @@ export function tickPolice(now: number, dt: number) {
       }
     }
 
-    // Steer and drive (slowing for sharp turns), dodging whatever's in the way.
+    // Steer and drive, dodging whatever's in the way. Like a real car: the faster it's going, the wider it has to turn,
+    // so it brakes for sharp corners (harder the sharper they are).
     const turn = wrap(wantHeading - u.heading);
-    u.heading += Math.max(-3.2 * dt, Math.min(3.2 * dt, turn));
-    if (Math.abs(turn) > 1.2) wantSpeed = Math.min(wantSpeed, 16);
+    const steerRate = 2.6 / (1 + Math.abs(u.speed) / 22);
+    u.heading += Math.max(-steerRate * dt, Math.min(steerRate * dt, turn)) * (Math.abs(u.speed) > 0.5 || u.reverse > 0 ? 1 : 0.3);
+    const corner = Math.abs(turn);
+    if (corner > 0.35) wantSpeed = Math.min(wantSpeed, Math.max(10, 34 - corner * 18));
     if (u.reverse > 0) {
       u.reverse -= dt;
       wantSpeed = -7;
     }
-    u.speed += (wantSpeed - u.speed) * Math.min(1, dt * (wantSpeed < u.speed ? 4 : 2.6));
+    const dv = wantSpeed - u.speed;
+    const rate = (dv < 0) === (u.speed > 0) ? BRAKE : ACCEL;
+    u.speed += Math.max(-rate * dt, Math.min(rate * dt, dv));
     if (Math.abs(u.speed) > 0.05) {
       const self = copSpots[i];
       // In small steps, so a fast squad car can't skip through a wall.

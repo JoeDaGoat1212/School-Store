@@ -16,7 +16,7 @@
 
 import { CITY_AVENUES_Z, CITY_KEEP_CLEAR, CITY_SPAN_X, CITY_SPAN_Z, CITY_STREETS_X, inCity } from "./city-plan";
 import { seededRandom } from "./paint";
-import { AIRPORT_ROAD, CROSS_DRIVE, ESTATE_DRIVE, ESTATES_ROAD, JAIL_ROAD, WORLD_BOUNDS } from "./world-map";
+import { AIRPORT_ROAD, CLUB_ROAD, CROSS_DRIVE, ESTATE_DRIVE, ESTATES_ROAD, JAIL_ROAD, WORLD_BOUNDS } from "./world-map";
 
 export const ROAD_HALF = 8; // half a road's width (two lanes)
 export const LANE = 4; // how far a lane's middle is from the road's middle
@@ -53,6 +53,8 @@ export const ROADS: Road[] = [
   { axis: "x", at: JAIL_ROAD.z, from: JAIL_ROAD.from, to: JAIL_ROAD.to },
   { axis: "z", at: ESTATES_ROAD.x, from: ESTATES_ROAD.from, to: ESTATE_DRIVE.to },
   { axis: "x", at: CROSS_DRIVE.z, from: CROSS_DRIVE.from, to: CROSS_DRIVE.to },
+  // The road to the golf club.
+  { axis: "z", at: CLUB_ROAD.x, from: CLUB_ROAD.from, to: CLUB_ROAD.to },
 ];
 
 /** Where the roads running the other way cross this one (including at its very ends). */
