@@ -348,30 +348,43 @@ export type Shot = { ball: Ball; face: number; curve: number };
  * way (unit dx, dz), from where, and the lie. Mis-hits (a random face angle
  * and curve) get worse with longer clubs, overswinging and bad lies.
  */
-export function strike(club: Club, power: number, dx: number, dz: number, from: { x: number; y: number; z: number }, surf: Surface, random: () => number = Math.random): Shot {
+export function strike(club: Club, power: number, dx: number, dz: number, from: { x: number; y: number; z: number }, surf: Surface, random: () => number = Math.random, acc?: number): Shot {
   const gauss = () => {
     const u = Math.max(1e-6, random());
     const v = random();
     return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v);
   };
+  const turn = (deg: number) => {
+    const a = (deg * Math.PI) / 180;
+    return { x: dx * Math.cos(a) - dz * Math.sin(a), z: dx * Math.sin(a) + dz * Math.cos(a) };
+  };
   if (club.putter) {
-    const face = gauss() * 0.35 * club.stray * (1 + Math.max(0, power - 1) * 6);
-    const a = (face * Math.PI) / 180;
-    const ddx = dx * Math.cos(a) - dz * Math.sin(a);
-    const ddz = dx * Math.sin(a) + dz * Math.cos(a);
+    // With the accuracy bar: the face is open (+, right) or shut (−, left) by where you stopped it, plus a hair of luck.
+    const face = acc != null ? acc * 4.5 + gauss() * 0.12 : gauss() * 0.35 * club.stray * (1 + Math.max(0, power - 1) * 6);
+    const d = turn(face);
     const metres = PUTT_MAX * Math.min(1.1, power) * (1 + gauss() * 0.02);
-    return { ball: rollBall(from.x, from.y, from.z, ddx, ddz, puttSpeed(metres)), face, curve: 0 };
+    return { ball: rollBall(from.x, from.y, from.z, d.x, d.z, puttSpeed(metres)), face, curve: 0 };
   }
   const lie = lieEffect(surf, club);
   const over = Math.max(0, power - 1);
   const sigma = club.stray * lie.stray * (1 + over * 9) * (0.55 + 0.45 * Math.min(1, power));
-  const face = gauss() * 1.1 * sigma;
-  const curve = gauss() * 4.5 * sigma + face * 1.6;
-  const a = (face * Math.PI) / 180;
-  const ddx = dx * Math.cos(a) - dz * Math.sin(a);
-  const ddz = dx * Math.sin(a) + dz * Math.cos(a);
-  const speed = speedFor(club.carry * YARD * Math.min(1.08, power), club.launch, club.spin) * lie.speed * (1 + gauss() * 0.012);
-  return { ball: launchBall(from.x, from.y + 0.03, from.z, ddx, ddz, speed, club.launch * (surf === SURF.rough ? 0.92 : 1), club.spin * lie.spin, curve), face, curve };
+  let face: number;
+  let curve: number;
+  if (acc != null) {
+    // The accuracy bar: dead centre flies straight; off to the right pushes and slices it right, to the left pulls and hooks it left.
+    // (Longer clubs, bad lies and an overswing make a miss worse.)
+    const k = (0.35 + club.stray * 0.85) * lie.stray * (1 + over * 4);
+    face = acc * 2.4 * k + gauss() * 0.15 * sigma;
+    curve = acc * 9 * k + gauss() * 0.4 * sigma + face * 0.8;
+  } else {
+    face = gauss() * 1.1 * sigma;
+    curve = gauss() * 4.5 * sigma + face * 1.6;
+  }
+  const d = turn(face);
+  // A thin or heavy strike (well off the centre) loses a little distance too.
+  const flush = acc != null ? 1 - Math.min(0.12, Math.abs(acc) * Math.abs(acc) * 0.12) : 1;
+  const speed = speedFor(club.carry * YARD * Math.min(1.08, power), club.launch, club.spin) * lie.speed * flush * (1 + gauss() * 0.012);
+  return { ball: launchBall(from.x, from.y + 0.03, from.z, d.x, d.z, speed, club.launch * (surf === SURF.rough ? 0.92 : 1), club.spin * lie.spin, curve), face, curve };
 }
 
 /** Fly (and roll) a whole shot through to the end (for previews and tests). Returns the ball and the points it went through. */

@@ -29,9 +29,11 @@ import { BAG, PUTTER, PUTT_MAX, playOut, puttSpeed, rollBall, scoreName, speedFo
  *     clubhouse grounds). Nine holes, par 37. Your score is kept for you,
  *     stroke by stroke, penalties and all.
  *   - Walk (or drive a golf cart) to your ball, and press E to step up to it.
- *     ← → aim, ↑ ↓ change club (each shows its stock carry), hold Space to
- *     swing back and let go to hit: the longer you hold, the harder (past the
- *     top of the meter is an overswing, which sprays it). A ring shows where
+ *     ← → aim, ↑ ↓ change club (each shows its stock carry). Then two
+ *     presses of Space: the power bar fills and empties, press to set the
+ *     power (past the top is an overswing, which makes a miss worse); then
+ *     the accuracy needle swings side to side, press when it's in the green
+ *     in the middle (left of it hooks it left, right slices it right). A ring shows where
  *     your club carries to, along with the wind; on the green a dotted line
  *     reads the putt for you.
  *   - The ball flies with real physics and leaves a shot tracer. Then go to
@@ -65,9 +67,13 @@ export const golf = {
   club: 0,
   /** Which way you're aiming (radians: 0 = +z, like the holes' turn). */
   aim: 0,
+  /** The swing meters. The power bar fills and empties until you press Space; that sets the power (and "charging" goes true). Then the accuracy needle swings left and right until you press Space again: dead centre is straight, either side curves it. */
   power: 0,
   charging: false,
+  /** When the power bar (or, once the power's set, the accuracy needle) started moving. */
   chargeAt: 0,
+  /** The accuracy needle: −1 (far left) … 0 (dead centre) … 1 (far right). */
+  acc: -1,
   /** The swing's animation: -1 at the top of the backswing, 0 at impact, 1 at the finish. */
   swing: 0,
   swingAt: -1,
@@ -249,9 +255,13 @@ function address() {
   golf.aim = defaultAim();
   golf.power = 0;
   golf.charging = false;
+  golf.chargeAt = golf.now;
+  golf.acc = -1;
   golf.swing = 0;
   golf.swingAt = -1;
   golf.restAt = -1;
+  // (Whatever button was last clicked mustn't take the Space presses.)
+  if (typeof document !== "undefined") (document.activeElement as HTMLElement | null)?.blur?.();
   golf.previewKey = "";
   // Fly out and show where this club lands, then come back to the ball.
   golf.aimAt = golf.now + 0.8;
@@ -325,37 +335,63 @@ export function toggleLookTarget() {
   if (!golf.lookTarget) golf.aimAt = -10;
   notify();
 }
-export function startCharge() {
-  if (golf.stage !== "address" || golf.charging) return;
-  golf.lookTarget = false;
-  golf.charging = true;
-  golf.chargeAt = golf.now;
-  golf.power = 0;
+/** How long the power bar takes to fill (it then empties again, and so on). */
+const POWER_UP = 1.3;
+/** The power bar: 0 → 1.1 (the top 10% is an overswing) → 0, over and over. */
+export function powerBar(t: number) {
+  const u = t % (POWER_UP * 2);
+  return (u < POWER_UP ? u / POWER_UP : 2 - u / POWER_UP) * 1.1;
 }
-/** Let go: hit it. */
-export function releaseCharge() {
-  if (golf.stage !== "address" || !golf.charging) return;
+/** How long the accuracy needle takes to go across and back (quicker on a harder swing; slow and easy for a putt). */
+export function needlePeriod(putt: boolean, power: number) {
+  return putt ? 3 : 2.4 - 0.6 * Math.min(1, power);
+}
+/** The accuracy needle: starts far left, across to the right, and back. */
+export function needle(t: number, period: number) {
+  const u = (t % period) / period;
+  return u < 0.5 ? -1 + u * 4 : 3 - u * 4;
+}
+/** Inside this (either side of the middle) is a perfect strike. */
+export const PERFECT = 0.08;
+/** And inside this, a good one. */
+export const GOOD = 0.25;
+
+/** The putter's power bar: full is about 1.6 times the distance to the hole (so short putts aren't a hair's breadth on the bar), up to 30 yards. In metres. */
+export function puttReach() {
+  const pin = pinOf();
+  if (!pin) return PUTT_MAX;
+  return Math.min(PUTT_MAX, Math.max(3, dist(golf.ball, pin) * 1.6));
+}
+/** What the power bar means for the club in hand (for strike(): a fraction of the putter's longest putt). */
+const strikePower = () => (BAG[golf.club].putter ? (golf.power * puttReach()) / PUTT_MAX : golf.power);
+
+/** Space: the first press sets the power, the second sets the accuracy and hits it. */
+export function pressSwing() {
+  if (golf.stage !== "address") return;
+  if (!golf.charging) {
+    golf.power = Math.max(0.04, powerBar(golf.now - golf.chargeAt));
+    golf.charging = true;
+    golf.chargeAt = golf.now;
+    golf.acc = -1;
+    golf.lookTarget = false;
+    notify();
+    return;
+  }
+  golf.acc = needle(golf.now - golf.chargeAt, needlePeriod(Boolean(BAG[golf.club].putter), golf.power));
   golf.charging = false;
   golf.swingAt = golf.now;
   golf.stage = "flight";
   golf.shot = null;
   // (The last shot's "it's stopped" time mustn't end this one before the club gets to the ball.)
   golf.restAt = -1;
+  if (!BAG[golf.club].putter && Math.abs(golf.acc) < PERFECT) say("Perfect strike!", undefined, "good", 1.3);
   notify();
-}
-
-/** The meter: up to the top (1.0) in 1.1 s, on into the overswing (to 1.1), then back down. */
-function meter(t: number) {
-  const up = t / 1.1;
-  if (up <= 1.1) return up;
-  const back = 1.1 - (up - 1.1) * 1.4;
-  return Math.max(0, back);
 }
 
 function hit() {
   const club = BAG[golf.club];
   const d = aimDir();
-  const shot = strike(club, golf.power, d.x, d.z, golf.ball, golf.lie);
+  const shot = strike(club, strikePower(), d.x, d.z, golf.ball, golf.lie, Math.random, golf.acc);
   golf.shot = shot.ball;
   golf.tracer = [{ x: golf.ball.x, y: golf.ball.y + 0.05, z: golf.ball.z }];
   golf.last = { x: golf.ball.x, z: golf.ball.z, lie: golf.lie };
@@ -441,10 +477,10 @@ export function tickGolf(now: number, dt: number) {
   const club = BAG[golf.club];
 
   if (golf.stage === "address") {
-    if (golf.charging) {
-      golf.power = meter(now - golf.chargeAt);
-      golf.swing = -Math.min(1, golf.power) * (club.putter ? 0.35 : 1);
-    } else golf.swing = 0;
+    // The club goes back with the power bar, and waits at the top while the accuracy needle swings.
+    if (!golf.charging) golf.power = powerBar(now - golf.chargeAt);
+    else golf.acc = needle(now - golf.chargeAt, needlePeriod(Boolean(club.putter), golf.power));
+    golf.swing = -Math.min(1, golf.power) * (club.putter ? 0.35 : 1);
     player.anim.swing = golf.swing;
     updatePreview();
     addressCamera(club.putter ?? false, dt);
@@ -568,7 +604,8 @@ function flightCamera(dt: number) {
 /** The predicted flight (no mis-hit, with the wind) for the aim ring, or the putt's line. Worked out when the aim or club changes. */
 function updatePreview() {
   const club = BAG[golf.club];
-  const power = golf.charging ? Math.min(1, golf.power) : 1;
+  // (The putt read follows the power bar; a full swing's ring shows the club's stock carry.)
+  const power = club.putter ? Math.min(1.1, golf.power) : 1;
   const key = `${golf.club}|${golf.aim.toFixed(3)}|${golf.mode}|${club.putter ? power.toFixed(2) : ""}|${golf.ball.x.toFixed(2)}`;
   if (key === golf.previewKey) return;
   golf.previewKey = key;
@@ -577,7 +614,7 @@ function updatePreview() {
   if (club.putter) {
     // The read: how a putt this hard rolls (at a guess of the distance before you start the stroke).
     const pin = pinOf();
-    const guess = golf.charging ? power * PUTT_MAX : pin ? Math.min(PUTT_MAX, dist(b, pin) * 1.05) : 6;
+    const guess = power > 0.02 ? power * puttReach() : pin ? Math.min(PUTT_MAX, dist(b, pin) * 1.05) : 6;
     const ball = rollBall(b.x, b.y, b.z, d.x, d.z, puttSpeed(guess));
     const { pts } = playOut(ball, ground, undefined, undefined, 20);
     golf.preview = { pts: pts.filter((_, i) => i % 3 === 0), carry: null, end: { x: ball.x, y: ball.y, z: ball.z } };

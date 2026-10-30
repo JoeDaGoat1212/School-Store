@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { CameraIcon, HeartIcon, SparklesIcon, LandmarkIcon, MapPinIcon, NavigationIcon, StarIcon, UtensilsIcon, Volume2Icon, VolumeXIcon, WalletIcon, XIcon } from "lucide-react";
+import { CameraIcon, HeartIcon, SparklesIcon, LandmarkIcon, MapPinIcon, NavigationIcon, StarIcon, Volume2Icon, VolumeXIcon, WalletIcon, XIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { player } from "./bump";
 import { BANK } from "./city-layout";
@@ -27,7 +27,7 @@ import { DROP } from "./world-layout";
 
 /*
  * The city game's buttons and signs over the 3D world: your money (cash and
- * bank, in US dollars), hunger and health, "+$45,000" as money comes in, the
+ * bank, in US dollars), health, "+$45,000" as money comes in, the
  * wanted stars and the countdown to get the loot to the secret base (with an
  * arrow pointing the way), big ALARM / STASHED / BUSTED / WASTED banners,
  * what you can do where you're standing ("R  Rob the bank!"), the bank
@@ -95,7 +95,7 @@ export function CityHud({
   });
   const shown = calm ? profile.cash : rolling;
 
-  // A few times a second: hunger, health, and the arrow to the base.
+  // A few times a second: health, and the arrow to the base.
   useEffect(() => {
     const t = setInterval(() => {
       setStats({ hunger: Math.round(life.hunger), health: Math.round(life.health) });
@@ -161,7 +161,7 @@ export function CityHud({
 
   return (
     <>
-      {/* ---- Money, hunger and health, top middle ---- */}
+      {/* ---- Money and health, top middle ---- */}
       <div className="pointer-events-none absolute inset-x-0 top-[7.4rem] flex flex-col items-center gap-1.5 px-3 sm:top-[4.4rem]">
         <div className="pointer-events-auto flex items-center gap-1 rounded-full border-[3px] border-black bg-[#6cc04a] py-1 pr-1 pl-3 shadow-[0_4px_0_#000]">
           <span className="font-heading text-2xl leading-none font-extrabold tracking-wide text-black tabular-nums" aria-label={`Cash ${usd(profile.cash)}`}>
@@ -187,8 +187,7 @@ export function CityHud({
             {profile.muted ? <VolumeXIcon className="size-3.5" /> : <Volume2Icon className="size-3.5" />}
           </button>
         </div>
-        <div className="flex gap-2" aria-label={`Hunger ${stats.hunger}%, health ${stats.health}%`}>
-          <Meter icon={<UtensilsIcon className="size-3" />} value={stats.hunger} color={stats.hunger < 25 ? "#ff7a2a" : "#ffd21f"} warn={stats.hunger < 15 && !calm} />
+        <div className="flex gap-2" aria-label={`Health ${stats.health}%`}>
           <Meter icon={<HeartIcon className="size-3" />} value={stats.health} color={stats.health < 35 ? "#ff3b30" : "#ff5a7a"} warn={stats.health < 35 && !calm} />
         </div>
 

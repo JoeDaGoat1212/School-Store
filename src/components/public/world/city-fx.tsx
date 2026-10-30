@@ -44,10 +44,8 @@ export function CityGame({ calm }: { calm: boolean }) {
     tickInteract({ ...you, yaw: player.yaw, onFoot: player.onFoot, driving: drive.active }, life.dead || player.frozen || (!player.onFoot && !drive.active));
     if (calm) game.shake = 0;
 
-    // Hunger and health (paused while you're in a cutscene or the menus).
-    const warn = tickLife(dt, !player.onFoot && !drive.active);
-    if (warn === "hungry") banner("info", "You're hungry", "Grab something to eat at Restaurant Row in the city.", 4);
-    if (warn === "starving") banner("dead", "Starving!", "Eat something fast, or you'll pass out.", 4);
+    // Health coming back (paused while you're in a cutscene or the menus). No hunger any more.
+    tickLife(dt, !player.onFoot && !drive.active);
 
     // Dying: fall over, the screen says why, then wake up at home (or the store) without the cash you had on you.
     if (life.dead && !respawnAt.current) {

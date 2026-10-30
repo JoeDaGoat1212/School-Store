@@ -8,6 +8,10 @@ import { drive } from "./drive";
 import { Humanoid, PLAYER_LOOK, PRISONER_LOOK, newPose } from "./humanoid";
 import { jobs } from "./jobs";
 import { life } from "./life";
+import { EYE_HEIGHT } from "./world-layout";
+import { police } from "./police-state";
+
+const HEAD = new THREE.Vector3();
 
 /*
  * You, as a person: seen in third person (mouse wheel or V), and in
@@ -28,10 +32,15 @@ export function PlayerAvatar() {
   const worker = useMemo(() => ({ ...PLAYER_LOOK, shirt: "#f2f0ea", outfit: "worker" as const, accent: "#e01e37" }), []);
   const chute = useRef<THREE.Group>(null);
 
-  useFrame((_, delta) => {
+  useFrame(({ camera }, delta) => {
     const group = g.current;
     if (!group) return;
-    const seen = (player.view === "third" || player.showBody || life.dead) && player.onFoot && !drive.active && !player.hidden;
+    // (Only hidden while being driven off in the back of the police car; never left hidden after that.)
+    if (player.hidden && !police.arrest) player.hidden = false;
+    // Shown whenever the camera isn't at your own eyes: third person, cutscenes, golf, fly mode…
+    HEAD.set(player.x, player.y + EYE_HEIGHT, player.z);
+    const away = camera.position.distanceToSquared(HEAD) > 1.2 * 1.2;
+    const seen = (away || player.view === "third" || player.showBody || life.dead) && player.onFoot && !drive.active && !player.hidden;
     group.visible = seen;
     if (!seen) return;
     group.position.set(player.x, player.y, player.z);
