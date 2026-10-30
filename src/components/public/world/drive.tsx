@@ -14,6 +14,7 @@ import { MPH_PER_UNIT, SMOKE_SLIP, stepCar, type Motion } from "./car-physics";
 import { puff } from "./smoke";
 import { walkerSpots } from "./town";
 import { groundAt } from "./terrain";
+import { life } from "./life";
 
 /** Where a car sits on the ground: its height, and how far its nose tips up or down on a slope. */
 export function carOnGround(x: number, z: number, heading: number) {
@@ -200,7 +201,8 @@ export function Cars({
       drive.vehicle = -1;
       // Got out: step out by the driver's door (or wherever there's room). Aircraft handle their own (you might be in the air!).
       if (before !== null && !isAircraft(fleet[before])) {
-        getOut(fleet[before].spot);
+        // (Not if you've just been taken to jail: you're in your cell, not beside the car.)
+        if (!life.inJail) getOut(fleet[before].spot);
         rememberWhere(fleet[before]);
       }
     }

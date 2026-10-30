@@ -549,6 +549,77 @@ export function Lot() {
  */
 /** Which way the sun is (the same as the sunlight in world-scene.tsx). */
 export const SUN_DIR: [number, number, number] = [68, 120, 92];
+/** The sky's air: a little hazy, like a real city on a warm afternoon (more turbidity = more haze). */
+export const SKY = { turbidity: 8.5, rayleigh: 1.5, mie: 0.0055, mieG: 0.85 };
+
+const CLOUD_VERT = /* glsl */ `
+  varying vec3 vCloudWorld;
+  void main() {
+    vec4 w = modelMatrix * vec4(position, 1.0);
+    vCloudWorld = w.xyz;
+    gl_Position = projectionMatrix * viewMatrix * w;
+  }`;
+const CLOUD_FRAG = /* glsl */ `
+  uniform float time;
+  uniform vec3 eye;
+  varying vec3 vCloudWorld;
+  float cHash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+  float cNoise(vec2 p) {
+    vec2 i = floor(p);
+    vec2 f = fract(p);
+    vec2 u = f * f * (3.0 - 2.0 * f);
+    return mix(mix(cHash(i), cHash(i + vec2(1.0, 0.0)), u.x), mix(cHash(i + vec2(0.0, 1.0)), cHash(i + vec2(1.0, 1.0)), u.x), u.y);
+  }
+  float cFbm(vec2 p) {
+    float v = 0.0;
+    float a = 0.5;
+    for (int i = 0; i < 6; i++) {
+      v += a * cNoise(p);
+      p = p * 2.03 + vec2(17.1, 3.7);
+      a *= 0.5;
+    }
+    return v;
+  }
+  void main() {
+    vec2 p = vCloudWorld.xz * 0.0011 + vec2(time * 0.004, time * 0.0015);
+    float shape = cFbm(p);
+    float detail = cFbm(p * 3.1 + 11.0);
+    float cover = smoothstep(0.53, 0.8, shape + (detail - 0.5) * 0.25);
+    // Lit tops, greyer bellies.
+    vec3 col = mix(vec3(0.66, 0.69, 0.74), vec3(1.0, 0.985, 0.96), smoothstep(0.35, 0.8, detail));
+    // Fade out far away, so the layer meets the hazy horizon instead of ending.
+    float fade = 1.0 - smoothstep(900.0, 2300.0, distance(vCloudWorld.xz, eye.xz));
+    gl_FragColor = vec4(col, cover * fade * 0.92);
+    #include <tonemapping_fragment>
+    #include <colorspace_fragment>
+  }`;
+
+/** A big sheet of cloud high up, drawn in the shader (soft-edged, drifting slowly with the wind). */
+function CloudLayer() {
+  const material = useMemo(
+    () =>
+      new THREE.ShaderMaterial({
+        uniforms: { time: { value: 0 }, eye: { value: new THREE.Vector3() } },
+        vertexShader: CLOUD_VERT,
+        fragmentShader: CLOUD_FRAG,
+        transparent: true,
+        depthWrite: false,
+        side: THREE.DoubleSide,
+        fog: false,
+      }),
+    [],
+  );
+  useEffect(() => () => material.dispose(), [material]);
+  useFrame((state) => {
+    material.uniforms.time.value = state.clock.elapsedTime;
+    material.uniforms.eye.value.copy(state.camera.position);
+  });
+  return (
+    <mesh rotation-x={-Math.PI / 2} position-y={520} material={material} renderOrder={-1} raycast={noRaycast}>
+      <planeGeometry args={[5200, 5200]} />
+    </mesh>
+  );
+}
 
 export function Sky({ spooky = false }: { spooky?: boolean }) {
   const texture = useMemo(() => {
@@ -573,10 +644,8 @@ export function Sky({ spooky = false }: { spooky?: boolean }) {
     ctx.fillRect(0, 0, 4, 256);
     return canvasTexture(c);
   }, [spooky]);
-  const clouds = useRef<THREE.Group>(null);
   const dome = useRef<THREE.Group>(null);
-  useFrame((state, delta) => {
-    if (clouds.current) clouds.current.rotation.y += delta * 0.004;
+  useFrame((state) => {
     // The sky goes wherever you go (so you can never drive to the edge of it).
     dome.current?.position.set(state.camera.position.x, 0, state.camera.position.z);
   });
@@ -589,37 +658,10 @@ export function Sky({ spooky = false }: { spooky?: boolean }) {
         </mesh>
       ) : (
         // A real sky: sunlight scattering through the air, deep blue overhead, hazy at the horizon, a glow round the sun.
-        <SkyShader distance={1100} sunPosition={SUN_DIR} turbidity={5.5} rayleigh={1.25} mieCoefficient={0.0045} mieDirectionalG={0.86} />
+        <SkyShader distance={1100} sunPosition={SUN_DIR} turbidity={SKY.turbidity} rayleigh={SKY.rayleigh} mieCoefficient={SKY.mie} mieDirectionalG={SKY.mieG} />
       )}
-      <group ref={clouds}>
-        {[
-          [-90, 70, -140, 1.4],
-          [60, 85, -170, 1.1],
-          [150, 65, -60, 1.3],
-          [-160, 80, 40, 1.2],
-          [20, 95, 160, 1],
-          [120, 75, 120, 1.2],
-        ].map(([x, y, z, s], i) => (
-          <group key={i} position={[x * 2.4, y * 2, z * 2.4]} scale={s * 13}>
-            {/* Puffy cumulus: a flat, greyish base with bright billows on top */}
-            {[
-              [0, 0, 0, 1.4],
-              [1.5, -0.2, 0.3, 1.1],
-              [-1.4, -0.3, 0.2, 1],
-              [0.6, 0.6, -0.2, 1],
-              [-0.6, 0.5, 0.4, 0.9],
-              [2.5, -0.4, -0.2, 0.8],
-              [-2.4, -0.45, -0.3, 0.75],
-              [0.2, -0.55, 0.9, 0.9],
-            ].map(([cx, cy, cz, r], j) => (
-              <mesh key={j} position={[cx, cy, cz]} scale={[1, 0.78, 1]} raycast={noRaycast}>
-                <icosahedronGeometry args={[r, 3]} />
-                <meshStandardMaterial color={cy < -0.3 ? "#e3e8ee" : "#ffffff"} roughness={1} fog={false} />
-              </mesh>
-            ))}
-          </group>
-        ))}
-      </group>
+      {/* Clouds: a soft, drifting layer high overhead (fading out toward the horizon) */}
+      {!spooky && <CloudLayer />}
     </group>
   );
 }

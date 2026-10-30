@@ -56,14 +56,14 @@ export const AIRPORT_ROAD = { z: MAIN_ROAD_Z, from: -1080, to: -430 };
 // ---- The jail (east) ------------------------------------------------------------------------
 
 export const JAIL = {
-  minX: 1180,
-  maxX: 1520,
-  minZ: -140,
-  maxZ: 260,
-  /** The main building: cell blocks, the gym, the guard room. Its front gate faces the road (z = MAIN_ROAD_Z). */
-  building: { x0: 1240, x1: 1460, z0: -90, z1: 30 },
+  minX: 1060,
+  maxX: 1550,
+  minZ: -300,
+  maxZ: 50,
+  /** The main building (jail-layout.ts has the details): four cell blocks, the mess hall, the gym, library, laundry, guard room and lobby. Its front faces the road (z = MAIN_ROAD_Z). */
+  building: { x0: 1080, x1: 1530, z0: -190, z1: 30 },
   /** The fenced outdoor yard behind it. */
-  yard: { x0: 1250, x1: 1450, z0: -130, z1: -96 },
+  yard: { x0: 1100, x1: 1510, z0: -280, z1: -191 },
 };
 export const JAIL_ROAD = { z: MAIN_ROAD_Z, from: 1040, to: 1500 };
 

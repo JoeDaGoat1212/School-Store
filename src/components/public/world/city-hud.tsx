@@ -307,7 +307,7 @@ export function CityHud({
       {!life.dead && !panel && <GraphicsButton />}
 
       {/* ---- Quick trips round the map ---- */}
-      {canTravel && !w && !life.dead && (
+      {canTravel && !w && !life.dead && !life.inJail && !police.arrest && (
         <div className="absolute top-[10.6rem] right-3 flex flex-col items-end gap-2 sm:top-20 sm:right-4">
           <button
             type="button"
