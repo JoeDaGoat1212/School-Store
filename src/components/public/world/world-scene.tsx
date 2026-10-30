@@ -15,6 +15,7 @@ import { HalloweenInside, HalloweenLawn, HalloweenOutside } from "./halloween";
 import type { Season } from "@/lib/seasons";
 import { Building, Interior, Lot, SKY, SUN_DIR, Sky } from "./exterior";
 import { realifyScene, realism } from "./realism";
+import { GrassField, NatureClock } from "./nature";
 import { BulletinBoard, CandyStand, CheckoutLane, FloorMarker, WorldFridge, WorldShelf, YellowLetters, type BoardCard } from "./fixtures";
 import { PriceTag, ProductCopies } from "./products";
 import { RequestDesk } from "./request-desk";
@@ -133,6 +134,7 @@ export default function WorldScene(props: WorldSceneProps) {
       {/* Haze in the distance (real air: greyish-blue, not a pastel), so the far end of town fades into the sky (far enough out that the city's skyline shows from the store) */}
       <fog attach="fog" args={[spooky ? "#ffd8b0" : "#b4c1cb", 280, 1300]} />
       <RealLook lite={quality === "fast"} />
+      <NatureClock />
       <PerformanceMonitor onDecline={slowDown} flipflops={2} />
       <Effects />
       <Prewarm />
@@ -158,6 +160,8 @@ export default function WorldScene(props: WorldSceneProps) {
           <Lot />
           {/* The neighbourhood round the store: streets, houses, trees, people walking */}
           <Town />
+          {/* Real grass round you (not on the Fast setting) */}
+          {quality !== "fast" && <GrassField key={quality} perCell={quality === "ultra" ? 280 : 170} />}
           <Traffic calm={calm} />
           {/* The city: skyscrapers, the park, and the bank and jewelry shop (both robbable) */}
           <City />

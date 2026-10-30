@@ -7,6 +7,7 @@ import { Humanoid, newPose, type Look } from "./humanoid";
 import { canvasTexture, noRaycast, seededRandom } from "./paint";
 import { asphaltMaterial, pavingMaterial } from "./surfaces";
 import { surface } from "./detail";
+import { BroadleafTrees, Bushes as BushClumps, SpruceTrees } from "./nature";
 import {
   BUSHES,
   CURB,
@@ -634,100 +635,23 @@ function Houses() {
   );
 }
 
-// ---- Nature -----------------------------------------------------------------------------------
+// ---- Nature (nature.tsx: swaying leaves, bark, real crowns) ----------------------------------
 
-const GREENS = ["#3f7d32", "#4a8a3a", "#35702c", "#5a9443", "#466f2e"];
-/** A lumpy ball of leaves (an icosahedron pushed in and out a little). */
-function leafGeometry(seed: number) {
-  const g = new THREE.IcosahedronGeometry(1, 2);
-  const p = g.attributes.position;
-  const v = new THREE.Vector3();
-  for (let i = 0; i < p.count; i++) {
-    v.fromBufferAttribute(p, i);
-    const n = Math.sin(v.x * 3.1 + seed) * Math.cos(v.y * 2.7 - seed) * Math.sin(v.z * 3.7 + seed * 2);
-    v.multiplyScalar(1 + n * 0.16);
-    p.setXYZ(i, v.x, v.y * 0.9, v.z);
-  }
-  g.computeVertexNormals();
-  return g;
-}
 const CONIFER = (i: number) => i % 4 === 3;
-const BROAD = TOWN_TREES.map((_, i) => i).filter((i) => !CONIFER(i));
-const PINES = TOWN_TREES.map((_, i) => i).filter(CONIFER);
-/** Each broadleaf tree's crown is four clumps, set a little differently on every tree. */
-const CLUMPS = [
-  [0, 4.3, 0, 2.3],
-  [1.2, 5.4, 0.5, 1.7],
-  [-1.1, 5.2, -0.4, 1.6],
-  [0.2, 6.4, -0.2, 1.4],
-];
-const placeTrunk: Place = (k, o) => {
-  const t = TOWN_TREES[k];
-  o.position.set(t.x, 1.6 * t.s, t.z);
-  o.scale.set(t.s, t.s * (CONIFER(k) ? 0.7 : 1), t.s);
-};
-const clump =
-  (c: number): Place =>
-  (k, o) => {
-    const i = BROAD[k];
-    const t = TOWN_TREES[i];
-    const [cx, cy, cz, r] = CLUMPS[c];
-    const a = i * 1.7;
-    o.position.set(t.x + (cx * Math.cos(a) - cz * Math.sin(a)) * t.s, cy * t.s, t.z + (cx * Math.sin(a) + cz * Math.cos(a)) * t.s);
-    o.rotation.set(0, a, 0);
-    o.scale.setScalar(r * t.s);
-    return GREENS[(i + c) % GREENS.length];
-  };
-const CLUMP_PLACERS = CLUMPS.map((_, c) => clump(c));
-const pineTier =
-  (tier: number): Place =>
-  (k, o) => {
-    const t = TOWN_TREES[PINES[k]];
-    o.position.set(t.x, (2.6 + tier * 1.9) * t.s, t.z);
-    o.scale.set((2.6 - tier * 0.6) * t.s, 3 * t.s, (2.6 - tier * 0.6) * t.s);
-    return ["#2f5e2a", "#386a2f", "#2a5526"][(k + tier) % 3];
-  };
-const PINE_PLACERS = [0, 1, 2].map(pineTier);
+const BROAD_TREES = TOWN_TREES.filter((_, i) => !CONIFER(i));
+const PINE_TREES = TOWN_TREES.filter((_, i) => CONIFER(i));
 
 function Trees() {
-  const n = TOWN_TREES.length;
-  const leaves = useMemo(() => [leafGeometry(1), leafGeometry(2.3), leafGeometry(3.7), leafGeometry(5.1)], []);
-  useEffect(() => () => leaves.forEach((g) => g.dispose()), [leaves]);
   return (
     <group>
-      <Instances count={n} place={placeTrunk} castShadow>
-        <cylinderGeometry args={[0.28, 0.48, 3.2, 8]} />
-        <meshStandardMaterial color="#5e4330" roughness={0.95} />
-      </Instances>
-      {CLUMP_PLACERS.map((place, c) => (
-        <Instances key={c} count={BROAD.length} place={place} geometry={leaves[c]} castShadow>
-          <meshStandardMaterial roughness={0.9} flatShading />
-        </Instances>
-      ))}
-      {PINE_PLACERS.map((place, tier) => (
-        <Instances key={`p${tier}`} count={PINES.length} place={place} castShadow>
-          <coneGeometry args={[1, 1, 9]} />
-          <meshStandardMaterial roughness={0.9} flatShading />
-        </Instances>
-      ))}
+      <BroadleafTrees list={BROAD_TREES} />
+      <SpruceTrees list={PINE_TREES} />
     </group>
   );
 }
 
-const placeBush: Place = (i, o) => {
-  const b = BUSHES[i];
-  o.position.set(b.x, 0.7 * b.s, b.z);
-  o.scale.set(1.2 * b.s, 0.95 * b.s, 1.1 * b.s);
-  return ["#3f7d32", "#4a8a3a", "#35702c", "#5a9443"][i % 4];
-};
-
 function Bushes() {
-  return (
-    <Instances count={BUSHES.length} place={placeBush}>
-      <icosahedronGeometry args={[1, 1]} />
-      <meshStandardMaterial roughness={0.78} />
-    </Instances>
-  );
+  return <BushClumps list={BUSHES} />;
 }
 
 /** A part of street light i: `up` high and `out` toward the road. */

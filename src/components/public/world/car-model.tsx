@@ -10,17 +10,25 @@ import { canvasTexture, noRaycast } from "./paint";
 import type { Body } from "./vehicles";
 
 /*
- * A realistic car: its body is a side profile (bumpers, hood, roof line,
- * trunk, wheel arches) extruded across with rounded edges, under glossy
- * clear-coated paint, with a tinted glasshouse, door lines, mirrors, a
- * grille, headlights and tail lights, number plates, and wheels with tyres,
- * spoked rims and brake discs. Body styles: sedan, hatchback, SUV, pickup,
- * sports coupe and supercar. Motorbikes are MotorbikeModel.
+ * A realistic car. Its body is a side profile extruded across and then
+ * shaped like a real car's panels: rounded off at the nose and tail seen
+ * from above, swelling along the doors, curving in toward the windows,
+ * with crisp character lines. Clear-coated paint; see-through tinted glass
+ * with a body-coloured roof, swept pillars, a black B-pillar and rubber
+ * surrounds; door and bonnet shut lines, chrome handles and belt line,
+ * mirrors, wipers, side skirts, arch liners; headlight clusters with
+ * running lights, fog lights, honeycomb grilles, tail light clusters,
+ * plates, exhausts; and an interior (seats, dashboard, steering wheel,
+ * mirror) you can see through the windows. Wheels have rounded tyres,
+ * dished spoked rims, wheel nuts, discs and calipers. Body styles: sedan,
+ * hatchback, SUV, pickup, sports coupe and supercar. Motorbikes are
+ * MotorbikeModel.
  *
  * Whatever drives it (you, the traffic, the police) fills in a CarLook each
  * frame; the car reads it and moves its wheels, lights and body to match.
  * The front points toward -z. Every car is about 7 long and 3.4 wide (so
- * they all bump into things the same way).
+ * they all bump into things the same way). Each body style's parts are
+ * built once and merged into a few meshes.
  */
 
 export type CarLook = {

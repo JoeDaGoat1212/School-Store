@@ -7,6 +7,7 @@ import * as THREE from "three";
 import { brand } from "@/config/brand";
 import { asphaltMaterial, grassMaterial } from "./surfaces";
 import { surface } from "./detail";
+import { CLUMPS, barkMaterial, foliage } from "./nature";
 import { CREAM, ORANGE, TEAL, TEAL_DEEP, canvasTexture, seededRandom, noRaycast, signTexture } from "./paint";
 import { advanceOf, flameGeometry, letterGeometry } from "./text3d";
 import { CITY_PARKED } from "./city-layout";
@@ -408,23 +409,21 @@ export function Car({ color, position, turn = 0 }: { color: string; position: [n
   );
 }
 
+/** A tree in the lot (nature.tsx's bark and swaying leaves). */
 function Tree({ position, scale = 1 }: { position: [number, number, number]; scale?: number }) {
   return (
     <group position={position} scale={scale}>
-      <mesh position-y={1.6} castShadow raycast={noRaycast}>
-        <cylinderGeometry args={[0.35, 0.5, 3.2, 8]} />
-        <Toon color="#8a5a35" />
+      <mesh position-y={1.6} material={barkMaterial()} castShadow raycast={noRaycast}>
+        <cylinderGeometry args={[0.3, 0.5, 3.2, 10]} />
       </mesh>
       {[
         [0, 4.4, 0, 2.3],
-        [1.2, 3.6, 0.4, 1.6],
-        [-1.1, 3.8, -0.3, 1.7],
-        [0.2, 5.6, -0.2, 1.5],
+        [1.3, 3.7, 0.5, 1.7],
+        [-1.2, 3.9, -0.4, 1.8],
+        [0.3, 5.7, -0.3, 1.6],
+        [-0.5, 5.0, 1.1, 1.4],
       ].map(([x, y, z, r], i) => (
-        <mesh key={i} position={[x, y, z]} castShadow raycast={noRaycast}>
-          <icosahedronGeometry args={[r, 1]} />
-          <meshStandardMaterial color={i % 2 ? "#4c9a3b" : "#5cb045"} roughness={0.78} />
-        </mesh>
+        <mesh key={i} geometry={CLUMPS[i % CLUMPS.length]} material={foliage("leaf", ["#4a7a35", "#55853a", "#3f6e2f"][i % 3])} position={[x, y, z]} rotation-y={i * 1.3} scale={r} castShadow raycast={noRaycast} />
       ))}
     </group>
   );

@@ -8,6 +8,7 @@ import { noRaycast, signTexture } from "./paint";
 import { pavingMaterial } from "./surfaces";
 import { surface } from "./detail";
 import { windowMaterial } from "./tower-facade";
+import { BroadleafTrees } from "./nature";
 import { Instances, type Place } from "./town";
 
 /*
@@ -335,18 +336,6 @@ function Pavement() {
 
 // ---- The park -----------------------------------------------------------------------------------
 
-const GREENS = ["#4c9a3b", "#5cb045", "#3f8a35", "#69b84f"];
-const placeParkTrunk: Place = (i, o) => {
-  const t = PARK_TREES[i];
-  o.position.set(t.x, 1.6 * t.s, t.z);
-  o.scale.setScalar(t.s);
-};
-const placeParkLeaves: Place = (i, o) => {
-  const t = PARK_TREES[i];
-  o.position.set(t.x, 4.6 * t.s, t.z);
-  o.scale.setScalar(2.8 * t.s);
-  return GREENS[i % GREENS.length];
-};
 const placeSeat: Place = (i, o) => {
   const b = BENCHES[i];
   o.position.set(b.x, 0.9, b.z);
@@ -423,14 +412,8 @@ function Park() {
         <sphereGeometry args={[1, 8, 6]} />
         <meshBasicMaterial color="#9fe3ff" />
       </instancedMesh>
-      <Instances count={PARK_TREES.length} place={placeParkTrunk} castShadow>
-        <cylinderGeometry args={[0.35, 0.5, 3.2, 7]} />
-        <meshStandardMaterial color="#8a5a35" roughness={0.78} />
-      </Instances>
-      <Instances count={PARK_TREES.length} place={placeParkLeaves} castShadow>
-        <icosahedronGeometry args={[1, 1]} />
-        <meshStandardMaterial roughness={0.78} />
-      </Instances>
+      {/* Real trees (nature.tsx): bark, branches and a full crown of swaying leaves */}
+      <BroadleafTrees list={PARK_TREES} />
       <Instances count={BENCHES.length} place={placeSeat}>
         <boxGeometry />
         <meshStandardMaterial color="#b0743f" roughness={0.78} />
