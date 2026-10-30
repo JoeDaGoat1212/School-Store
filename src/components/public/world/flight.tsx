@@ -8,7 +8,7 @@ import { ALL_TIERS } from "./city-layout";
 import { drive, getOut, input } from "./drive";
 import { fleet, isAircraft, type Vehicle } from "./fleet";
 import { banner } from "./heist";
-import { kill } from "./life";
+import { kill, life } from "./life";
 import { noRaycast } from "./paint";
 import { puff } from "./smoke";
 import { groundAt } from "./terrain";
@@ -70,7 +70,9 @@ export function Aircraft({ driving, onBail }: { driving: number | null; onBail: 
       const v = fleet[before];
       const a = stateOf(v);
       a.pilot = false;
-      if (v.alt > 3) {
+      if (life.inJail) {
+        // Taken out of it and off to jail: you're in your cell, not here.
+      } else if (v.alt > 3) {
         // Jumping out mid-air: you fall from where the aircraft is, carrying a bit of its speed.
         Object.assign(player, { x: v.spot.x, z: v.spot.z, y: a.y - 1.5, vy: a.vy, yaw: -v.spot.heading, place: true, onFoot: true, grounded: false, chute: false });
         banner("info", "You jumped!", "Press Space to open your parachute.", 3);

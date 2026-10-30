@@ -192,6 +192,8 @@ export default function WorldApp({
       police.forceOut = false;
       if (driving !== null) setDriving(null);
     }
+    // No driving while you're doing time.
+    if (life.inJail && driving !== null) setDriving(null);
   }, [gameVersion, driving]);
   const counter = useRef(0);
   const sidebarScroll = useRef<HTMLDivElement>(null);
@@ -392,7 +394,8 @@ export default function WorldApp({
       const t = e.target as HTMLElement | null;
       if (t && (t.isContentEditable || ["INPUT", "TEXTAREA", "SELECT"].includes(t.tagName))) return;
       if (driving !== null) setDriving(null);
-      else if (nearCar !== null && !moving) {
+      // (Not while you're being arrested or locked up.)
+      else if (nearCar !== null && !moving && !police.arrest && !life.inJail) {
         setDriving(nearCar);
         say(boardLine(fleet[nearCar ?? -1]?.body));
       }
@@ -524,6 +527,7 @@ export default function WorldApp({
           onNearCar={setNearCar}
           onInside={setInside}
           onPickCar={(car) => {
+            if (police.arrest || life.inJail) return;
             setDriving(car);
             say(boardLine(fleet[car]?.body));
           }}
@@ -567,7 +571,7 @@ export default function WorldApp({
       {/* Walking: next to a car? Get in. And arrows for phones. */}
       {driving === null && station !== "outside" && !till && !sidebar && !moving && (
         <>
-          {nearCar !== null && (
+          {nearCar !== null && !police.arrest && !life.inJail && (
             <div className="pointer-events-none absolute inset-x-0 top-[38%] flex justify-center px-4">
               <button
                 type="button"

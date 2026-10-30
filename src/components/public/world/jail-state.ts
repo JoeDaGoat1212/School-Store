@@ -4,14 +4,17 @@ import { provide } from "./interact";
 import { life } from "./life";
 import { player } from "./you";
 import { pockets } from "./profile";
-import { CELL_SECONDS, GUARD_ROUTES, JAIL_BOX, JAIL_DOORS, JAIL_SPAWN, MY_CELL, doorOpen, inJailBuilding, inMyCell, inYard } from "./jail-layout";
+import { CELL_SECONDS, EXIT, GUARD_ROUTES, JAIL_BOX, JAIL_DOORS, JAIL_ROOMS, JAIL_SPAWN, MY_CELL, doorOpen, inJailBuilding, inMyCell, inYard } from "./jail-layout";
+
+const inLobby = (x: number, z: number) => x > JAIL_ROOMS.lobby.x0 && x < JAIL_ROOMS.lobby.x1 && z > JAIL_ROOMS.lobby.z0 && z < JAIL_ROOMS.lobby.z1;
 
 /*
  * Doing time: what happens in jail. Plain TypeScript; jail.tsx draws it.
  *
  *   - You arrive in your cell in an orange jumpsuit. The cell door slides
  *     open after 30 seconds.
- *   - The guards patrol (corridor, yard, gym, lobby, guard room). Each has a
+ *   - The guards patrol (the cell corridors, the mess hall, the main hall,
+ *     the yard, the gym, library, laundry, guard room and lobby). Each has a
  *     keycard on their belt. Sneak up behind one and press F to pickpocket
  *     it. If they see you trying (you're in front of them), you're thrown
  *     back in your cell.
@@ -28,11 +31,17 @@ export const jail = {
   guards: GUARD_ROUTES.map((r, i): Guard => ({ x: r[0].x, z: r[0].z, yaw: 0, route: i, leg: 0, dir: 1, keycard: true, speed: 3.4, alert: 0, walking: true })),
   /** Seconds left on your cell door (for the screen). */
   left: 0,
+  /** Got as far as the lobby (so walking out of the front door is breaking out). */
+  reachedLobby: false,
+  /** How long you've been outside the jail without breaking out (a moment, and you're put back). */
+  outside: 0,
 };
 
 /** Locked up: put in your cell (police.ts does the teleport). */
 export function lockUp(now: number) {
   life.inJail = true;
+  jail.reachedLobby = false;
+  jail.outside = 0;
   jail.cellOpensAt = now + CELL_SECONDS;
   for (const d of JAIL_DOORS) if (d.kind !== "open") doorOpen[d.id] = 0;
   pockets.keycard = false;
@@ -130,11 +139,27 @@ export function tickJail(now: number, dt: number) {
     doorOpen[d.id] += (want - doorOpen[d.id]) * k;
   }
 
-  // Free: out of the front door.
-  if (player.z > JAIL_BOX.z1 + 2 && Math.abs(player.x - 1420) < 30) {
+  const inside = inJailBuilding(player.x, player.z) || inYard(player.x, player.z);
+  // Remember getting as far as the lobby (the only way out is through its front door).
+  if (inLobby(player.x, player.z)) jail.reachedLobby = true;
+  // Free: out of the front door, from the lobby.
+  if (!inside && jail.reachedLobby && player.z > JAIL_BOX.z1 && player.z < JAIL_BOX.z1 + 30 && Math.abs(player.x - EXIT.x) < 20) {
     life.inJail = false;
     pockets.keycard = false;
+    jail.reachedLobby = false;
     banner("escaped", "You broke out!", "Free again. Lie low for a while.");
+    notify();
+    return;
+  }
+  // Anywhere else outside the jail (however you got there): that's not how it works. Back to your cell.
+  jail.outside = inside || player.hop ? 0 : jail.outside + dt;
+  if (jail.outside > 0.4) {
+    jail.outside = 0;
+    jail.reachedLobby = false;
+    pockets.keycard = false;
+    for (const d of JAIL_DOORS) if (d.kind === "cell") doorOpen[d.id] = 0;
+    Object.assign(player, { x: JAIL_SPAWN.x, z: JAIL_SPAWN.z, yaw: JAIL_SPAWN.yaw, hop: true, snap: true });
+    banner("busted", "Nice try!", "You're doing time. The only way out is to break out through the lobby.");
     notify();
     return;
   }

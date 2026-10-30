@@ -7,7 +7,7 @@ import { inStore, parkedSpots, player, viewBlocked, walkBlocked } from "./bump";
 import { bankFloor, inFootprint, PODIUM, trackLevel } from "./bank-layout";
 import { groundAt } from "./terrain";
 
-import { kill } from "./life";
+import { kill, life } from "./life";
 import { drive, input, moving } from "./drive";
 import { game } from "./heist";
 import { cutscene } from "./cutscene";
@@ -376,7 +376,15 @@ export function CameraRig({
               "centripetal",
             )
           : null;
-      s.flight = { from, fromYaw: s.yaw, fromPitch: s.pitch, to, toYaw: player.yaw, toPitch: -0.05, start: -1, duration: calm || player.snap ? 0.01 : curve ? 3.2 : 0.9, curve, key: "walk" };
+      if (player.snap) {
+        // Straight there, this very frame (being taken to jail, waking up at home…): no flight from where you were.
+        s.pos.copy(to);
+        s.view.copy(to);
+        s.yaw = player.yaw;
+        s.pitch = -0.05;
+        s.flight = null;
+        onArriveRef.current("walk");
+      } else s.flight = { from, fromYaw: s.yaw, fromPitch: s.pitch, to, toYaw: player.yaw, toPitch: -0.05, start: -1, duration: calm ? 0.01 : curve ? 3.2 : 0.9, curve, key: "walk" };
       player.snap = false;
     }
 
@@ -515,7 +523,7 @@ export function CameraRig({
 
     // Next to a car you can drive? (Not while flying anywhere.)
     let near: number | null = null;
-    if (onFoot && !s.flight && !inStore(s.pos.x, s.pos.z)) {
+    if (onFoot && !s.flight && !inStore(s.pos.x, s.pos.z) && !player.frozen && !life.inJail) {
       let best = REACH;
       parkedSpots.forEach((c, i) => {
         const d = Math.hypot(c.x - s.pos.x, c.z - s.pos.z);

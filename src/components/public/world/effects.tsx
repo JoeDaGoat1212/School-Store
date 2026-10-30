@@ -10,15 +10,17 @@ import { GTAOPass } from "three/examples/jsm/postprocessing/GTAOPass.js";
 import { OutputPass } from "three/examples/jsm/postprocessing/OutputPass.js";
 import { ShaderPass } from "three/examples/jsm/postprocessing/ShaderPass.js";
 import { notify, useGameVersion } from "./game-events";
+import { RealGradeShader } from "./realism";
 
 /*
  * How good the 3D world looks (and how hard your computer works):
  *
  *   Ultra   sharpest, big soft shadows, ambient occlusion (soft shading
- *           where things meet), bloom (lights and neon glow) and colour
- *           grading. For fast computers with a good graphics card.
- *   High    the same world, materials, sky and soft shadows, without the
- *           extra effects passes (they're what costs the most). The default.
+ *           where things meet), bloom (lights glow) and the film-like
+ *           colour grade. For fast computers with a good graphics card.
+ *   High    the same world, materials, sky, soft shadows and colour grade,
+ *           without ambient occlusion and bloom (they're what costs the
+ *           most). The default.
  *   Fast    no shadows, lower resolution: for older computers and phones.
  *
  * It starts on High (Fast on phones, Ultra in the desktop app), drops a level by itself if the
@@ -67,34 +69,9 @@ export function useQuality() {
   return graphics.level;
 }
 export const QUALITY = {
-  ultra: { dpr: [1, inApp ? 2 : 1.75] as [number, number], shadowMap: 4096, shadows: true, post: true, ao: true, shadowEvery: 1 },
-  high: { dpr: [1, 1.25] as [number, number], shadowMap: 2048, shadows: true, post: false, ao: false, shadowEvery: 2 },
-  fast: { dpr: [0.75, 1] as [number, number], shadowMap: 1024, shadows: false, post: false, ao: false, shadowEvery: 3 },
-};
-
-/** A gentle colour grade: a little more contrast and warmth, and a soft vignette. */
-const GradeShader = {
-  uniforms: { tDiffuse: { value: null as THREE.Texture | null }, amount: { value: 1 } },
-  vertexShader: /* glsl */ `
-    varying vec2 vUv;
-    void main() { vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`,
-  fragmentShader: /* glsl */ `
-    uniform sampler2D tDiffuse;
-    uniform float amount;
-    varying vec2 vUv;
-    void main() {
-      vec4 c = texture2D(tDiffuse, vUv);
-      vec3 col = c.rgb;
-      // Contrast round mid-grey, a touch of saturation, warm highlights and cool shadows.
-      col = (col - 0.5) * (1.0 + 0.08 * amount) + 0.5;
-      float l = dot(col, vec3(0.299, 0.587, 0.114));
-      col = mix(vec3(l), col, 1.0 + 0.12 * amount);
-      col += amount * (vec3(0.025, 0.012, -0.01) * smoothstep(0.5, 1.0, l) + vec3(-0.01, 0.0, 0.02) * (1.0 - smoothstep(0.0, 0.4, l)));
-      // Vignette.
-      vec2 d = vUv - 0.5;
-      col *= 1.0 - amount * 0.28 * smoothstep(0.35, 0.85, length(d * vec2(1.25, 1.0)));
-      gl_FragColor = vec4(clamp(col, 0.0, 1.0), c.a);
-    }`,
+  ultra: { dpr: [1, inApp ? 2 : 1.75] as [number, number], shadowMap: 4096, shadows: true, post: true, ao: true, bloom: true, shadowEvery: 1 },
+  high: { dpr: [1, 1.25] as [number, number], shadowMap: 2048, shadows: true, post: true, ao: false, bloom: false, shadowEvery: 2 },
+  fast: { dpr: [0.75, 1] as [number, number], shadowMap: 1024, shadows: false, post: false, ao: false, bloom: false, shadowEvery: 3 },
 };
 
 /** Bloom, ambient occlusion and the colour grade (on Ultra and High). Takes over drawing the frame. */
@@ -106,7 +83,7 @@ export function Effects() {
   const camera = useThree((s) => s.camera);
   const size = useThree((s) => s.size);
 
-  const composer = useMemo(() => {
+  const passes = useMemo(() => {
     if (!q.post) return null;
     const target = new THREE.WebGLRenderTarget(1, 1, { type: THREE.HalfFloatType, samples: 4 });
     const c = new EffectComposer(gl, target);
@@ -118,11 +95,14 @@ export function Effects() {
       c.addPass(ao);
     }
     // Lights, neon and the sun on chrome glow a little.
-    c.addPass(new UnrealBloomPass(new THREE.Vector2(256, 256), 0.35, 0.6, 1.35));
+    if (q.bloom) c.addPass(new UnrealBloomPass(new THREE.Vector2(256, 256), 0.35, 0.6, 1.35));
     c.addPass(new OutputPass());
-    c.addPass(new ShaderPass(GradeShader));
-    return c;
-  }, [gl, scene, camera, q.post, q.ao]);
+    // The colour grade: film-like contrast and colour, a vignette and grain (realism.ts).
+    const grade = new ShaderPass(RealGradeShader);
+    c.addPass(grade);
+    return { composer: c, grade };
+  }, [gl, scene, camera, q.post, q.ao, q.bloom]);
+  const composer = passes?.composer ?? null;
 
   useEffect(() => {
     if (!composer) return;
@@ -141,8 +121,9 @@ export function Effects() {
       gl.shadowMap.autoUpdate = true;
     };
   }, [gl]);
-  useFrame(() => {
+  useFrame((state) => {
     frame.n++;
+    if (passes) passes.grade.uniforms.time.value = state.clock.elapsedTime;
     if (frame.n % q.shadowEvery === 0) gl.shadowMap.needsUpdate = true;
     if (composer) composer.render();
     else gl.render(scene, camera);

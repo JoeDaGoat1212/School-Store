@@ -13,7 +13,8 @@ import { Prewarm } from "./near";
 import { CheckoutCounter, type TillDisplay, type TillUnit } from "./checkout-scene";
 import { HalloweenInside, HalloweenLawn, HalloweenOutside } from "./halloween";
 import type { Season } from "@/lib/seasons";
-import { Building, Interior, Lot, SUN_DIR, Sky } from "./exterior";
+import { Building, Interior, Lot, SKY, SUN_DIR, Sky } from "./exterior";
+import { realifyScene, realism } from "./realism";
 import { BulletinBoard, CandyStand, CheckoutLane, FloorMarker, WorldFridge, WorldShelf, YellowLetters, type BoardCard } from "./fixtures";
 import { PriceTag, ProductCopies } from "./products";
 import { RequestDesk } from "./request-desk";
@@ -124,12 +125,14 @@ export default function WorldScene(props: WorldSceneProps) {
       camera={{ fov: 56, near: 0.2, far: 2600, position: [40, 40, 60] }}
       gl={{ antialias: true, powerPreference: "high-performance" }}
       onCreated={({ gl }) => {
-        gl.toneMappingExposure = 0.92;
+        gl.toneMapping = THREE.AgXToneMapping;
+        gl.toneMappingExposure = EXPOSURE;
       }}
     >
-      <color attach="background" args={[spooky ? "#ffd2a4" : "#a8d2f2"]} />
-      {/* Haze in the distance, so the far end of town fades softly into the sky (far enough out that the city's skyline shows from the store) */}
-      <fog attach="fog" args={[spooky ? "#ffd8b0" : "#c8dbea", 320, 1300]} />
+      <color attach="background" args={[spooky ? "#ffd2a4" : "#a9bccb"]} />
+      {/* Haze in the distance (real air: greyish-blue, not a pastel), so the far end of town fades into the sky (far enough out that the city's skyline shows from the store) */}
+      <fog attach="fog" args={[spooky ? "#ffd8b0" : "#b4c1cb", 280, 1300]} />
+      <RealLook lite={quality === "fast"} />
       <PerformanceMonitor onDecline={slowDown} flipflops={2} />
       <Effects />
       <Prewarm />
@@ -137,16 +140,16 @@ export default function WorldScene(props: WorldSceneProps) {
       <FirstFrame onReady={props.onReady} />
       {process.env.NODE_ENV !== "production" && <TestHook spots={worldSpots} places={places} layouts={layouts} station={station} moving={moving} items={props.items} />}
 
-      {/* Daylight: the sun (with shadows), sky light from above, and soft fill. */}
-      <hemisphereLight args={[spooky ? "#f1defa" : "#dcefff", "#8f8466", 0.85]} />
-      <ambientLight intensity={0.22} />
+      {/* Daylight: a strong sun (with shadows), cooler sky light from above, and a little bounce from the ground. Shadows stay properly dark, like real sunlight. */}
+      <hemisphereLight args={[spooky ? "#f1defa" : "#cfdbe6", "#6c6252", 0.72]} />
+      <ambientLight intensity={0.1} />
       <Sun key={q.shadowMap} shadows={shadows} warm={spooky} mapSize={q.shadowMap} />
-      <Environment resolution={256} frames={1} environmentIntensity={0.42}>
+      <Environment resolution={256} frames={1} environmentIntensity={0.6}>
         <Lightformer intensity={2} position={[0, 10, 0]} rotation-x={Math.PI / 2} scale={[20, 20, 1]} />
         <Lightformer intensity={1.2} color="#ffe2c4" position={[-10, 3, 6]} rotation-y={Math.PI / 4} scale={[10, 4, 1]} />
         <Lightformer intensity={1} color="#c4f2ee" position={[10, 3, 6]} rotation-y={-Math.PI / 4} scale={[10, 4, 1]} />
         {/* The sky, so shiny things (car paint, glass, chrome) reflect it */}
-        {!spooky && <DreiSky distance={900} sunPosition={SUN_DIR} turbidity={5.5} rayleigh={1.25} mieCoefficient={0.0045} mieDirectionalG={0.86} />}
+        {!spooky && <DreiSky distance={900} sunPosition={SUN_DIR} turbidity={SKY.turbidity} rayleigh={SKY.rayleigh} mieCoefficient={SKY.mie} mieDirectionalG={SKY.mieG} />}
       </Environment>
 
       <Sky spooky={spooky} />
@@ -300,6 +303,32 @@ const sunLook = new THREE.Vector3();
  * far, so the sun follows you round the town (in 4-unit steps, so the
  * shadows don't shimmer as you move).
  */
+/** How bright the picture is (AgX tone mapping: a film-like response, like a real camera, rather than punchy cartoon colour). */
+const EXPOSURE = 1.08;
+
+/**
+ * Real-life materials (realism.ts): every ordinary material in the scene gets
+ * real-world colour, weathering and grime. New things appear as you move round
+ * (buildings' insides, cars, people), so it looks again every second or so.
+ * Also keeps the tone mapping on AgX.
+ */
+function RealLook({ lite }: { lite: boolean }) {
+  const gl = useThree((s) => s.gl);
+  const scene = useThree((s) => s.scene);
+  const next = useRef(0);
+  useFrame((state) => {
+    if (gl.toneMapping !== THREE.AgXToneMapping) {
+      gl.toneMapping = THREE.AgXToneMapping;
+      gl.toneMappingExposure = EXPOSURE;
+    }
+    if (state.clock.elapsedTime < next.current) return;
+    next.current = state.clock.elapsedTime + 1.2;
+    realism.lite = lite;
+    realifyScene(scene);
+  });
+  return null;
+}
+
 function Sun({ shadows, warm, mapSize }: { shadows: boolean; warm: boolean; mapSize: number }) {
   const light = useRef<THREE.DirectionalLight>(null);
   const scene = useThree((s) => s.scene);
@@ -329,8 +358,8 @@ function Sun({ shadows, warm, mapSize }: { shadows: boolean; warm: boolean; mapS
     <directionalLight
       ref={light}
       position={[68, 120, 92]}
-      intensity={2.6}
-      color={warm ? "#ffd6a8" : "#fff3df"}
+      intensity={3.1}
+      color={warm ? "#ffd6a8" : "#ffecd0"}
       castShadow={shadows}
       shadow-mapSize={[mapSize, mapSize]}
       shadow-bias={-0.0002}

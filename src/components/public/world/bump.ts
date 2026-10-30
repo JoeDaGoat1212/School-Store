@@ -72,7 +72,7 @@ function hitsScenery(x: number, z: number, r: number) {
   if (x > 470 && (hitsCity(x, z, r) || heistBlocks(x, z, r) || bankBlocks(x, z, r))) return true;
   if (hitsPine(x, z, r)) return true;
   if (roomsBlock(x, z, r)) return true;
-  if (x > 1200 && jailBlocks(x, z, r)) return true;
+  if (x > 1050 && jailBlocks(x, z, r)) return true;
   if (z < -700 && hitsBaseRock(x, z, r)) return true;
   for (const [lx, lz] of LAMPS) if (Math.hypot(x - lx, z - lz) < r + 0.35) return true;
   for (const [tx, tz, s] of TREES) if (Math.hypot(x - tx, z - tz) < r + 0.6 * s) return true;

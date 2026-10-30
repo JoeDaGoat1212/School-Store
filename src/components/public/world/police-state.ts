@@ -363,6 +363,8 @@ function arrestStep(now: number, dt: number) {
   } else if (t < 10) {
     // In jail.
     if (!life.inJail) {
+      // Still in a car somehow (you jumped back in while being cuffed)? Not any more.
+      if (drive.active) police.forceOut = true;
       for (const unit of police.units) unit.on = false;
       police.units.forEach((unit, i) => setSpot(i, unit));
       Object.assign(player, { x: JAIL_SPAWN.x, z: JAIL_SPAWN.z, yaw: JAIL_SPAWN.yaw, hop: true, snap: true, hidden: false, showBody: false });
