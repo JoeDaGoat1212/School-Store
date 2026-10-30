@@ -58,6 +58,7 @@ export const MODELS: Model[] = [
   // ---- Supercars ----
   { id: "huracano", name: "Vanta Huracano EVO", category: "Supercars", body: "super", price: 260000, top: 202, zeroToSixty: 2.9, grip: 1.55, blurb: "A wild V10 supercar. Turns every head.", colors: ["#7cd31b", "#ff7a1a", "#e5e5e5", "#111317"] },
   { id: "stradale", name: "Ferro Stradale SF", category: "Supercars", body: "super", price: 525000, top: 211, zeroToSixty: 2.4, grip: 1.65, blurb: "A hybrid hypercar with 986 horsepower.", colors: ["#c8102e", "#ffcc00", "#2b2f36"] },
+  { id: "revuelto", name: "Vanta Revuelto", category: "Supercars", body: "super", price: 608000, top: 217, zeroToSixty: 2.5, grip: 1.6, blurb: "A V12 plug-in hybrid with 1,001 horsepower and scissor doors.", colors: ["#ff7a1a", "#111317", "#e5e5e5"] },
   { id: "chirone", name: "Bellucci Chirone", category: "Supercars", body: "super", price: 3000000, top: 261, zeroToSixty: 2.3, grip: 1.75, blurb: "Sixteen cylinders. The fastest thing on four wheels.", colors: ["#1f3a8a", "#111317", "#c9ced4"] },
 ];
 

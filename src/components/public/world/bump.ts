@@ -1,5 +1,6 @@
 import { hitsCity } from "./city-layout";
 import { player } from "./you";
+import { blocksWalk } from "./occluders";
 import { LAMPS, TREES } from "./exterior";
 import { parkedSpots } from "./fleet";
 import { heistBlocks } from "./heist";
@@ -112,6 +113,8 @@ export function walkBlocked(x: number, z: number, inside: Blocker[]) {
     return false;
   }
   for (const b of PLANTERS) if (hitsBox(x, z, r, b)) return true;
+  // (The loaded 3D models: the airport terminal and so on.)
+  if (blocksWalk(x, z, r, player.y)) return true;
   return hitsScenery(x, z, r) || hitsCar(x, z, r);
 }
 

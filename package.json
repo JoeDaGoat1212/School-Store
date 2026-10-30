@@ -13,7 +13,8 @@
     "sample-csv": "node scripts/make-sample-csv.mjs",
     "db:push": "supabase db push",
     "db:types": "supabase gen types typescript --linked --schema public > src/lib/supabase/database.types.ts",
-    "db:bundle": "node scripts/build-setup-sql.mjs"
+    "db:bundle": "node scripts/build-setup-sql.mjs",
+    "models": "node scripts/optimize-models.mjs"
   },
   "dependencies": {
     "@react-three/drei": "^10.7.9",

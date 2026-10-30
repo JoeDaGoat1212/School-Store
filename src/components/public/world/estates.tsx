@@ -6,6 +6,7 @@ import * as THREE from "three";
 import { Block, Cyl, mat } from "./buildings";
 import { surface } from "./detail";
 import { BroadleafTrees, Bushes, SpruceTrees, type TreeSpot } from "./nature";
+import { ElmAvenue, useElms } from "./asset-models";
 import { Near } from "./near";
 import { noRaycast } from "./paint";
 import { Static } from "./static-merge";
@@ -56,6 +57,8 @@ export function Estates() {
 // ---- The avenues -------------------------------------------------------------------------------
 
 function Avenues() {
+  // The downloaded autumn elms, once they've loaded (else the trees drawn here).
+  const elms = useElms();
   const trees: TreeSpot[] = useMemo(() => AVENUE_TREES.map((t) => ({ ...t, s: t.s * 1.2 })), []);
   // Low clipped hedges and flower beds down the verges between the trees.
   const beds = useMemo(() => {
@@ -94,7 +97,8 @@ function Avenues() {
   }, []);
   return (
     <group>
-      <BroadleafTrees list={trees} />
+      {!elms && <BroadleafTrees list={trees} />}
+      <ElmAvenue spots={trees} />
       <Static>
         {beds.map((b, i) => (
           <mesh key={i} geometry={ROUND} material={mat(b.c, 0.7)} position={[b.x, 0.32, b.z]} scale={[0.75, 0.38, 0.75]} raycast={noRaycast} />

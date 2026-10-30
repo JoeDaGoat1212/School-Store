@@ -8,6 +8,7 @@ import { mergeGeometries, toCreasedNormals } from "three/examples/jsm/utils/Buff
 import { TessellateModifier } from "three/examples/jsm/modifiers/TessellateModifier.js";
 import { canvasTexture, noRaycast } from "./paint";
 import type { Body } from "./vehicles";
+import { RevueltoBody, useRevuelto } from "./asset-models";
 
 /*
  * A realistic car. Its body is a side profile extruded across and then
@@ -635,11 +636,25 @@ const CAR_NEAR = 55;
 const CAR_AT = new THREE.Vector3();
 const FAR_TYRE = new THREE.CylinderGeometry(1, 1, 1, 12);
 
-export function CarModel({ color, look, body = "sedan", rider }: { color: string; look: CarLook; body?: Body; rider?: ReactNode }) {
+export function CarModel({ color, look, body = "sedan", rider, model }: { color: string; look: CarLook; body?: Body; rider?: ReactNode; model?: string }) {
   if (body === "moto") return <MotorbikeModel color={color} look={look} rider={rider} />;
+  // A car with a downloaded 3D model (assets.ts): that, once it's loaded.
+  if (model === "revuelto") return <RevueltoModel color={color} look={look} rider={rider} />;
   if (body === "cart") return <CartModel color={color} look={look} rider={rider} />;
   const kind = (body in STYLES ? body : "sedan") as keyof typeof STYLES;
   return <Car color={color} look={look} kind={kind} rider={rider} />;
+}
+
+/** The Vanta Revuelto: the downloaded model once it's loaded (in its own paint), the drawn supercar until then. */
+function RevueltoModel({ color, look, rider }: { color: string; look: CarLook; rider?: ReactNode }) {
+  const ready = useRevuelto();
+  if (!ready) return <Car color={color} look={look} kind="super" rider={rider} />;
+  return (
+    <group>
+      <RevueltoBody />
+      {rider}
+    </group>
+  );
 }
 
 function Car({ color, look, kind, rider }: { color: string; look: CarLook; kind: keyof typeof STYLES; rider?: ReactNode }) {

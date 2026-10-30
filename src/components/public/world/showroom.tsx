@@ -19,7 +19,7 @@ import { DEALERSHIP } from "./world-map";
 
 const SHOWN = [
   { model: "stradale", color: "#c8102e" },
-  { model: "huracano", color: "#7cd31b" },
+  { model: "revuelto", color: "#ff7a1a" },
   { model: "g63", color: "#2b2f36" },
 ];
 
@@ -38,7 +38,7 @@ function Turntable({ lx, lz, r, model, color, speed }: { lx: number; lz: number;
         <meshStandardMaterial color="#ff3b30" emissive="#ff3b30" emissiveIntensity={1.4} />
       </mesh>
       <group ref={g} position-y={0.24}>
-        {body === "moto" ? <MotorbikeModel color={color} look={look} /> : <CarModel color={color} look={look} body={body} />}
+        {body === "moto" ? <MotorbikeModel color={color} look={look} /> : <CarModel color={color} look={look} body={body} model={model} />}
       </group>
     </group>
   );
