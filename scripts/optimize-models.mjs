@@ -7,7 +7,8 @@
  *   npm run models                      (looks in ~/Downloads)
  *   npm run models -- "/path/to/folder" (or wherever you saved them)
  *
- * What it does to each one (with gltf-transform):
+ * The terminal's kept at full quality (every triangle, its textures at
+ * their own size). For the others, what it does (with gltf-transform):
  *   - meshopt-compresses the geometry (the game decodes it; no extra files),
  *   - re-saves the textures as WebP, no bigger than 2048 px (1024 for trees),
  *   - for the trees, cuts the triangle count to about a third first,
@@ -62,6 +63,10 @@ function find(dir, test, depth = 4) {
 function optimize(src, dest, size) {
   return gt("optimize", src, dest, "--compress", "meshopt", "--texture-compress", "webp", "--texture-size", String(size));
 }
+/** Full quality: every triangle and the textures at their own size and format (only cleaned up: duplicates merged, unused parts dropped). Bigger to download. */
+function fullQuality(src, dest) {
+  return gt("optimize", src, dest, "--compress", "false", "--simplify", "false", "--texture-compress", "false", "--texture-size", "8192");
+}
 
 const done = new Set();
 const listFile = join(out, "available.json");
@@ -82,13 +87,13 @@ console.log(`Looking for the downloads in ${from}\n`);
   }
 }
 
-// ---- The terminal: "modern+airport+terminal+3d+model.glb" ----
+// ---- The terminal: "modern+airport+terminal+3d+model.glb" (kept at full quality: it's the airport, seen up close and life size) ----
 {
   const src = find(from, (n) => /^modern\+airport\+terminal\+3d\+model\.glb$/i.test(n));
   if (!src) console.log("• Terminal: modern+airport+terminal+3d+model.glb not found (skipped)");
   else {
     console.log(`• Terminal: ${src} (${mb(src)})`);
-    if (optimize(src, join(out, "terminal.glb"), 2048)) {
+    if (fullQuality(src, join(out, "terminal.glb"))) {
       done.add("terminal");
       console.log(`  → public/models/terminal.glb (${mb(join(out, "terminal.glb"))})\n`);
     }
