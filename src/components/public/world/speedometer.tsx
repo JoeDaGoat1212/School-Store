@@ -9,17 +9,21 @@ import { drive, MPH_PER_UNIT } from "./drive";
  * the car's speed straight from drive.tsx every frame (no React re-renders).
  */
 
-const MAX = 100;
 // The needle sweeps from 225° (bottom left) round to -45° (bottom right).
 const START = 225;
 const SWEEP = 270;
-const angleFor = (mph: number) => START - (Math.min(mph, MAX) / MAX) * SWEEP;
+/** The dial goes up to the next 20 mph past the vehicle's top speed (100 for an ordinary car, 280 for the fastest). */
+const dialFor = (top: number) => Math.max(100, Math.ceil(top / 20) * 20);
 const at = (deg: number, r: number) => {
   const a = (deg * Math.PI) / 180;
   return { x: 60 + Math.cos(a) * r, y: 60 - Math.sin(a) * r };
 };
 
-export function Speedometer() {
+const angleOf = (mph: number, max: number) => START - (Math.min(mph, max) / max) * SWEEP;
+
+export function Speedometer({ max: top = 100 }: { max?: number }) {
+  const MAX = dialFor(top);
+  const angleFor = (mph: number) => angleOf(mph, MAX);
   const needle = useRef<SVGGElement>(null);
   const digits = useRef<HTMLSpanElement>(null);
   const gear = useRef<HTMLSpanElement>(null);
@@ -33,18 +37,18 @@ export function Speedometer() {
       const mph = Math.abs(drive.speed) * MPH_PER_UNIT;
       // A touch of smoothing, like a real needle.
       shown += (mph - shown) * 0.25;
-      needle.current?.setAttribute("transform", `rotate(${-angleFor(shown) + 90} 60 60)`);
+      needle.current?.setAttribute("transform", `rotate(${-angleOf(shown, MAX) + 90} 60 60)`);
       if (digits.current) digits.current.textContent = String(Math.round(mph));
       if (gear.current) gear.current.textContent = drive.gear;
       if (brake.current) brake.current.style.opacity = drive.braking ? "1" : "0.15";
-      if (arc.current) arc.current.style.strokeDashoffset = String(100 - Math.min(shown, MAX));
+      if (arc.current) arc.current.style.strokeDashoffset = String(100 - (Math.min(shown, MAX) / MAX) * 100);
       frame = requestAnimationFrame(tick);
     };
     frame = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(frame);
-  }, []);
+  }, [MAX]);
 
-  const ticks = Array.from({ length: 21 }, (_, i) => i * 5);
+  const ticks = Array.from({ length: 21 }, (_, i) => (i * MAX) / 20);
   const arcFrom = at(START, 46);
   const arcTo = at(START - SWEEP, 46);
 
@@ -68,18 +72,18 @@ export function Speedometer() {
           strokeDasharray="100"
           strokeDashoffset="100"
         />
-        {ticks.map((mph) => {
-          const big = mph % 20 === 0;
+        {ticks.map((mph, i) => {
+          const big = i % 4 === 0;
           const a = at(angleFor(mph), big ? 38 : 40);
           const b = at(angleFor(mph), 43);
-          return <line key={mph} x1={a.x} y1={a.y} x2={b.x} y2={b.y} stroke={mph >= 80 ? "#ff5a4a" : "#e8e8e8"} strokeWidth={big ? 1.8 : 0.9} />;
+          return <line key={mph} x1={a.x} y1={a.y} x2={b.x} y2={b.y} stroke={mph >= MAX * 0.8 ? "#ff5a4a" : "#e8e8e8"} strokeWidth={big ? 1.8 : 0.9} />;
         })}
         {ticks
-          .filter((mph) => mph % 20 === 0)
+          .filter((_, i) => i % 4 === 0)
           .map((mph) => {
             const p = at(angleFor(mph), 30);
             return (
-              <text key={mph} x={p.x} y={p.y + 2.6} textAnchor="middle" fontSize="7.5" fontWeight="700" fill={mph >= 80 ? "#ff7a6a" : "#cfd3d8"} fontFamily="ui-sans-serif, system-ui">
+              <text key={mph} x={p.x} y={p.y + 2.6} textAnchor="middle" fontSize="7.5" fontWeight="700" fill={mph >= MAX * 0.8 ? "#ff7a6a" : "#cfd3d8"} fontFamily="ui-sans-serif, system-ui">
                 {mph}
               </text>
             );

@@ -1,30 +1,54 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
-import { Environment, Lightformer, PerformanceMonitor } from "@react-three/drei";
+import { Environment, Lightformer, PerformanceMonitor, Sky as DreiSky } from "@react-three/drei";
 import * as THREE from "three";
 import { useFontsReady } from "../showcase/drink-scene";
 import type { UnitKey } from "../store/catalog";
 import type { Placement, StoreItem, UnitLayout } from "../store/layout";
-import { CameraRig } from "./camera";
+import { CameraRig, testView } from "./camera";
+import { Effects, QUALITY, slowDown, useQuality } from "./effects";
+import { Prewarm } from "./near";
 import { CheckoutCounter, type TillDisplay, type TillUnit } from "./checkout-scene";
 import { HalloweenInside, HalloweenLawn, HalloweenOutside } from "./halloween";
 import type { Season } from "@/lib/seasons";
-import { Building, Interior, Lot, Sky } from "./exterior";
+import { Building, Interior, Lot, SUN_DIR, Sky } from "./exterior";
 import { BulletinBoard, CandyStand, CheckoutLane, FloorMarker, WorldFridge, WorldShelf, YellowLetters, type BoardCard } from "./fixtures";
 import { PriceTag, ProductCopies } from "./products";
 import { RequestDesk } from "./request-desk";
 import { parkedSpots, player, trafficSpots } from "./bump";
 import { Cars, drive, input } from "./drive";
 import { Town } from "./town";
+import { City } from "./city";
+import { CityGame } from "./city-fx";
+import { Police } from "./police";
+import { ClosedSign, Jewelry } from "./city-sites";
+import { Bank } from "./bank";
+import { game } from "./heist";
+import { Mountains } from "./mountains";
+import { Aircraft } from "./flight";
+import { Jail } from "./jail";
+import { Airport } from "./airport";
+import { Birds, StreetProps } from "./street-props";
+import { Near } from "./near";
+import { RestaurantRow } from "./buildings";
+import { Homes } from "./home-models";
+import { RealtyOffice, Showroom } from "./showroom";
+import { clockIn, jobs } from "./jobs";
+import { dealer } from "./dealer";
+import { realty, startTour } from "./realty";
+import { profile } from "./profile";
+import { notify } from "./game-events";
+import { PlayerAvatar } from "./player-avatar";
 import { Smoke } from "./smoke";
 import { Traffic } from "./traffic";
 import { BULLETIN, BUILDING, LANES, STORE_SCALE, blockers, doors, placeUnits, stations, unitAt, worldStations, type Place, type StationKey } from "./world-layout";
 
 /*
- * The whole 3D world in one <Canvas>: sky, town, parking lot, the store
- * building and everything inside it. The store is built in its own (bigger)
+ * The whole 3D world in one <Canvas>: sky, town, the city next to it (with
+ * the bank and jewelry shop you can rob), parking lot, the store building
+ * and everything inside it. The store is built in its own (bigger)
  * units and drawn shrunk by STORE_SCALE, so people are the same size inside
  * and out (see world-layout.ts). React Three Fiber lets us write three.js as React
  * components. This file only puts things in place and passes taps up to
@@ -74,12 +98,16 @@ export type WorldSceneProps = {
   onPickCar: (car: number) => void;
   /** Your car hit something ("Bonk!" / "Crash!"). */
   onBump: (text: string) => void;
+  /** The aircraft you're flying crashed (you're out of it). */
+  onBail: () => void;
 };
 
 export default function WorldScene(props: WorldSceneProps) {
   const { layouts, station, moving, calm } = props;
-  // Shadows are switched off on devices that can't keep up.
-  const [shadows, setShadows] = useState(true);
+  // How good it looks (effects.tsx): shadows and effects drop off on devices that can't keep up.
+  const quality = useQuality();
+  const q = QUALITY[quality];
+  const shadows = q.shadows;
   const fontsReady = useFontsReady();
   const places = useMemo(() => placeUnits(layouts), [layouts]);
   // Spots to stand: in store units (for the floor arrows, drawn with the store) and in world units (for the camera).
@@ -92,26 +120,33 @@ export default function WorldScene(props: WorldSceneProps) {
   return (
     <Canvas
       shadows={shadows ? "percentage" : false}
-      dpr={[1, 1.6]}
+      dpr={q.dpr}
       camera={{ fov: 56, near: 0.2, far: 2600, position: [40, 40, 60] }}
       gl={{ antialias: true, powerPreference: "high-performance" }}
+      onCreated={({ gl }) => {
+        gl.toneMappingExposure = 0.92;
+      }}
     >
-      <color attach="background" args={[spooky ? "#ffd2a4" : "#a9dcfb"]} />
-      {/* Haze in the distance, so the far end of town fades softly into the sky */}
-      <fog attach="fog" args={[spooky ? "#ffd8b0" : "#d9effc", 180, 720]} />
-      <PerformanceMonitor onDecline={() => setShadows(false)} />
+      <color attach="background" args={[spooky ? "#ffd2a4" : "#a8d2f2"]} />
+      {/* Haze in the distance, so the far end of town fades softly into the sky (far enough out that the city's skyline shows from the store) */}
+      <fog attach="fog" args={[spooky ? "#ffd8b0" : "#c8dbea", 320, 1300]} />
+      <PerformanceMonitor onDecline={slowDown} flipflops={2} />
+      <Effects />
+      <Prewarm />
       <CameraRig stations={worldSpots} current={station} calm={calm} onArrive={props.onArrive} blockers={walls} onWalk={props.onWalk} onNearCar={props.onNearCar} onInside={props.onInside} />
       <FirstFrame onReady={props.onReady} />
       {process.env.NODE_ENV !== "production" && <TestHook spots={worldSpots} places={places} layouts={layouts} station={station} moving={moving} items={props.items} />}
 
       {/* Daylight: the sun (with shadows), sky light from above, and soft fill. */}
-      <hemisphereLight args={[spooky ? "#f1defa" : "#e8f6ff", "#b9a98a", 1.1]} />
-      <ambientLight intensity={0.35} />
-      <Sun shadows={shadows} warm={spooky} />
-      <Environment resolution={128} frames={1}>
+      <hemisphereLight args={[spooky ? "#f1defa" : "#dcefff", "#8f8466", 0.85]} />
+      <ambientLight intensity={0.22} />
+      <Sun key={q.shadowMap} shadows={shadows} warm={spooky} mapSize={q.shadowMap} />
+      <Environment resolution={256} frames={1} environmentIntensity={0.42}>
         <Lightformer intensity={2} position={[0, 10, 0]} rotation-x={Math.PI / 2} scale={[20, 20, 1]} />
         <Lightformer intensity={1.2} color="#ffe2c4" position={[-10, 3, 6]} rotation-y={Math.PI / 4} scale={[10, 4, 1]} />
         <Lightformer intensity={1} color="#c4f2ee" position={[10, 3, 6]} rotation-y={-Math.PI / 4} scale={[10, 4, 1]} />
+        {/* The sky, so shiny things (car paint, glass, chrome) reflect it */}
+        {!spooky && <DreiSky distance={900} sunPosition={SUN_DIR} turbidity={5.5} rayleigh={1.25} mieCoefficient={0.0045} mieDirectionalG={0.86} />}
       </Environment>
 
       <Sky spooky={spooky} />
@@ -121,9 +156,32 @@ export default function WorldScene(props: WorldSceneProps) {
           {/* The neighbourhood round the store: streets, houses, trees, people walking */}
           <Town />
           <Traffic calm={calm} />
+          {/* The city: skyscrapers, the park, and the bank and jewelry shop (both robbable) */}
+          <City />
+          <Bank />
+          <Jewelry />
+          <ClosedSign site="bank" height={44} />
+          <ClosedSign site="jewelry" height={22} />
+          <Police />
+          <CityGame calm={calm} />
+          {/* The jail, east of the city */}
+          <Jail />
+          <RestaurantRow />
+          <Showroom />
+          <RealtyOffice />
+          <Homes />
+          <Airport />
+          <StreetProps />
+          <Birds />
+          {/* The mountains to the north, with the road up to the secret base */}
+          <Mountains />
+          {/* You, seen in third person */}
+          <PlayerAvatar />
           <Smoke />
           {/* The parked cars: walk up to one and press E (or tap it) to drive it */}
           <Cars driving={props.driving} canPick={props.driving === null && !moving ? props.nearCar : null} calm={calm} onPick={props.onPickCar} onBump={props.onBump} />
+          {/* The planes and helicopters at the airport (fly them!) */}
+          <Aircraft driving={props.driving} onBail={props.onBail} />
           {spooky && <HalloweenLawn />}
 
           {/* ---- The store, shrunk to the world's size ---- */}
@@ -132,6 +190,8 @@ export default function WorldScene(props: WorldSceneProps) {
             <pointLight position={[-13, BUILDING.height - 1, -20]} intensity={105 * STORE_SCALE ** 1.2} distance={46 * STORE_SCALE} decay={1.2} color="#fff4e6" />
             <pointLight position={[13, BUILDING.height - 1, -20]} intensity={105 * STORE_SCALE ** 1.2} distance={46 * STORE_SCALE} decay={1.2} color="#fff4e6" />
             <Building onDoors={props.onDoors} canEnter={station === "outside" && !moving} openSign={props.openSign} />
+            {/* The inside of the store is only drawn when you're near it (it's full of products). */}
+            <Near x={0} z={-14} dist={150}>
             <Interior />
             {spooky && <HalloweenOutside />}
             {spooky && <HalloweenInside fridgeX={places.drinks?.x ?? -8.5} />}
@@ -158,7 +218,8 @@ export default function WorldScene(props: WorldSceneProps) {
               <CheckoutLane key={lane.number} lane={lane} />
             ))}
 
-            {/* The request table, front left: someone at a computer takes requests */}
+            </Near>
+            {/* The request table, front left: someone at a computer takes requests (it has its own lights, so it's always drawn: switching lights on and off makes everything recompile) */}
             <RequestDesk
               near={station === "requests" && !moving}
               calm={calm}
@@ -166,6 +227,7 @@ export default function WorldScene(props: WorldSceneProps) {
               onOpen={() => (station === "requests" ? props.onOpenRequests() : props.onGo("requests"))}
             />
 
+            <Near x={0} z={-14} dist={150}>
             <BulletinBoard cards={props.cards} near={station === "deals" && !moving} onOpen={() => (station === "deals" ? props.onOpenDeals() : props.onGo("deals"))} />
             {/* Big yellow letters over the board, with an arrow bouncing down at it */}
             <group position={[BULLETIN.x, BULLETIN.bottom + BULLETIN.height + 2.1, BULLETIN.z]} rotation-y={BULLETIN.turn}>
@@ -183,6 +245,7 @@ export default function WorldScene(props: WorldSceneProps) {
                 const at = spots[key].marker ?? spots[key];
                 return <FloorMarker key={`${station}-${key}`} x={at.x} z={at.z} label={spots[key].label} from={here} onGo={() => props.onGo(key)} />;
               })}
+            </Near>
           </group>
         </>
       )}
@@ -214,7 +277,7 @@ function TestHook(info: { spots: ReturnType<typeof stations>; places: ReturnType
     w.__world = {
       ...info,
       // Live positions: you, the car you're driving, the doors, the cars.
-      live: { player, drive, doors, parkedSpots, trafficSpots, input },
+      live: { player, drive, doors, parkedSpots, trafficSpots, input, game, testView, jobs, dealer, realty, profile, notify, clockIn, startTour },
       scene: get().scene,
       three: get,
       project(x: number, y: number, z: number) {
@@ -237,7 +300,7 @@ const sunLook = new THREE.Vector3();
  * far, so the sun follows you round the town (in 4-unit steps, so the
  * shadows don't shimmer as you move).
  */
-function Sun({ shadows, warm }: { shadows: boolean; warm: boolean }) {
+function Sun({ shadows, warm, mapSize }: { shadows: boolean; warm: boolean; mapSize: number }) {
   const light = useRef<THREE.DirectionalLight>(null);
   const scene = useThree((s) => s.scene);
   useEffect(() => {
@@ -257,26 +320,27 @@ function Sun({ shadows, warm }: { shadows: boolean; warm: boolean }) {
     const x = Math.round((state.camera.position.x + look.x * 30) / 4) * 4;
     const z = Math.round((state.camera.position.z + look.z * 30) / 4) * 4;
     if (l.target.position.x === x && l.target.position.z === z - 10) return;
-    l.position.set(x + 34, 60, z + 46);
+    // (Same angle as ever, just twice as far up, so the city's tall towers still cast shadows.)
+    l.position.set(x + 68, 120, z + 92);
     l.target.position.set(x, 0, z - 10);
     l.target.updateMatrixWorld();
   });
   return (
     <directionalLight
       ref={light}
-      position={[34, 60, 46]}
-      intensity={2.1}
+      position={[68, 120, 92]}
+      intensity={2.6}
       color={warm ? "#ffd6a8" : "#fff3df"}
       castShadow={shadows}
-      shadow-mapSize={[2048, 2048]}
-      shadow-bias={-0.0004}
+      shadow-mapSize={[mapSize, mapSize]}
+      shadow-bias={-0.0002}
       shadow-normalBias={0.04}
       shadow-camera-left={-75}
       shadow-camera-right={75}
       shadow-camera-top={75}
       shadow-camera-bottom={-75}
       shadow-camera-near={10}
-      shadow-camera-far={180}
+      shadow-camera-far={420}
     />
   );
 }

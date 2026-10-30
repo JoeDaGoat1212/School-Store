@@ -26,12 +26,15 @@ export function StaffSidebar({
   openOrders,
   pendingTeachers = 0,
   newRequests = 0,
+  pendingJobs = 0,
 }: {
   email: string;
   openOrders: number;
   pendingTeachers?: number;
   /** Requests in the last 7 days. */
   newRequests?: number;
+  /** Résumés for city jobs waiting for an answer. */
+  pendingJobs?: number;
 }) {
   const pathname = usePathname();
 
@@ -73,6 +76,9 @@ export function StaffSidebar({
                   )}
                   {item.href === "/admin/requests" && newRequests > 0 && (
                     <SidebarMenuBadge aria-label={`${newRequests} requests this week`}>{newRequests}</SidebarMenuBadge>
+                  )}
+                  {item.href === "/admin/jobs" && pendingJobs > 0 && (
+                    <SidebarMenuBadge aria-label={`${pendingJobs} job applications waiting`}>{pendingJobs}</SidebarMenuBadge>
                   )}
                   {item.href === "/admin/teachers" && pendingTeachers > 0 && (
                     <SidebarMenuBadge aria-label={`${pendingTeachers} teachers waiting for approval`}>{pendingTeachers}</SidebarMenuBadge>

@@ -7,9 +7,16 @@
  *
  * The store sits in the middle block, its parking lot opening onto the main
  * road (Avenue z = 58) by a short driveway.
+ *
+ * East of the town (+x) is the city (city-plan.ts, city-layout.ts): the
+ * town's avenues run on into it, and its own grid of streets is part of the
+ * same road network here, so sidewalks, street lights, people and traffic
+ * all carry on into the city.
  */
 
+import { CITY_AVENUES_Z, CITY_KEEP_CLEAR, CITY_SPAN_X, CITY_SPAN_Z, CITY_STREETS_X, inCity } from "./city-plan";
 import { seededRandom } from "./paint";
+import { AIRPORT_ROAD, CROSS_DRIVE, ESTATE_DRIVE, ESTATES_ROAD, JAIL_ROAD, WORLD_BOUNDS } from "./world-map";
 
 export const ROAD_HALF = 8; // half a road's width (two lanes)
 export const LANE = 4; // how far a lane's middle is from the road's middle
@@ -19,11 +26,14 @@ export const CURB = ROAD_HALF + WALK_W; // road middle → outer edge of the sid
 /** Roads running left–right (x) at these z, and front–back (z) at these x. */
 export const AVENUES_Z = [-110, 58, 220];
 export const STREETS_X = [-360, -160, 160, 360];
-export const AVENUE_SPAN: [number, number] = [-430, 430];
+/** The avenues start at the town's west edge and run on through the city. */
+export const AVENUE_SPAN: [number, number] = [-430, CITY_SPAN_X[1]];
 export const STREET_SPAN: [number, number] = [-290, 410];
 
-/** How far you can walk or drive. */
-export const WORLD = { minX: -470, maxX: 470, minZ: -320, maxZ: 440 };
+/** The town's own land (houses and meadow trees stay in here). */
+const TOWN = { minX: -470, maxX: 470, minZ: -320, maxZ: 440 };
+/** How far you can walk or drive: the whole map (world-map.ts). */
+export const WORLD = WORLD_BOUNDS;
 
 /** The store's block: no houses here (store, lot, trees). */
 const STORE_BLOCK = { minX: -78, maxX: 78, minZ: -80, maxZ: 46 };
@@ -35,25 +45,40 @@ export type Road = { axis: "x" | "z"; at: number; from: number; to: number };
 export const ROADS: Road[] = [
   ...AVENUES_Z.map((z) => ({ axis: "x" as const, at: z, from: AVENUE_SPAN[0], to: AVENUE_SPAN[1] })),
   ...STREETS_X.map((x) => ({ axis: "z" as const, at: x, from: STREET_SPAN[0], to: STREET_SPAN[1] })),
+  // The city's own grid.
+  ...CITY_AVENUES_Z.map((z) => ({ axis: "x" as const, at: z, from: CITY_SPAN_X[0], to: CITY_SPAN_X[1] })),
+  ...CITY_STREETS_X.map((x) => ({ axis: "z" as const, at: x, from: CITY_SPAN_Z[0], to: CITY_SPAN_Z[1] })),
+  // The main road carries on west to the airport and east to the jail, and a road runs south to Crescent Heights.
+  { axis: "x", at: AIRPORT_ROAD.z, from: AIRPORT_ROAD.from, to: AIRPORT_ROAD.to },
+  { axis: "x", at: JAIL_ROAD.z, from: JAIL_ROAD.from, to: JAIL_ROAD.to },
+  { axis: "z", at: ESTATES_ROAD.x, from: ESTATES_ROAD.from, to: ESTATE_DRIVE.to },
+  { axis: "x", at: CROSS_DRIVE.z, from: CROSS_DRIVE.from, to: CROSS_DRIVE.to },
 ];
 
-export const INTERSECTIONS = STREETS_X.flatMap((x) => AVENUES_Z.map((z) => ({ x, z })));
+/** Where the roads running the other way cross this one (including at its very ends). */
+function crossingsOf(road: Road) {
+  return ROADS.filter((r) => r.axis !== road.axis && r.at >= road.from && r.at <= road.to && road.at >= r.from && road.at <= r.to)
+    .map((r) => r.at)
+    .filter((at, i, all) => all.indexOf(at) === i)
+    .sort((a, b) => a - b);
+}
+
+export const INTERSECTIONS = ROADS.filter((r) => r.axis === "z").flatMap((street) => crossingsOf(street).map((z) => ({ x: street.at, z })));
 
 /** A road split into the pieces between crossings (for sidewalks, houses and lamps). */
-function pieces(road: Road, gap: number) {
-  const crossings = (road.axis === "x" ? STREETS_X : AVENUES_Z).filter((c) => c > road.from && c < road.to).sort((a, b) => a - b);
+export function pieces(road: Road, gap: number) {
   const out: [number, number][] = [];
   let start = road.from;
-  for (const c of crossings) {
+  for (const c of crossingsOf(road)) {
     if (c - gap > start) out.push([start, c - gap]);
-    start = c + gap;
+    start = Math.max(start, c + gap);
   }
   if (road.to > start) out.push([start, road.to]);
   return out;
 }
 
 /** Turn "distance along a road, distance to one side" into x, z. */
-function onRoad(road: Road, along: number, side: number) {
+export function onRoad(road: Road, along: number, side: number) {
   return road.axis === "x" ? { x: along, z: road.at + side } : { x: road.at + side, z: along };
 }
 
@@ -124,8 +149,8 @@ export const HOUSES: House[] = (() => {
           const setback = 7 + rand() * 4;
           const off = side * (CURB + setback + d / 2);
           const { x, z } = onRoad(road, along + (rand() - 0.5) * 4, off);
-          if (inStoreBlock(x, z, 10)) continue;
-          if (x < WORLD.minX + 20 || x > WORLD.maxX - 20 || z < WORLD.minZ + 20 || z > WORLD.maxZ - 20) continue;
+          if (inStoreBlock(x, z, 10) || inCity(x, z, 20)) continue;
+          if (x < TOWN.minX + 20 || x > TOWN.maxX - 20 || z < TOWN.minZ + 20 || z > TOWN.maxZ - 20) continue;
           // Not on top of another road, or a house from the road round the corner.
           if (ROADS.some((r) => r !== road && Math.abs((r.axis === "x" ? z : x) - r.at) < CURB + d && (r.axis === "x" ? x : z) > r.from && (r.axis === "x" ? x : z) < r.to)) continue;
           if (list.some((h) => Math.hypot(h.x - x, h.z - z) < 24)) continue;
@@ -151,6 +176,11 @@ export const HOUSES: House[] = (() => {
   }
   return list;
 })();
+
+/** Each house's style (town.tsx): 0 classic gable, 1 two-storey, 2 modern flat roof, 3 hip-roofed bungalow, 4 farmhouse with a porch. */
+export const houseStyle = (i: number) => (i * 7 + (i >> 2)) % 5;
+/** Some houses have a garage on the side. */
+export const hasGarage = (i: number) => i % 4 === 1 && houseStyle(i) !== 3;
 
 // ---- Street lights -----------------------------------------------------------------------------
 
@@ -196,12 +226,30 @@ export const TOWN_TREES: { x: number; z: number; s: number }[] = (() => {
   }
   // Clumps in the open grass.
   for (let i = 0; i < 900 && list.length < 520; i++) {
-    const x = WORLD.minX + rand() * (WORLD.maxX - WORLD.minX);
-    const z = WORLD.minZ + rand() * (WORLD.maxZ - WORLD.minZ);
-    if (onPavement(x, z, 6) || inStoreBlock(x, z, 8)) continue;
+    const x = TOWN.minX + rand() * (TOWN.maxX - TOWN.minX);
+    const z = TOWN.minZ + rand() * (TOWN.maxZ - TOWN.minZ);
+    if (onPavement(x, z, 6) || inStoreBlock(x, z, 8) || inCity(x, z, 6)) continue;
     if (Math.abs(x) < DRIVEWAY.halfWidth + 4 && z > DRIVEWAY.fromZ - 4 && z < DRIVEWAY.toZ + 4) continue;
     if (HOUSES.some((h) => Math.hypot(h.x - x, h.z - z) < Math.max(h.w, h.d) / 2 + 5)) continue;
     list.push({ x, z, s: 0.8 + rand() * 0.9 });
+  }
+  // Little round trees along the city's sidewalks, at the outer edge.
+  for (const s of SIDEWALKS) {
+    const mx = (s.x1 + s.x2) / 2;
+    const mz = (s.z1 + s.z2) / 2;
+    if (!inCity(mx, mz)) continue;
+    const len = Math.hypot(s.x2 - s.x1, s.z2 - s.z1);
+    const dx = (s.x2 - s.x1) / len;
+    const dz = (s.z2 - s.z1) / len;
+    // Which way is "away from the road"? (Sidewalks run beside their road, so look at the nearest one.)
+    const road = ROADS.find((r) => Math.abs((r.axis === "x" ? mz : mx) - r.at) < CURB && (r.axis === "x" ? dx !== 0 : dz !== 0));
+    const out = road ? Math.sign((road.axis === "x" ? mz : mx) - road.at) : 1;
+    for (let d = 10; d < len - 8; d += 26) {
+      const x = s.x1 + dx * d + (dz !== 0 ? out * 1.35 : 0);
+      const z = s.z1 + dz * d + (dx !== 0 ? out * 1.35 : 0);
+      if (CITY_KEEP_CLEAR.some((c) => Math.abs(x - c.x) < c.hw && Math.abs(z - c.z) < c.hd)) continue;
+      list.push({ x, z, s: 0.62 + rand() * 0.18 });
+    }
   }
   return list;
 })();
@@ -221,14 +269,20 @@ export const BUSHES: { x: number; z: number; s: number }[] = HOUSES.flatMap((h, 
 // ---- People and traffic -----------------------------------------------------------------------
 
 /** People walk up and down sidewalk strips. */
+/** How many people walk the city's sidewalks (it's busy there). */
+export const CITY_WALKERS = 130;
+
 export const WALKERS = (() => {
   const rand = seededRandom(99);
-  const shirts = ["#e5483b", "#13a8a0", "#ffd21f", "#3d6fe0", "#ff7a2a", "#7b5cd6", "#2d6a4f", "#f2f0ea", "#c0392b"];
+  const shirts = ["#e5483b", "#13a8a0", "#ffd21f", "#3d6fe0", "#ff7a2a", "#7b5cd6", "#2d6a4f", "#f2f0ea", "#c0392b", "#ff8fab", "#1d4f91", "#90be6d"];
   const pants = ["#2b2f36", "#3a4150", "#5b3a26", "#1f3b5c", "#6b6b6b"];
   const skins = ["#f1c7a5", "#e0ac83", "#c98e62", "#8d5a3b", "#5e3a24"];
   const long = SIDEWALKS.filter((s) => Math.hypot(s.x2 - s.x1, s.z2 - s.z1) > 40);
-  return Array.from({ length: 36 }, () => {
-    const strip = long[Math.floor(rand() * long.length)];
+  const town = long.filter((s) => !inCity((s.x1 + s.x2) / 2, (s.z1 + s.z2) / 2));
+  const city = long.filter((s) => inCity((s.x1 + s.x2) / 2, (s.z1 + s.z2) / 2));
+  return Array.from({ length: 36 + CITY_WALKERS }, (_, i) => {
+    const list = i < 36 ? town : city;
+    const strip = list[Math.floor(rand() * list.length)];
     return {
       strip,
       start: rand(),
@@ -248,9 +302,16 @@ export const WALKERS = (() => {
  * points about 1 unit apart.
  */
 export const LOOPS: { x: number; z: number }[][] = (() => {
-  const xs = STREETS_X;
-  const zs = [AVENUES_Z[0], AVENUES_Z[1], AVENUES_Z[2]];
   const loops: { x: number; z: number }[][] = [];
+  blockLoops(STREETS_X, AVENUES_Z, loops);
+  // And round every block of the city.
+  blockLoops(CITY_STREETS_X, [...CITY_AVENUES_Z, ...AVENUES_Z].sort((a, b) => a - b), loops);
+  return loops;
+})();
+/** How many of LOOPS go round the town's blocks (the rest are the city's). */
+export const TOWN_LOOPS = (STREETS_X.length - 1) * (AVENUES_Z.length - 1);
+
+function blockLoops(xs: number[], zs: number[], loops: { x: number; z: number }[][]) {
   for (let i = 0; i < xs.length - 1; i++) {
     for (let j = 0; j < zs.length - 1; j++) {
       // The lane on this block's side of each road.
@@ -289,8 +350,7 @@ export const LOOPS: { x: number; z: number }[][] = (() => {
       loops.push(pts);
     }
   }
-  return loops;
-})();
+}
 
 // ---- Things to bump into ------------------------------------------------------------------------
 
@@ -309,9 +369,16 @@ function addTo(x: number, z: number, reach: number, add: (c: { boxes: Box[]; cir
       add(grid.get(key)!);
     }
 }
-for (const h of HOUSES) {
+for (const [i, h] of HOUSES.entries()) {
   const box = { x: h.x, z: h.z, hw: h.w / 2, hd: h.d / 2, turn: h.turn };
   addTo(h.x, h.z, Math.max(h.w, h.d), (c) => c.boxes.push(box));
+  if (hasGarage(i)) {
+    // The garage on its right-hand side (town.tsx draws it).
+    const lx = h.w / 2 + 3.4;
+    const lz = h.d / 2 - 3.6;
+    const g = { x: h.x + lx * Math.cos(h.turn) + lz * Math.sin(h.turn), z: h.z - lx * Math.sin(h.turn) + lz * Math.cos(h.turn), hw: 3.3, hd: 3.5, turn: h.turn };
+    addTo(g.x, g.z, 6, (c) => c.boxes.push(g));
+  }
 }
 for (const t of TOWN_TREES) addTo(t.x, t.z, 2, (c) => c.circles.push({ x: t.x, z: t.z, r: 0.55 * t.s }));
 for (const l of STREET_LIGHTS) addTo(l.x, l.z, 1, (c) => c.circles.push({ x: l.x, z: l.z, r: 0.3 }));

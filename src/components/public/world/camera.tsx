@@ -3,9 +3,18 @@
 import { useEffect, useLayoutEffect, useRef } from "react";
 import { useFrame, useThree } from "@react-three/fiber";
 import * as THREE from "three";
-import { inStore, parkedSpots, player, walkBlocked } from "./bump";
+import { inStore, parkedSpots, player, viewBlocked, walkBlocked } from "./bump";
+import { bankFloor, inFootprint, PODIUM, trackLevel } from "./bank-layout";
+import { groundAt } from "./terrain";
+
+import { kill } from "./life";
 import { drive, input, moving } from "./drive";
+import { game } from "./heist";
+import { cutscene } from "./cutscene";
 import { doors, EYE_HEIGHT, INSIDE_WORLD, nearestStation, STORE_SCALE, type Blocker, type Station, type StationKey } from "./world-layout";
+
+/** The floor under you: the bank's floors (which level you're on), or the ground. */
+const floorUnder = (x: number, z: number) => trackLevel(x, z) ?? groundAt(x, z);
 
 /*
  * The camera, like a person (or a drone) in the store.
@@ -22,6 +31,12 @@ import { doors, EYE_HEIGHT, INSIDE_WORLD, nearestStation, STORE_SCALE, type Bloc
 
 const WALK_SPEED = 6.5;
 const RUN_SPEED = 12;
+/** Jumping: how fast you leave the ground, and how hard you're pulled back down. */
+const JUMP = 8.2;
+const GRAVITY = 24;
+/** Third person: how far back the camera starts, and the furthest it goes. */
+const THIRD_ZOOM = 7;
+const MAX_ZOOM = 16;
 const TURN_SPEED = 1.9;
 /** The doors open when someone's this close to them, and shut again past SHUT. */
 const OPEN = 7;
@@ -32,6 +47,12 @@ const REACH = 6.5;
 /** Where the drone circles: around this point, this far out. */
 const ORBIT_CENTER = new THREE.Vector3(0, 2, -5);
 const ORBIT_RADIUS = 47;
+
+/** Skydiving: the view you had before (it switches to third person while you fall), and the Space key's last state. */
+const skydive = { on: false, view: "first" as "first" | "third", zoom: 0, space: false };
+
+/** Screenshot scripts (development only) can park the camera anywhere with this. */
+export const testView = { on: false, pos: [0, 50, 50] as [number, number, number], look: [0, 0, 0] as [number, number, number] };
 
 const ease = (t: number) => (t < 0.5 ? 4 * t * t * t : 1 - (-2 * t + 2) ** 3 / 2);
 const clamp = (v: number, a: number, b: number) => Math.min(b, Math.max(a, v));
@@ -122,6 +143,8 @@ export function CameraRig({
     inside: null as boolean | null,
     /** The normal field of view (it widens a little at high speed). */
     fov: 56,
+    /** Where the camera really is (behind you in third person). */
+    view: new THREE.Vector3(),
   });
 
   // Wider view on tall phone screens.
@@ -164,11 +187,48 @@ export function CameraRig({
       last = null;
       r.current.dragging = false;
     };
+    // Mouse wheel: zoom out to third person (and back in to your own eyes).
+    const wheel = (e: WheelEvent) => {
+      if (currentRef.current === "outside" || drive.active) return;
+      // Not while scrolling a panel or a list on screen.
+      for (let n = e.target as HTMLElement | null; n && n !== document.body; n = n.parentElement) {
+        if (n === el) break;
+        if (n.getAttribute?.("role") === "dialog") return;
+        const oy = getComputedStyle(n).overflowY;
+        if ((oy === "auto" || oy === "scroll") && n.scrollHeight > n.clientHeight + 2) return;
+      }
+      // Scroll out of your own eyes straight to the third-person view (one notch is enough), then further out; scroll back in to your eyes.
+      if (player.view === "first") {
+        if (e.deltaY > 0) {
+          player.view = "third";
+          player.zoom = 4;
+        }
+        return;
+      }
+      player.zoom = clamp(player.zoom + e.deltaY * 0.012, 0, MAX_ZOOM);
+      if (player.zoom < 2) {
+        player.view = "first";
+        player.zoom = 0;
+      }
+    };
+    // V: switch between your own eyes and third person.
+    const key = (e: KeyboardEvent) => {
+      if (e.code !== "KeyV" || e.repeat || e.ctrlKey || e.metaKey) return;
+      const t = e.target as HTMLElement | null;
+      if (t && ["INPUT", "TEXTAREA", "SELECT"].includes(t.tagName)) return;
+      player.view = player.view === "first" ? "third" : "first";
+      player.zoom = player.view === "third" ? THIRD_ZOOM : 0;
+    };
+    // (On the whole window: the buttons over the world would otherwise swallow the wheel.)
+    window.addEventListener("wheel", wheel, { passive: true });
+    window.addEventListener("keydown", key);
     el.addEventListener("pointerdown", down);
     window.addEventListener("pointermove", move);
     window.addEventListener("pointerup", up);
     window.addEventListener("pointercancel", up);
     return () => {
+      window.removeEventListener("wheel", wheel);
+      window.removeEventListener("keydown", key);
       el.removeEventListener("pointerdown", down);
       window.removeEventListener("pointermove", move);
       window.removeEventListener("pointerup", up);
@@ -233,6 +293,18 @@ export function CameraRig({
   useFrame((state, delta) => {
     const s = r.current;
     const cam = state.camera;
+    // Only for screenshot scripts while developing: put the camera exactly here.
+    if (testView.on) {
+      cam.position.set(...testView.pos);
+      cam.lookAt(...testView.look);
+      return;
+    }
+    // A cinematic shot (a house tour…).
+    if (cutscene.on) {
+      cam.position.set(...cutscene.pos);
+      cam.lookAt(...cutscene.look);
+      return;
+    }
     const now = state.clock.elapsedTime;
     // (Capped, so a long pause between frames doesn't teleport you.)
     const dt = Math.min(delta, 0.1);
@@ -249,13 +321,13 @@ export function CameraRig({
       const fx = -Math.sin(drive.heading);
       const fz = -Math.cos(drive.heading);
       // Pull back further the faster you go.
-      const back = 12 + Math.abs(drive.speed) * 0.18;
-      const want = new THREE.Vector3(drive.pos.x - fx * back, 5.2, drive.pos.z - fz * back);
+      const back = drive.cam.back + Math.abs(drive.speed) * 0.18;
+      const want = new THREE.Vector3(drive.pos.x - fx * back, drive.pos.y + drive.cam.up, drive.pos.z - fz * back);
       if (!s.started) s.pos.copy(want);
       s.pos.x = THREE.MathUtils.damp(s.pos.x, want.x, 5, dt);
       s.pos.y = THREE.MathUtils.damp(s.pos.y, want.y, 5, dt);
       s.pos.z = THREE.MathUtils.damp(s.pos.z, want.z, 5, dt);
-      const look = yawPitchOf(s.pos, new THREE.Vector3(drive.pos.x + fx * 6, 1.6, drive.pos.z + fz * 6));
+      const look = yawPitchOf(s.pos, new THREE.Vector3(drive.pos.x + fx * 6, drive.pos.y + 1.6, drive.pos.z + fz * 6));
       s.yaw = look.yaw;
       s.pitch = look.pitch;
       s.started = true;
@@ -266,23 +338,57 @@ export function CameraRig({
       shutDoors(drive.pos.x, drive.pos.z, false);
       cam.position.copy(s.pos);
       cam.lookAt(dirOf(s.yaw, s.pitch).add(s.pos));
+      s.view.copy(s.pos);
+      shake(cam);
       return;
     }
     widen(cam as THREE.PerspectiveCamera, s.fov, dt);
 
+    // ---- Jumped out of a plane: straight there, no flight ----
+    if (player.place) {
+      player.place = false;
+      s.pos.set(player.x, player.y + EYE_HEIGHT, player.z);
+      s.yaw = player.yaw;
+      s.flight = null;
+      skydive.view = player.view;
+      skydive.zoom = player.zoom;
+      player.view = "third";
+      player.zoom = 9;
+      skydive.on = true;
+    }
+
     // ---- Just got out of a car: hop down beside it ----
     if (player.hop) {
       player.hop = false;
-      const to = new THREE.Vector3(player.x, EYE_HEIGHT, player.z);
-      s.flight = { from: s.pos.clone(), fromYaw: s.yaw, fromPitch: s.pitch, to, toYaw: player.yaw, toPitch: -0.05, start: -1, duration: calm ? 0.01 : 0.9, curve: null, key: "walk" };
+      player.level = 0;
+      const ground = floorUnder(player.x, player.z);
+      const to = new THREE.Vector3(player.x, ground + EYE_HEIGHT, player.z);
+      const from = s.pos.clone();
+      const far = from.distanceTo(to);
+      player.y = ground;
+      player.vy = 0;
+      // A long hop (to the city and back): up over the rooftops and down again.
+      const curve =
+        far > 60
+          ? new THREE.CatmullRomCurve3(
+              [from, new THREE.Vector3(from.x, 60 + far * 0.12, from.z), new THREE.Vector3((from.x + to.x) / 2, 90 + far * 0.15, (from.z + to.z) / 2), new THREE.Vector3(to.x, 40, to.z), to],
+              false,
+              "centripetal",
+            )
+          : null;
+      s.flight = { from, fromYaw: s.yaw, fromPitch: s.pitch, to, toYaw: player.yaw, toPitch: -0.05, start: -1, duration: calm || player.snap ? 0.01 : curve ? 3.2 : 0.9, curve, key: "walk" };
+      player.snap = false;
     }
 
     // ---- Walking with the keys (inside and out) ----
-    if (currentRef.current !== "outside" && !s.flight && moving()) {
+    const walking = currentRef.current !== "outside" && !s.flight;
+    player.speed = 0;
+    if (walking && moving() && !player.frozen) {
       s.yaw += (Number(input.turnRight) - Number(input.turnLeft)) * TURN_SPEED * dt;
       const fwd = Number(input.forward) - Number(input.back);
       const side = Number(input.strafeRight) - Number(input.strafeLeft);
       const speed = (input.run ? RUN_SPEED : WALK_SPEED) * dt;
+      if (fwd !== 0 || side !== 0) player.speed = input.run ? RUN_SPEED : WALK_SPEED;
       const mx = (Math.sin(s.yaw) * fwd + Math.cos(s.yaw) * side) * speed;
       const mz = (-Math.cos(s.yaw) * fwd + Math.sin(s.yaw) * side) * speed;
       const b = blockersRef.current;
@@ -292,7 +398,6 @@ export function CameraRig({
         s.pos.z += mz;
       } else if (!walkBlocked(s.pos.x + mx, s.pos.z, b)) s.pos.x += mx;
       else if (!walkBlocked(s.pos.x, s.pos.z + mz, b)) s.pos.z += mz;
-      s.pos.y = THREE.MathUtils.damp(s.pos.y, EYE_HEIGHT, 8, dt);
       // Level the view a little while walking.
       s.pitch = THREE.MathUtils.damp(s.pitch, Math.min(s.pitch, 0.05), 2, dt);
       // Tell the page when you've walked up to a spot (or away from one).
@@ -302,6 +407,48 @@ export function CameraRig({
         s.walkedTo = near;
         onWalkRef.current?.(near);
       }
+    }
+
+    // ---- Jumping, falling (and parachuting), and walking up and down hills ----
+    if (walking) {
+      const ground = floorUnder(s.pos.x, s.pos.z);
+      const high = player.y - ground;
+      const space = input.brake && !skydive.space;
+      skydive.space = input.brake;
+      if (space && player.grounded && !player.frozen) {
+        player.vy = JUMP;
+        player.grounded = false;
+      } else if (space && !player.grounded && high > 5 && !player.chute) {
+        // Pop the parachute.
+        player.chute = true;
+      }
+      if (player.chute) {
+        // Floating down, gliding the way you face; ← → (or A D) to steer.
+        player.vy += (-4.5 - player.vy) * Math.min(1, dt * 3);
+        s.yaw += (Number(input.turnRight || input.strafeRight) - Number(input.turnLeft || input.strafeLeft)) * 1.1 * dt;
+        const gx = Math.sin(s.yaw) * 8 * dt;
+        const gz = -Math.cos(s.yaw) * 8 * dt;
+        if (!walkBlocked(s.pos.x + gx, s.pos.z + gz, blockersRef.current)) {
+          s.pos.x += gx;
+          s.pos.z += gz;
+        }
+      } else player.vy = Math.max(-55, player.vy - GRAVITY * dt);
+      player.y += player.vy * dt;
+      // On the ground (and stepping down small drops without leaving it).
+      if (player.y <= ground || (player.grounded && player.y - ground < 0.9)) {
+        // Hitting the ground hard without a parachute is the end of you.
+        if (!player.grounded && !player.chute && player.vy < -27) kill("fall");
+        player.y = ground;
+        player.vy = 0;
+        player.grounded = true;
+        player.chute = false;
+        if (skydive.on) {
+          skydive.on = false;
+          player.view = skydive.view;
+          player.zoom = skydive.zoom;
+        }
+      } else player.grounded = false;
+      s.pos.y = player.y + EYE_HEIGHT;
     }
 
     // ---- Outside: ← → and ↑ ↓ fly the drone round ----
@@ -349,6 +496,8 @@ export function CameraRig({
       }
       if (t >= 1) {
         s.flight = null;
+        player.y = Math.max(floorUnder(s.pos.x, s.pos.z), s.pos.y - EYE_HEIGHT);
+        player.vy = 0;
         onArriveRef.current(f.key);
       }
     }
@@ -381,11 +530,48 @@ export function CameraRig({
       onNearCarRef.current?.(near);
     }
 
-    cam.position.copy(s.pos);
-    cam.lookAt(dirOf(s.yaw, s.pitch).add(s.pos));
+    // ---- Through your eyes, or from behind you ----
+    const third = player.view === "third" && currentRef.current !== "outside" && (!s.flight || s.flight.key === "walk");
+    const look = dirOf(s.yaw, s.pitch);
+    if (third) {
+      const zoom = Math.max(2, player.zoom);
+      const back = new THREE.Vector3(-look.x, 0, -look.z).normalize();
+      // Above and behind your head, tilting with where you look.
+      const lift = 0.9 + zoom * 0.22 - s.pitch * zoom * 0.8;
+      // Pull in if a wall's in the way.
+      let reach = zoom;
+      const b = blockersRef.current;
+      for (let d = 0.6; d <= zoom; d += 0.4)
+        if (viewBlocked(s.pos.x + back.x * d, s.pos.z + back.z * d, b)) {
+          reach = Math.max(0.6, d - 0.6);
+          break;
+        }
+      const want = new THREE.Vector3(s.pos.x + back.x * reach, s.pos.y + lift * (reach / zoom), s.pos.z + back.z * reach);
+      want.y = Math.max(want.y, (bankFloor(want.x, want.z)?.y ?? groundAt(want.x, want.z)) + 0.8);
+      // Under the banking hall (the vault level), keep the camera below its ceiling.
+      if (player.level === 0 && inFootprint(want.x, want.z, 1)) want.y = Math.min(want.y, PODIUM - 0.6);
+      if (s.view.distanceTo(want) > 30) s.view.copy(want);
+      s.view.lerp(want, 1 - Math.exp(-14 * dt));
+      cam.position.copy(s.view);
+      cam.lookAt(s.pos.x + look.x * 4, s.pos.y - 0.3 + look.y * 4, s.pos.z + look.z * 4);
+    } else {
+      s.view.copy(s.pos);
+      cam.position.copy(s.pos);
+      cam.lookAt(look.add(s.pos));
+    }
+    shake(cam);
   });
 
   return null;
+}
+
+/** Shake the camera a little while something big happens (the vault door, glass smashing). */
+function shake(cam: THREE.Camera) {
+  const k = game.shake;
+  if (k <= 0) return;
+  cam.position.x += (Math.random() - 0.5) * k * 0.5;
+  cam.position.y += (Math.random() - 0.5) * k * 0.4;
+  cam.position.z += (Math.random() - 0.5) * k * 0.5;
 }
 
 /** Open the doors when (x, z) is close to them, shut them once it's far enough away. */

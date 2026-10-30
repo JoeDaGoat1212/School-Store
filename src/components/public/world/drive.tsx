@@ -1,14 +1,28 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import { useFrame } from "@react-three/fiber";
 import * as THREE from "three";
-import { carBlocked, parkedSpots, player, walkBlocked, type CarSpot } from "./bump";
-import { CarModel, newLook } from "./car-model";
+import { carBlocked, player, walkBlocked, type CarSpot } from "./bump";
+import { CarModel } from "./car-model";
+import { fleet, isAircraft, type Vehicle } from "./fleet";
+import { useGameVersion } from "./game-events";
+import { Humanoid, PLAYER_LOOK, newPose } from "./humanoid";
+import { profile, saveProfile } from "./profile";
+import { modelOf, specOf } from "./vehicles";
 import { MPH_PER_UNIT, SMOKE_SLIP, stepCar, type Motion } from "./car-physics";
 import { puff } from "./smoke";
-import { PARKED_CARS } from "./exterior";
 import { walkerSpots } from "./town";
+import { groundAt } from "./terrain";
+
+/** Where a car sits on the ground: its height, and how far its nose tips up or down on a slope. */
+export function carOnGround(x: number, z: number, heading: number) {
+  const fx = -Math.sin(heading);
+  const fz = -Math.cos(heading);
+  const front = groundAt(x + fx * 1.75, z + fz * 1.75);
+  const back = groundAt(x - fx * 1.75, z - fz * 1.75);
+  return { y: (front + back) / 2, pitch: Math.atan2(front - back, 3.5) };
+}
 
 /*
  * Moving around with the keyboard (and, on phones, on-screen buttons):
@@ -100,9 +114,7 @@ export function useMovementKeys(enabled: boolean) {
 
 // ---- The cars ---------------------------------------------------------------------------------
 
-const WHEEL_R = 0.75;
-
-/** Where the driven car is and what it's doing, for the camera and the speedometer. */
+/** Where the driven vehicle is and what it's doing, for the camera and the speedometer. */
 export const drive = {
   active: false,
   pos: new THREE.Vector3(),
@@ -111,20 +123,31 @@ export const drive = {
   speed: 0,
   gear: "P" as "P" | "D" | "R",
   braking: false,
+  /** Where the camera sits behind it (planes and big things want it further back). */
+  cam: { back: 12, up: 5.2 },
+  /** The vehicle's top speed (mph), for the speedometer. */
+  top: 100,
+  /** Which fleet vehicle (fleet.ts), or -1. */
+  vehicle: -1,
 };
 
-/** Each parked car's wheels and lights (one per car). */
-const LOOKS = PARKED_CARS.map(newLook);
 /** The driven car's motion: velocity (it can slide sideways a little) and steering. */
 const motion: Motion = { vx: 0, vz: 0, steer: 0 };
+/** Something's slowing the car down (a squad car ramming it): multiply its speed by k. */
+export function slowCar(k: number) {
+  motion.vx *= k;
+  motion.vz *= k;
+}
 
 /**
- * The parked cars. Walk up to one and press E (or tap it) to get in; while
- * `driving` is that car's number, it drives with the keys and the camera
- * follows it. Cars stay wherever you leave them.
+ * The parked cars and bikes (fleet.ts). Walk up to one and press E (or tap
+ * it) to get in; while `driving` is its number, it drives with the keys and
+ * the camera follows it. They stay wherever you leave them. (Aircraft are
+ * flight.tsx.)
  *
- * The car physics (speed, brakes, steering, skids) is in car-physics.ts;
- * this part moves the car, stops it at walls, and lights it up.
+ * The physics (speed, brakes, steering, skids) is in car-physics.ts, with
+ * each model's own top speed, pull and grip (vehicles.ts); this part moves
+ * the car, stops it at walls, and lights it up.
  */
 export function Cars({
   driving,
@@ -133,20 +156,23 @@ export function Cars({
   onPick,
   onBump,
 }: {
-  /** The car being driven (its number), or null. */
+  /** The vehicle being driven (its number), or null. */
   driving: number | null;
-  /** The car you're close enough to get into (it can be tapped), or null. */
+  /** The vehicle you're close enough to get into (it can be tapped), or null. */
   canPick: number | null;
   calm: boolean;
   onPick: (car: number) => void;
   /** Hit something (for a little "Bonk!" message). */
   onBump?: (text: string) => void;
 }) {
+  useGameVersion();
   const groups = useRef<(THREE.Group | null)[]>([]);
+  const riders = useRef<(THREE.Group | null)[]>([]);
   const lastBump = useRef(0);
   /** Puffs of smoke owed (smoke comes out at a steady rate, whatever the frame rate). */
   const smokeDue = useRef(0);
   const was = useRef<number | null>(null);
+  const riderPose = useMemo(() => ({ ...newPose(), sit: 0.75, aim: 0.55 }), []);
 
   useEffect(() => {
     const before = was.current;
@@ -155,20 +181,28 @@ export function Cars({
     drive.speed = 0;
     drive.gear = "P";
     drive.braking = false;
-    for (const l of LOOKS) {
-      l.braking = l.reversing = false;
-      l.steer = l.pitch = l.roll = 0;
+    for (const v of fleet) {
+      v.look.braking = v.look.reversing = false;
+      v.look.steer = v.look.pitch = v.look.roll = 0;
     }
     if (driving !== null) {
-      const c = parkedSpots[driving];
-      drive.pos.set(c.x, 0, c.z);
+      const v = fleet[driving];
+      const c = v.spot;
+      drive.pos.set(c.x, carOnGround(c.x, c.z, c.heading).y, c.z);
       drive.heading = c.heading;
       drive.active = true;
+      drive.vehicle = driving;
+      drive.top = modelOf(v.model).top;
+      drive.cam = v.body === "plane" ? { back: 20, up: 6.5 } : v.body === "heli" ? { back: 17, up: 7 } : v.body === "moto" ? { back: 9, up: 4 } : { back: 12, up: 5.2 };
       player.onFoot = false;
     } else {
       drive.active = false;
-      // Got out: step out by the driver's door (or wherever there's room).
-      if (before !== null) getOut(parkedSpots[before]);
+      drive.vehicle = -1;
+      // Got out: step out by the driver's door (or wherever there's room). Aircraft handle their own (you might be in the air!).
+      if (before !== null && !isAircraft(fleet[before])) {
+        getOut(fleet[before].spot);
+        rememberWhere(fleet[before]);
+      }
     }
   }, [driving]);
   useEffect(
@@ -178,14 +212,24 @@ export function Cars({
     [],
   );
 
+  // Parked cars far from the camera aren't drawn (there are a lot of them, and they're detailed).
+  useFrame(({ camera }) => {
+    groups.current.forEach((g, i) => {
+      if (!g || i === driving) return;
+      const s = fleet[i]?.spot;
+      if (!s) return;
+      g.visible = (s.x - camera.position.x) ** 2 + (s.z - camera.position.z) ** 2 < 240 * 240;
+    });
+  });
   useFrame((frame, rawDelta) => {
-    if (driving === null) return;
+    if (driving === null || isAircraft(fleet[driving])) return;
     const dt = Math.min(rawDelta, 0.1);
-    const c = parkedSpots[driving];
-    const look = LOOKS[driving];
+    const v = fleet[driving];
+    const c = v.spot;
+    const look = v.look;
+    const spec = specOf(v.model);
     const wheel = Number(input.strafeLeft || input.turnLeft) - Number(input.strafeRight || input.turnRight);
-    const { heading, accel, yawRate, braking, reversing, slip } = stepCar(c, motion, { gas: input.forward, brake: input.back, handbrake: input.brake, wheel }, dt);
-
+    const { heading, accel, yawRate, braking, reversing, slip } = stepCar(c, motion, { gas: input.forward, brake: input.back, handbrake: input.brake, wheel }, dt, spec);
     // ---- Move, unless something's in the way ----
     const people = walkerSpots;
     const moved = { x: c.x + motion.vx * dt, z: c.z + motion.vz * dt, heading };
@@ -229,63 +273,93 @@ export function Cars({
     }
 
     // ---- How it looks: wheels, lights, the body dipping and leaning ----
-    look.spin += (fwdNow / WHEEL_R) * dt;
+    look.spin += (fwdNow / 0.62) * dt;
     look.steer = motion.steer;
     look.braking = braking;
     look.reversing = reversing && fwdNow < -0.1;
     look.pitch = calm ? 0 : THREE.MathUtils.clamp(-accel * 0.0035, -0.05, 0.06);
-    look.roll = calm ? 0 : THREE.MathUtils.clamp(yawRate * Math.hypot(motion.vx, motion.vz) * 0.004, -0.07, 0.07);
+    // Cars lean out of a turn; motorbikes lean into it.
+    look.roll = calm ? 0 : THREE.MathUtils.clamp(yawRate * Math.hypot(motion.vx, motion.vz) * (spec.moto ? -0.03 : 0.004), spec.moto ? -0.18 : -0.07, spec.moto ? 0.18 : 0.07);
 
     const g = groups.current[driving];
-    g?.position.set(c.x, 0, c.z);
-    g?.rotation.set(0, c.heading, 0);
-    drive.pos.set(c.x, 0, c.z);
+    const ground = carOnGround(c.x, c.z, c.heading);
+    g?.position.set(c.x, ground.y, c.z);
+    g?.rotation.set(ground.pitch, c.heading, 0, "YXZ");
+    drive.pos.set(c.x, ground.y, c.z);
     drive.heading = c.heading;
     drive.speed = fwdNow;
     drive.braking = braking;
     drive.gear = look.reversing || (input.back && fwdNow <= 0.5) ? "R" : Math.abs(fwdNow) < 0.1 && !input.forward ? "P" : "D";
+    // On a motorbike you're sitting on it.
+    const rider = riders.current[driving];
+    if (rider) {
+      rider.visible = true;
+      riderPose.phase = 0;
+    }
   });
 
   return (
     <group>
-      {PARKED_CARS.map((car, i) => (
-        <group
-          key={i}
-          ref={(g) => {
-            groups.current[i] = g;
-            // Put it where it is now (set here, not as props, so a re-render never moves a car back).
-            const c = parkedSpots[i];
-            g?.position.set(c.x, 0, c.z);
-            g?.rotation.set(0, c.heading, 0);
-          }}
-          onClick={(e) => {
-            if (canPick !== i || e.delta > 8) return;
-            e.stopPropagation();
-            onPick(i);
-          }}
-          onPointerOver={(e) => {
-            if (canPick !== i) return;
-            e.stopPropagation();
-            document.body.style.cursor = "pointer";
-          }}
-          onPointerOut={() => {
-            document.body.style.cursor = "";
-          }}
-        >
-          <CarModel color={car.color} look={LOOKS[i]} />
-          {/* An invisible box round the car to tap (the car's own parts ignore taps) */}
-          <mesh position-y={1.6}>
-            <boxGeometry args={[3.6, 3.2, 7.4]} />
-            <meshBasicMaterial transparent opacity={0} depthWrite={false} />
-          </mesh>
-        </group>
-      ))}
+      {fleet.map((v, i) =>
+        isAircraft(v) ? null : (
+          <group
+            key={v.id}
+            ref={(g) => {
+              groups.current[i] = g;
+              // Put it where it is now (set here, not as props, so a re-render never moves a car back).
+              const c = v.spot;
+              const ground = carOnGround(c.x, c.z, c.heading);
+              g?.position.set(c.x, ground.y, c.z);
+              g?.rotation.set(ground.pitch, c.heading, 0, "YXZ");
+            }}
+            onClick={(e) => {
+              if (canPick !== i || e.delta > 8) return;
+              e.stopPropagation();
+              onPick(i);
+            }}
+            onPointerOver={(e) => {
+              if (canPick !== i) return;
+              e.stopPropagation();
+              document.body.style.cursor = "pointer";
+            }}
+            onPointerOut={() => {
+              document.body.style.cursor = "";
+            }}
+          >
+            <CarModel color={v.color} look={v.look} body={v.body} />
+            {/* An invisible box round the car to tap (the car's own parts ignore taps) */}
+            <mesh position-y={1.6}>
+              <boxGeometry args={[v.body === "moto" ? 1.6 : 3.6, 3.2, 7.4]} />
+              <meshBasicMaterial transparent opacity={0} depthWrite={false} />
+            </mesh>
+            {v.body === "moto" && (
+              <group
+                ref={(g) => {
+                  riders.current[i] = g;
+                }}
+                visible={driving === i}
+                position={[0, 0.35, 0.35]}
+              >
+                <Humanoid look={PLAYER_LOOK} pose={riderPose} />
+              </group>
+            )}
+          </group>
+        ),
+      )}
     </group>
   );
 }
 
+/** Remember where you left a car you own (it'll be there next time). */
+function rememberWhere(v: Vehicle) {
+  if (!v.owned) return;
+  const saved = profile.cars.find((c) => c.id === v.id);
+  if (saved) Object.assign(saved, { x: Math.round(v.spot.x * 10) / 10, z: Math.round(v.spot.z * 10) / 10, heading: Math.round(v.spot.heading * 100) / 100 });
+  saveProfile();
+}
+
 /** Step out of a car: by the driver's door if there's room, else the other door, the back or the front. */
-function getOut(c: CarSpot) {
+export function getOut(c: CarSpot) {
   // Spots round the car, in the car's own directions (x = right, z = back).
   const spots: [number, number][] = [
     [-3.2, -0.6],

@@ -3,6 +3,7 @@ import { StoreWorld } from "@/components/public/world/store-world";
 import { checkoutProps } from "@/app/(public)/cart/checkout-props";
 import { shownPrice } from "@/lib/deals";
 import { getAccount, getPopularRequests, getRewards } from "@/lib/member";
+import { getGamePlayer } from "@/lib/game";
 import { loadStorefront } from "@/lib/store-data";
 import { pickSeason } from "@/lib/seasons";
 import { openSignText } from "@/lib/store-sign";
@@ -15,7 +16,13 @@ export const metadata: Metadata = { title: "3D store" };
  */
 export default async function StorePage(props: PageProps<"/store">) {
   const { season: seasonParam } = await props.searchParams;
-  const [{ menu, info, deals }, account, rewardList, requests] = await Promise.all([loadStorefront(), getAccount(), getRewards(), getPopularRequests()]);
+  const [{ menu, info, deals }, account, rewardList, requests, gamePlayer] = await Promise.all([
+    loadStorefront(),
+    getAccount(),
+    getRewards(),
+    getPopularRequests(),
+    getGamePlayer(),
+  ]);
   const isMember = Boolean(account?.profile);
   // Each product's price for this shopper (sale prices, member prices…).
   const priced = menu.map((item) => ({ item, shown: shownPrice(item, deals.promotions, isMember) }));
@@ -38,6 +45,7 @@ export default async function StorePage(props: PageProps<"/store">) {
         // Holiday decorations go up by themselves (October: Halloween).
         season={pickSeason(info.today, seasonParam)}
         requests={requests}
+        gamePlayer={gamePlayer}
       />
     </>
   );

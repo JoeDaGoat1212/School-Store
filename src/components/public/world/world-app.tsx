@@ -21,7 +21,15 @@ import { cart, cartTotals, splitCart, useCart, type CartItem } from "../cart-sto
 import { modelFor, sectionFor, unitFor, UNITS, type UnitKey } from "../store/catalog";
 import { unitLayout, type StoreItem } from "../store/layout";
 import type { TillDisplay, TillUnit } from "./checkout-scene";
-import { TouchPad, useMovementKeys } from "./drive";
+import { TouchPad, drive, useMovementKeys } from "./drive";
+import { CityHud } from "./city-hud";
+import { fleet, syncOwned } from "./fleet";
+import { useGameVersion } from "./game-events";
+import { life } from "./life";
+import { police } from "./police-state";
+import { loadProfile, profile, refreshProfile, type ServerPlayer } from "./profile";
+import { applyForJob, leaveJob, recordJobLevel, refreshGame, saveGame } from "@/app/(public)/game-actions";
+import { jobs } from "./jobs";
 import { Speedometer } from "./speedometer";
 import type { BoardCard } from "./fixtures";
 import { LoadingScreen } from "./loading-screen";
@@ -41,6 +49,10 @@ import WorldScene from "./world-scene";
  *   3. Inside, floor arrows walk you around (deals board, drinks, snacks, candy).
  *   4. Tap a product to add it to your cart.
  *   5. "Checkout" takes you to the registers and rings you up.
+ *
+ * Next to the town is a city (drive east along the main road, or tap "Go to
+ * the city"), with a bank and a jewelry shop you can walk into and rob, and
+ * pretend US-dollar money to go with it. Its buttons are in city-hud.tsx.
  */
 
 export type Priced = { item: MenuItem; shown: ShownPrice };
@@ -106,6 +118,7 @@ export default function WorldApp({
   checkout: checkoutForm,
   season,
   requests,
+  gamePlayer = null,
 }: {
   priced: Priced[];
   deals: Deals;
@@ -120,6 +133,8 @@ export default function WorldApp({
   season: Season;
   /** What others have asked us to sell (for the request table). */
   requests: PopularRequest[];
+  /** The signed-in player's saved city game (null: a guest, or before database update 13). */
+  gamePlayer?: ServerPlayer | null;
 }) {
   const cartItems = useCart();
   const totals = cartTotals(cartItems);
@@ -146,6 +161,38 @@ export default function WorldApp({
   const [nearCar, setNearCar] = useState<number | null>(null);
   /** Are you in the store? (The Checkout button only shows in there.) */
   const [inside, setInside] = useState(startInside);
+  /** A city panel (the teller, your wallet, a shop's menu…) is open. */
+  const [cityPanel, setCityPanel] = useState(false);
+
+  // Your city game: from your account if you're signed in, else this browser.
+  useEffect(() => {
+    loadProfile(gamePlayer, { save: saveGame, refresh: refreshGame as () => Promise<ServerPlayer | null> });
+    // The cars you own wait where you left them (or in Apex Motors' lot).
+    syncOwned(profile.cars);
+    jobs.remote = {
+      apply: applyForJob,
+      leave: leaveJob,
+      level: recordJobLevel,
+      refresh: refreshProfile,
+    };
+  }, [gamePlayer]);
+  // Waiting to hear about a job? Check now and then.
+  useEffect(() => {
+    const t = setInterval(() => {
+      if (profile.applications.some((a) => a.status === "pending")) void refreshProfile();
+    }, 45000);
+    return () => clearInterval(t);
+  }, []);
+  // Passing out in a car: you're out of the car.
+  const gameVersion = useGameVersion();
+  useEffect(() => {
+    if (life.dead && driving !== null) setDriving(null);
+    // The police pulled you out of your car.
+    if (police.forceOut) {
+      police.forceOut = false;
+      if (driving !== null) setDriving(null);
+    }
+  }, [gameVersion, driving]);
   const counter = useRef(0);
   const sidebarScroll = useRef<HTMLDivElement>(null);
   const { progress, active } = useProgress();
@@ -323,7 +370,7 @@ export default function WorldApp({
   }, []);
 
   // Arrow keys / WASD walk you round the store (or drive a car), unless a panel is open.
-  useMovementKeys(!dealsOpen && !requestsOpen && !sidebar && !till);
+  useMovementKeys(!dealsOpen && !requestsOpen && !sidebar && !till && !cityPanel);
 
   // Escape closes the deals list (and gets you out of a car).
   useEffect(() => {
@@ -338,7 +385,7 @@ export default function WorldApp({
   }, []);
 
   // E: get into the car you're next to, or get out of the one you're driving.
-  const panelOpen = dealsOpen || requestsOpen || sidebar || Boolean(till);
+  const panelOpen = dealsOpen || requestsOpen || sidebar || Boolean(till) || cityPanel;
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.code !== "KeyE" || e.repeat || e.ctrlKey || e.metaKey || e.altKey || panelOpen) return;
@@ -347,7 +394,7 @@ export default function WorldApp({
       if (driving !== null) setDriving(null);
       else if (nearCar !== null && !moving) {
         setDriving(nearCar);
-        say("You're driving! Press E to get out.");
+        say(boardLine(fleet[nearCar ?? -1]?.body));
       }
     };
     window.addEventListener("keydown", onKey);
@@ -406,11 +453,15 @@ export default function WorldApp({
     : moving
     ? null
     : driving !== null
-      ? "W / ↑ gas · S / ↓ brake & reverse · A D or ← → steer · Space + steer to drift · E get out"
+      ? fleet[driving]?.body === "plane"
+        ? "W / S throttle · A D or ← → bank · Space pull up · Shift dive · E jump out (Space opens your parachute)"
+        : fleet[driving]?.body === "heli"
+          ? "Space climb · Shift descend · W / S forward / back · A D or ← → turn · E jump out (Space opens your parachute)"
+          : "W / ↑ gas · S / ↓ brake & reverse · A D or ← → steer · Space + steer to drift · E get out"
       : station === "outside"
       ? "Click to enter, or drag to fly around"
-      : station === "lot" || (station === "walk" && nearCar !== null)
-      ? "Walk with WASD / arrow keys (Shift to run) · walk up to a car and press E to drive"
+      : station === "lot" || station === "walk"
+      ? "WASD to walk (Shift runs, Space jumps) · V for 3rd person · E near a car to drive · I for your wallet"
       : unit === "drinks"
         ? "Tap a fridge door to open it, then tap a drink"
         : unit
@@ -474,9 +525,10 @@ export default function WorldApp({
           onInside={setInside}
           onPickCar={(car) => {
             setDriving(car);
-            say("You're driving! Press E to get out.");
+            say(boardLine(fleet[car]?.body));
           }}
           onBump={say}
+          onBail={() => setDriving(null)}
         />
       </div>
 
@@ -506,7 +558,7 @@ export default function WorldApp({
             </button>
           </div>
           <div className="absolute top-18 right-3 sm:top-20 sm:right-4">
-            <Speedometer />
+            <Speedometer max={drive.top} />
           </div>
           <TouchPad mode="drive" />
         </>
@@ -521,18 +573,27 @@ export default function WorldApp({
                 type="button"
                 onClick={() => {
                   setDriving(nearCar);
-                  say("You're driving! Press E to get out.");
+                  say(boardLine(fleet[nearCar]?.body));
                 }}
                 className="pointer-events-auto flex items-center gap-2 rounded-full bg-black/85 px-5 py-3 font-heading text-xl font-extrabold tracking-wide text-white uppercase shadow-lg backdrop-blur transition-transform hover:-translate-y-0.5 focus-visible:ring-3 focus-visible:ring-primary/60 focus-visible:outline-none animate-in fade-in zoom-in-95 duration-200"
               >
                 <kbd className="grid size-8 place-items-center rounded-lg bg-primary font-heading text-lg text-black">E</kbd>
-                Drive this car
+                {fleet[nearCar]?.body === "plane" ? "Fly this plane" : fleet[nearCar]?.body === "heli" ? "Fly this helicopter" : fleet[nearCar]?.body === "moto" ? "Ride this bike" : "Drive this car"}
               </button>
             </div>
           )}
           <TouchPad mode="walk" />
         </>
       )}
+
+      {/* The city: your money, robberies, the teller, and the quick hop to the city and back */}
+      <CityHud
+        show={station !== "outside" && ready}
+        canTravel={driving === null && !inside && station !== "outside" && !moving && !till}
+        nearCar={nearCar !== null}
+        calm={calm}
+        onPanel={setCityPanel}
+      />
 
       {/* Top corners: the logo, and your rewards account */}
       <div className="pointer-events-none absolute inset-x-0 top-0 flex items-start justify-between gap-3 p-3 sm:p-4">
@@ -927,4 +988,12 @@ function RequestsPanel({ popular, onClose }: { popular: PopularRequest[]; onClos
       </div>
     </div>
   );
+}
+
+/** What to say when you get in. */
+function boardLine(body: string | undefined) {
+  if (body === "plane") return "Ready for take-off! W for throttle, Space to pull up. E to jump out.";
+  if (body === "heli") return "Rotors spinning! Space to climb. E to jump out.";
+  if (body === "moto") return "You're riding! Press E to get off.";
+  return "You're driving! Press E to get out.";
 }

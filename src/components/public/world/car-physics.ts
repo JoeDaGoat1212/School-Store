@@ -56,7 +56,13 @@ export function forwardSpeed(pose: Pose, motion: Motion) {
  * the car would be after `dt` seconds, plus what it's doing (for the lights
  * and the body lean). It doesn't check for walls: the caller does that.
  */
-export function stepCar(pose: Pose, motion: Motion, pedals: Pedals, dt: number) {
+/** What one vehicle can do (dealership cars are faster, motorbikes grip more). Leave it out for an ordinary car. */
+export type Spec = { top: number; engine: number; grip: number };
+
+export function stepCar(pose: Pose, motion: Motion, pedals: Pedals, dt: number, spec?: Spec) {
+  const top = spec?.top ?? TOP;
+  const engine = spec?.engine ?? ENGINE;
+  const grip = spec?.grip ?? GRIP;
   const fx = -Math.sin(pose.heading);
   const fz = -Math.cos(pose.heading);
   // Split the velocity into forward and sideways (to the car's right).
@@ -71,7 +77,7 @@ export function stepCar(pose: Pose, motion: Motion, pedals: Pedals, dt: number) 
     if (fwd < -0.5) {
       accel = BRAKES; // rolling backwards: brake first
       braking = true;
-    } else accel = ENGINE * Math.max(0, 1 - (fwd / TOP) ** 2) + 0.4;
+    } else accel = engine * Math.max(0, 1 - (fwd / top) ** 2) + 0.4;
   } else if (pedals.brake) {
     if (fwd > 0.5) {
       accel = -BRAKES;
@@ -93,7 +99,7 @@ export function stepCar(pose: Pose, motion: Motion, pedals: Pedals, dt: number) 
   const stops = (!pedals.gas && !pedals.brake) || pedals.handbrake;
   fwd = stops && Math.sign(next) !== Math.sign(fwd) ? 0 : next;
   if (!pedals.gas && !pedals.brake && Math.abs(fwd) < 0.15) fwd = 0;
-  fwd = clamp(fwd, -REVERSE_TOP, TOP);
+  fwd = clamp(fwd, -REVERSE_TOP, top);
 
   // ---- Steering ----
   // Less lock the faster you go.
@@ -116,7 +122,7 @@ export function stepCar(pose: Pose, motion: Motion, pedals: Pedals, dt: number) 
     yawRate = turned * DRIFT_TURN * Math.min(1, Math.abs(fwd) / 8) * Math.sign(fwd);
   } else {
     // The tyres can only push so hard sideways: at speed, only wide turns.
-    const most = GRIP / Math.max(Math.abs(fwd), 1);
+    const most = grip / Math.max(Math.abs(fwd), 1);
     yawRate = clamp(yawRate, -most, most);
   }
   const heading = pose.heading + yawRate * dt;

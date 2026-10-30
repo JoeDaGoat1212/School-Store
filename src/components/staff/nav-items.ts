@@ -1,6 +1,7 @@
 import {
   BarChart3Icon,
   BoxesIcon,
+  BriefcaseIcon,
   ClipboardListIcon,
   FileUpIcon,
   GiftIcon,
@@ -27,5 +28,6 @@ export const staffNav: { title: string; href: string; icon: LucideIcon }[] = [
   { title: "Rewards", href: "/admin/rewards", icon: GiftIcon },
   { title: "Teachers", href: "/admin/teachers", icon: GraduationCapIcon },
   { title: "Requests", href: "/admin/requests", icon: MessageSquarePlusIcon },
+  { title: "City jobs", href: "/admin/jobs", icon: BriefcaseIcon },
   { title: "Settings", href: "/admin/settings", icon: SettingsIcon },
 ];

@@ -1,5 +1,14 @@
-import { LAMPS, PARKED_CARS, TREES } from "./exterior";
-import { hitsBox, townObstaclesNear, WORLD, type Box } from "./town-layout";
+import { hitsCity } from "./city-layout";
+import { player } from "./you";
+import { LAMPS, TREES } from "./exterior";
+import { parkedSpots } from "./fleet";
+import { heistBlocks } from "./heist";
+import { hitsBaseRock, hitsPine } from "./terrain";
+import { jailBlocks } from "./jail-layout";
+import { roomsBlock, roomWallsBlock } from "./rooms";
+import { bankBlocks, bankViewBlocked } from "./bank-layout";
+import { hitsBox, townObstaclesNear, type Box } from "./town-layout";
+import { WORLD_BOUNDS as WORLD } from "./world-map";
 import { doors, STORE, STORE_SCALE, type Blocker } from "./world-layout";
 
 /*
@@ -8,17 +17,8 @@ import { doors, STORE, STORE_SCALE, type Blocker } from "./world-layout";
  * walls, houses, trees or each other.
  */
 
-/** You, on foot (the camera moves this). */
-export const player = {
-  x: 0,
-  z: 11,
-  /** Which way you face (0 = toward the store, -z). */
-  yaw: 0,
-  /** Walking around (not in the drone view, not driving). */
-  onFoot: false,
-  /** Just got out of a car: the camera should hop to (x, z) and face `yaw`. */
-  hop: false,
-};
+/** You, on foot (the camera moves this). It lives in you.ts, so plain-number modules can use it without the scenery. */
+export { player };
 
 // (The doors' open/shut state lives in world-layout.ts, so the doors in exterior.tsx can read it.)
 export { doors };
@@ -26,10 +26,12 @@ export { doors };
 /** A car's position and which way it faces (its front is toward -z when heading is 0). */
 export type CarSpot = { x: number; z: number; heading: number };
 
-/** Where each parked (drivable) car is now. They stay wherever you leave them. */
-export const parkedSpots: CarSpot[] = PARKED_CARS.map((c) => ({ x: c.x, z: c.z, heading: c.turn }));
+/** Where each parked (drivable) vehicle is now (fleet.ts). They stay wherever you leave them. */
+export { parkedSpots };
 /** Where each traffic car is now (traffic.tsx keeps this up to date). */
 export const trafficSpots: CarSpot[] = [];
+/** Where each police car is now (city-police.tsx keeps this up to date; far away while they're not out). */
+export const copSpots: CarSpot[] = Array.from({ length: 6 }, () => ({ x: -9999, z: -9999, heading: 0 }));
 
 export const CAR_RADIUS = 1.8;
 
@@ -65,8 +67,13 @@ export function inStore(x: number, z: number) {
   return Math.abs(x) < HW && z < 0 && z > -D;
 }
 
-/** Trees, lamp posts, houses and street lights: does a circle of radius r at (x, z) touch one? */
+/** Trees, lamp posts, houses, street lights and the city's buildings: does a circle of radius r at (x, z) touch one? */
 function hitsScenery(x: number, z: number, r: number) {
+  if (x > 470 && (hitsCity(x, z, r) || heistBlocks(x, z, r) || bankBlocks(x, z, r))) return true;
+  if (hitsPine(x, z, r)) return true;
+  if (roomsBlock(x, z, r)) return true;
+  if (x > 1200 && jailBlocks(x, z, r)) return true;
+  if (z < -700 && hitsBaseRock(x, z, r)) return true;
   for (const [lx, lz] of LAMPS) if (Math.hypot(x - lx, z - lz) < r + 0.35) return true;
   for (const [tx, tz, s] of TREES) if (Math.hypot(x - tx, z - tz) < r + 0.6 * s) return true;
   const near = townObstaclesNear(x, z);
@@ -77,7 +84,7 @@ function hitsScenery(x: number, z: number, r: number) {
 
 /** Does a circle at (x, z) touch any car (except `skip`)? */
 function hitsCar(x: number, z: number, r: number, skip?: CarSpot) {
-  for (const list of [parkedSpots, trafficSpots])
+  for (const list of [parkedSpots, trafficSpots, copSpots])
     for (const c of list) {
       if (c === skip || Math.abs(c.x - x) > 8 || Math.abs(c.z - z) > 8) continue;
       for (const p of carCircles(c)) if (Math.hypot(x - p.x, z - p.z) < r + CAR_RADIUS) return true;
@@ -102,6 +109,19 @@ export function walkBlocked(x: number, z: number, inside: Blocker[]) {
   }
   for (const b of PLANTERS) if (hitsBox(x, z, r, b)) return true;
   return hitsScenery(x, z, r) || hitsCar(x, z, r);
+}
+
+/** Is the camera's view blocked here (a wall or building between it and you)? Cars and trees don't count. */
+export function viewBlocked(x: number, z: number, inside: Blocker[]) {
+  for (const b of WALLS) if (hitsBox(x, z, 0.25, b)) return true;
+  if (inStore(x, z)) {
+    for (const b of inside) if (hitsBox(x, z, 0.1, b)) return true;
+    return false;
+  }
+  if (x > 470 && (hitsCity(x, z, 0.25) || bankViewBlocked(x, z))) return true;
+  if (roomWallsBlock(x, z, 0.25)) return true;
+  for (const b of townObstaclesNear(x, z).boxes) if (hitsBox(x, z, 0.25, b)) return true;
+  return false;
 }
 
 /** Would car `self`, moved to `c`, hit something there? (The store, scenery, other cars, or people walking.) */

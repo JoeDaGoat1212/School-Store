@@ -2,11 +2,13 @@
 
 import { useEffect, useMemo, useRef } from "react";
 import { useFrame, type ThreeEvent } from "@react-three/fiber";
-import { RoundedBox } from "@react-three/drei";
+import { RoundedBox, Sky as SkyShader } from "@react-three/drei";
 import * as THREE from "three";
 import { brand } from "@/config/brand";
-import { CREAM, ORANGE, TEAL, TEAL_DEEP, canvasTexture, seededRandom, noRaycast, signTexture, toonRamp } from "./paint";
+import { asphaltMaterial, grassMaterial } from "./surfaces";
+import { CREAM, ORANGE, TEAL, TEAL_DEEP, canvasTexture, seededRandom, noRaycast, signTexture } from "./paint";
 import { advanceOf, flameGeometry, letterGeometry } from "./text3d";
+import { CITY_PARKED } from "./city-layout";
 import { BUILDING, INSIDE, STORE, doors } from "./world-layout";
 
 /*
@@ -16,7 +18,7 @@ import { BUILDING, INSIDE, STORE, doors } from "./world-layout";
  */
 
 function Toon({ color }: { color: string }) {
-  return <meshToonMaterial color={color} gradientMap={toonRamp()} />;
+  return <meshStandardMaterial color={color} roughness={0.78} />;
 }
 
 // ---- The building --------------------------------------------------------------------------------
@@ -126,7 +128,7 @@ export function Building({ onDoors, canEnter, openSign }: { onDoors: () => void;
           {Array.from({ length: 9 }, (_, i) => (
             <mesh key={i} position={[-(w1 - w0) / 2 + 1.3 + i * ((w1 - w0 - 2.6) / 8), 1.3, 0]} castShadow raycast={noRaycast}>
               <icosahedronGeometry args={[0.85, 1]} />
-              <meshToonMaterial color={i % 2 ? "#4f9a3d" : "#5fae47"} gradientMap={toonRamp()} />
+              <meshStandardMaterial color={i % 2 ? "#4f9a3d" : "#5fae47"} roughness={0.78} />
             </mesh>
           ))}
         </group>
@@ -405,7 +407,7 @@ function Tree({ position, scale = 1 }: { position: [number, number, number]; sca
       ].map(([x, y, z, r], i) => (
         <mesh key={i} position={[x, y, z]} castShadow raycast={noRaycast}>
           <icosahedronGeometry args={[r, 1]} />
-          <meshToonMaterial color={i % 2 ? "#4c9a3b" : "#5cb045"} gradientMap={toonRamp()} />
+          <meshStandardMaterial color={i % 2 ? "#4c9a3b" : "#5cb045"} roughness={0.78} />
         </mesh>
       ))}
     </group>
@@ -438,7 +440,7 @@ const STALL_W = 4.4;
 const STALLS = Array.from({ length: Math.floor((LOT_HALF * 2 - 4) / STALL_W) }, (_, i) => -LOT_HALF + 2 + i * STALL_W);
 const stallMid = (i: number) => STALLS[i] + STALL_W / 2;
 
-/** The parked cars: colour, where they start, and which way they face. */
+/** The parked cars: colour, where they start, and which way they face. (The last few are the getaway cars by the city bank.) */
 export const PARKED_CARS: { color: string; x: number; z: number; turn: number }[] = [
   { color: "#e5483b", x: stallMid(1), z: 10, turn: 0 },
   { color: "#13a8a0", x: stallMid(4), z: 10, turn: 0 },
@@ -447,6 +449,7 @@ export const PARKED_CARS: { color: string; x: number; z: number; turn: number }[
   { color: "#3d6fe0", x: stallMid(2), z: 27.5, turn: Math.PI },
   { color: "#ff7a2a", x: stallMid(7), z: 27.5, turn: Math.PI },
   { color: "#7b5cd6", x: stallMid(12), z: 27.5, turn: Math.PI },
+  ...CITY_PARKED,
 ];
 
 /** Trees around the lot and the store: x, z, size. */
@@ -497,15 +500,15 @@ export function Lot() {
 
   return (
     <group>
-      {/* Grass all around */}
+      {/* Grass all around (out past the city, too) */}
       <mesh rotation-x={-Math.PI / 2} position-y={-0.05} receiveShadow raycast={noRaycast}>
-        <planeGeometry args={[2600, 2600]} />
-        <Toon color="#86c45a" />
+        <planeGeometry args={[6000, 6000]} />
+        <primitive object={grassMaterial()} attach="material" />
       </mesh>
       {/* Asphalt */}
       <mesh rotation-x={-Math.PI / 2} position={[0, 0.01, 19]} receiveShadow raycast={noRaycast}>
         <planeGeometry args={[LOT_HALF * 2, 32]} />
-        <meshStandardMaterial map={asphalt} roughness={0.95} />
+        <primitive object={asphaltMaterial(asphalt)} attach="material" />
       </mesh>
       {/* Sidewalk and curb along the front of the store */}
       <mesh position={[0, 0.15, 1.75]} receiveShadow raycast={noRaycast}>
@@ -544,6 +547,9 @@ export function Lot() {
  * At Halloween it's a late-afternoon sky instead: purple overhead, glowing
  * orange at the horizon.
  */
+/** Which way the sun is (the same as the sunlight in world-scene.tsx). */
+export const SUN_DIR: [number, number, number] = [68, 120, 92];
+
 export function Sky({ spooky = false }: { spooky?: boolean }) {
   const texture = useMemo(() => {
     const c = document.createElement("canvas");
@@ -557,9 +563,11 @@ export function Sky({ spooky = false }: { spooky?: boolean }) {
       g.addColorStop(0.85, "#ffb27a");
       g.addColorStop(1, "#ffd9a8");
     } else {
-      g.addColorStop(0, "#5fb7f2");
-      g.addColorStop(0.55, "#a9dcfb");
-      g.addColorStop(1, "#eaf7ff");
+      // A deep blue overhead fading to a pale, hazy horizon.
+      g.addColorStop(0, "#2f78c9");
+      g.addColorStop(0.35, "#5b9fe0");
+      g.addColorStop(0.75, "#a8d2f2");
+      g.addColorStop(1, "#e4f1fa");
     }
     ctx.fillStyle = g;
     ctx.fillRect(0, 0, 4, 256);
@@ -574,10 +582,15 @@ export function Sky({ spooky = false }: { spooky?: boolean }) {
   });
   return (
     <group ref={dome}>
-      <mesh raycast={noRaycast}>
-        <sphereGeometry args={[1100, 32, 16, 0, Math.PI * 2, 0, Math.PI / 2]} />
-        <meshBasicMaterial map={texture} side={THREE.BackSide} toneMapped={false} fog={false} />
-      </mesh>
+      {spooky ? (
+        <mesh raycast={noRaycast}>
+          <sphereGeometry args={[1100, 32, 16, 0, Math.PI * 2, 0, Math.PI / 2]} />
+          <meshBasicMaterial map={texture} side={THREE.BackSide} toneMapped={false} fog={false} />
+        </mesh>
+      ) : (
+        // A real sky: sunlight scattering through the air, deep blue overhead, hazy at the horizon, a glow round the sun.
+        <SkyShader distance={1100} sunPosition={SUN_DIR} turbidity={5.5} rayleigh={1.25} mieCoefficient={0.0045} mieDirectionalG={0.86} />
+      )}
       <group ref={clouds}>
         {[
           [-90, 70, -140, 1.4],
@@ -588,15 +601,20 @@ export function Sky({ spooky = false }: { spooky?: boolean }) {
           [120, 75, 120, 1.2],
         ].map(([x, y, z, s], i) => (
           <group key={i} position={[x * 2.4, y * 2, z * 2.4]} scale={s * 13}>
+            {/* Puffy cumulus: a flat, greyish base with bright billows on top */}
             {[
               [0, 0, 0, 1.4],
               [1.5, -0.2, 0.3, 1.1],
               [-1.4, -0.3, 0.2, 1],
               [0.6, 0.6, -0.2, 1],
+              [-0.6, 0.5, 0.4, 0.9],
+              [2.5, -0.4, -0.2, 0.8],
+              [-2.4, -0.45, -0.3, 0.75],
+              [0.2, -0.55, 0.9, 0.9],
             ].map(([cx, cy, cz, r], j) => (
-              <mesh key={j} position={[cx, cy, cz]} raycast={noRaycast}>
-                <icosahedronGeometry args={[r, 2]} />
-                <meshToonMaterial color="#ffffff" gradientMap={toonRamp()} fog={false} />
+              <mesh key={j} position={[cx, cy, cz]} scale={[1, 0.78, 1]} raycast={noRaycast}>
+                <icosahedronGeometry args={[r, 3]} />
+                <meshStandardMaterial color={cy < -0.3 ? "#e3e8ee" : "#ffffff"} roughness={1} fog={false} />
               </mesh>
             ))}
           </group>
