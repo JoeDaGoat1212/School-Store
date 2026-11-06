@@ -93,10 +93,28 @@ export function ImportWizard({ products, aliases }: { products: Product[]; alias
       }
       const header = findHeaderRow(rows);
       // Reuse the column choices from the last file with the same headers.
-      const saved = loadSavedMapping(rows[header]);
-      setFile({ name: f.name, hash, rows });
+      const m = loadSavedMapping(rows[header]) ?? guessMapping(rows[header]);
+      const loaded = { name: f.name, hash, rows };
+      setFile(loaded);
       setHeaderRow(header);
-      setMapping(saved ?? guessMapping(rows[header]));
+      setMapping(m);
+
+      // If every column was recognized, import straight away: no questions.
+      // Item names that don't match a product yet can be linked afterwards, below.
+      if (mappingProblems(m).length === 0) {
+        try {
+          const rv = await buildReview(loaded, header, m);
+          setReview(rv);
+          if (rv.lines.every((l) => rv.duplicateFingerprints.has(l.fingerprint))) {
+            throw new Error("Everything in this file was already imported. Nothing was added.");
+          }
+          await saveImport(loaded, rv, m, {});
+          return;
+        } catch (autoError) {
+          // Only fall back to the column picker if the columns were the problem.
+          if (autoError instanceof Error && !/columns/i.test(autoError.message)) throw autoError;
+        }
+      }
       setStep("columns");
     } catch (e) {
       setError(e instanceof Error ? e.message : "Couldn't read that file.");
@@ -147,35 +165,39 @@ export function ImportWizard({ products, aliases }: { products: Product[]; alias
   }
 
   // ---- Step 2 → 3: build the lines and check for duplicates ----------------------
+  /** Reads the sales lines and asks the database which are already imported. */
+  async function buildReview(f: { rows: Cell[][] }, header: number, m: Mapping): Promise<Review> {
+    saveMapping(f.rows[header], m);
+    const { lines, errors } = buildLines(f.rows, header, m);
+    if (lines.length === 0) throw new Error("No sales could be read with these columns. Check the column choices.");
+    if (lines.length > MAX_LINES) {
+      throw new Error(`This file has ${lines.length} sales. Please export a shorter date range (up to ${MAX_LINES} lines).`);
+    }
+    await addFingerprints(lines);
+
+    const supabase = createClient();
+    const duplicateFingerprints = new Set<string>();
+    for (let i = 0; i < lines.length; i += 500) {
+      const { data, error: dupError } = await supabase.rpc("existing_fingerprints", {
+        p_fingerprints: lines.slice(i, i + 500).map((l) => l.fingerprint),
+      });
+      if (dupError) throw new Error(dupError.message);
+      (data ?? []).forEach((fp: string) => duplicateFingerprints.add(fp));
+    }
+
+    return {
+      lines: lines.map((l) => ({ ...l, product_id: matchProduct(l.raw_item_name, aliasMap, nameMap) })),
+      errors,
+      duplicateFingerprints,
+    };
+  }
+
   async function toReview() {
     if (!file || !mapping) return;
     setBusy(true);
     setError(null);
     try {
-      saveMapping(file.rows[headerRow], mapping);
-      const { lines, errors } = buildLines(file.rows, headerRow, mapping);
-      if (lines.length === 0) throw new Error("No sales could be read with these columns. Check the column choices.");
-      if (lines.length > MAX_LINES) {
-        throw new Error(`This file has ${lines.length} sales. Please export a shorter date range (up to ${MAX_LINES} lines).`);
-      }
-      await addFingerprints(lines);
-
-      // Ask the database which of these sales are already imported.
-      const supabase = createClient();
-      const duplicateFingerprints = new Set<string>();
-      for (let i = 0; i < lines.length; i += 500) {
-        const { data, error: dupError } = await supabase.rpc("existing_fingerprints", {
-          p_fingerprints: lines.slice(i, i + 500).map((l) => l.fingerprint),
-        });
-        if (dupError) throw new Error(dupError.message);
-        (data ?? []).forEach((fp: string) => duplicateFingerprints.add(fp));
-      }
-
-      setReview({
-        lines: lines.map((l) => ({ ...l, product_id: matchProduct(l.raw_item_name, aliasMap, nameMap) })),
-        errors,
-        duplicateFingerprints,
-      });
+      setReview(await buildReview(file, headerRow, mapping));
       setStep("review");
     } catch (e) {
       setError(e instanceof Error ? e.message : "Something went wrong.");
@@ -185,45 +207,50 @@ export function ImportWizard({ products, aliases }: { products: Product[]; alias
   }
 
   // ---- Step 3 → 4: save ---------------------------------------------------------
+  /** Saves the sales. `chosen` = unmatched item name (lowercase) → product picked in the preview. */
+  async function saveImport(f: { name: string; hash: string }, rv: Review, m: Mapping, chosenLinks: Record<string, string>) {
+    const chosen = (name: string) => {
+      const v = chosenLinks[name.trim().toLowerCase()];
+      return v && v !== LEAVE ? v : null;
+    };
+    const supabase = createClient();
+    const { data, error: importError } = await supabase.rpc("import_sales", {
+      p: {
+        file_name: f.name,
+        file_hash: f.hash,
+        row_count: rv.lines.length + rv.errors.length,
+        column_mapping: m,
+        aliases: Object.entries(chosenLinks)
+          .filter(([, id]) => id !== LEAVE)
+          .map(([alias, product_id]) => ({ alias, product_id })),
+        // `row` is only for error messages, so it isn't sent.
+        lines: rv.lines.map((l) => ({
+          sold_at: l.sold_at,
+          sale_date: l.sale_date,
+          raw_item_name: l.raw_item_name,
+          product_id: l.product_id ?? chosen(l.raw_item_name),
+          quantity: l.quantity,
+          unit_price_cents: l.unit_price_cents,
+          total_cents: l.total_cents,
+          payment_type: l.payment_type,
+          transaction_ref: l.transaction_ref,
+          fingerprint: l.fingerprint,
+        })),
+      },
+    });
+    if (importError) throw new Error(importError.hint || importError.message);
+    setResult(data as unknown as Result);
+    setStep("done");
+    toast.success("Sales imported");
+    router.refresh();
+  }
+
   async function runImport() {
     if (!file || !review || !mapping) return;
     setBusy(true);
     setError(null);
-    const chosen = (name: string) => {
-      const v = links[name.trim().toLowerCase()];
-      return v && v !== LEAVE ? v : null;
-    };
     try {
-      const supabase = createClient();
-      const { data, error: importError } = await supabase.rpc("import_sales", {
-        p: {
-          file_name: file.name,
-          file_hash: file.hash,
-          row_count: review.lines.length + review.errors.length,
-          column_mapping: mapping,
-          aliases: Object.entries(links)
-            .filter(([, id]) => id !== LEAVE)
-            .map(([alias, product_id]) => ({ alias, product_id })),
-          // `row` is only for error messages, so it isn't sent.
-          lines: review.lines.map((l) => ({
-            sold_at: l.sold_at,
-            sale_date: l.sale_date,
-            raw_item_name: l.raw_item_name,
-            product_id: l.product_id ?? chosen(l.raw_item_name),
-            quantity: l.quantity,
-            unit_price_cents: l.unit_price_cents,
-            total_cents: l.total_cents,
-            payment_type: l.payment_type,
-            transaction_ref: l.transaction_ref,
-            fingerprint: l.fingerprint,
-          })),
-        },
-      });
-      if (importError) throw new Error(importError.hint || importError.message);
-      setResult(data as unknown as Result);
-      setStep("done");
-      toast.success("Sales imported");
-      router.refresh();
+      await saveImport(file, review, mapping, links);
     } catch (e) {
       setError(e instanceof Error ? e.message : "The import failed.");
     } finally {
