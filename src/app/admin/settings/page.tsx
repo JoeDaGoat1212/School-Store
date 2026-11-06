@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { PageHeader } from "@/components/staff/page-header";
 import { requireAdmin } from "@/lib/auth";
+import { features } from "@/config/features";
 import { storeToday } from "@/lib/format";
 import { ClosedDaysEditor } from "./closed-days-editor";
 import { PickupWindowsEditor } from "./pickup-windows-editor";
@@ -8,15 +9,18 @@ import { InventoryForm, OrderingForm, PasswordForm, StoreInfoForm, type StoreSet
 
 export const metadata: Metadata = { title: "Settings" };
 
-const SECTIONS = [
-  ["store", "Store info"],
-  ["pickup", "Pickup times"],
-  ["class", "Class hours"],
-  ["ordering", "Ordering rules"],
-  ["closed", "Closed days"],
-  ["inventory", "Inventory & privacy"],
-  ["account", "Admin login"],
-] as const;
+// Sections marked `orders` are hidden while online orders are switched off (src/config/features.ts).
+const SECTIONS = (
+  [
+    ["store", "Store info", false],
+    ["pickup", "Pickup times", true],
+    ["class", "Class hours", true],
+    ["ordering", "Ordering rules", true],
+    ["closed", "Closed days", false],
+    ["inventory", "Inventory & privacy", false],
+    ["account", "Admin login", false],
+  ] as const
+).filter(([, , orders]) => !orders || features.orders);
 
 export default async function SettingsPage() {
   const { supabase, user } = await requireAdmin();
@@ -30,7 +34,7 @@ export default async function SettingsPage() {
 
   return (
     <>
-      <PageHeader title="Settings" description="Changes take effect on the student menu right away." />
+      <PageHeader title="Settings" description="Store info, closed days and your login. Changes show on the student site right away." />
 
       <div className="grid gap-8 lg:grid-cols-[180px_1fr]">
         {/* Jump links (sticky on big screens) */}
@@ -51,6 +55,8 @@ export default async function SettingsPage() {
 
         <div className="grid min-w-0 gap-6">
           <StoreInfoForm s={s} />
+          {features.orders && (
+            <>
           <PickupWindowsEditor
             // Rebuild the editor after a save, so new times get their real ids.
             key={JSON.stringify(windows)}
@@ -64,6 +70,8 @@ export default async function SettingsPage() {
             leadMinutes={s.order_lead_minutes}
           />
           <OrderingForm s={s} />
+            </>
+          )}
           <ClosedDaysEditor days={closed ?? []} today={storeToday()} />
           <InventoryForm s={s} />
           <PasswordForm email={user.email} />

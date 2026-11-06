@@ -3,6 +3,7 @@ import Link from "next/link";
 import { AlertTriangleIcon, BellRingIcon, GraduationCapIcon } from "lucide-react";
 import { EmptyState, PageHeader } from "@/components/staff/page-header";
 import { requireAdmin } from "@/lib/auth";
+import { features } from "@/config/features";
 import { formatDay } from "@/lib/format";
 import { TeacherButtons, TeacherSettings } from "./teacher-controls";
 
@@ -45,7 +46,7 @@ export default async function TeachersPage() {
         title="Teachers"
         description="Teachers ask for an account at /teacher. Once you approve them they pay cost + 50¢ and can get room service."
         actions={
-          <span className="inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-sm">
+          features.orders && <span className="inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-sm">
             <BellRingIcon className="size-4" /> {roomService.count ?? 0} room service order{roomService.count === 1 ? "" : "s"} coming up
           </span>
         }

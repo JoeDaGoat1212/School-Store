@@ -4,6 +4,10 @@ import { StaffSidebar } from "@/components/staff/staff-sidebar";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { SkipLink } from "@/components/skip-link";
+import { Button } from "@/components/ui/button";
+import { features } from "@/config/features";
+import Link from "next/link";
+import { ExternalLinkIcon } from "lucide-react";
 import { requireAdmin } from "@/lib/auth";
 import { formatDay, storeToday } from "@/lib/format";
 import { backroomFonts } from "./fonts";
@@ -17,12 +21,14 @@ export const metadata: Metadata = {
 export default async function AdminLayout({ children }: LayoutProps<"/admin">) {
   const { supabase, user } = await requireAdmin();
 
-  // Number badge on "Orders": today's orders still to hand out.
-  const { count: openOrders } = await supabase
-    .from("orders")
-    .select("id", { count: "exact", head: true })
-    .eq("pickup_date", storeToday())
-    .in("status", ["received", "preparing", "ready"]);
+  // Number badge on "Orders": today's orders still to hand out (only while orders are switched on).
+  const { count: openOrders } = features.orders
+    ? await supabase
+        .from("orders")
+        .select("id", { count: "exact", head: true })
+        .eq("pickup_date", storeToday())
+        .in("status", ["received", "preparing", "ready"])
+    : { count: 0 };
 
   // Number badge on "Teachers": requests waiting for approval.
   const { count: pendingTeachers, error: teachersMissing } = await supabase
@@ -53,15 +59,21 @@ export default async function AdminLayout({ children }: LayoutProps<"/admin">) {
   const sidebarOpen = (await cookies()).get("sidebar_state")?.value !== "false";
 
   return (
-    // "backroom": the staff pages' retro corner-store look (globals.css).
+    // "backroom": the staff pages' look (globals.css → "The back room").
     <SidebarProvider defaultOpen={sidebarOpen} className={`backroom ${backroomFonts}`}>
       <SkipLink />
       <StaffSidebar email={user.email} openOrders={openOrders ?? 0} pendingTeachers={pendingTeachers ?? 0} newRequests={newRequests ?? 0} pendingJobs={pendingJobs ?? 0} />
       <SidebarInset id="main">
-        <header className="no-print sticky top-0 z-10 flex h-14 items-center gap-3 border-b-2 border-dashed border-border bg-card/90 px-4 backdrop-blur">
+        <header className="no-print sticky top-0 z-10 flex h-14 items-center gap-3 border-b bg-background/80 px-4 backdrop-blur-md md:px-6">
           <SidebarTrigger className="-ml-1" />
-          <p className="font-hand text-xl leading-none text-muted-foreground">{formatDay(storeToday(), { weekday: "long" })}</p>
+          <span aria-hidden className="h-5 w-px bg-border" />
+          <p className="text-sm font-medium text-muted-foreground">{formatDay(storeToday(), { weekday: "long", month: "long" })}</p>
           <div className="flex-1" />
+          <Button asChild variant="ghost" size="sm" className="hidden sm:inline-flex">
+            <Link href="/home" target="_blank">
+              <ExternalLinkIcon /> View store
+            </Link>
+          </Button>
           <ThemeToggle />
         </header>
         <div className="mx-auto w-full max-w-7xl flex-1 px-4 py-6 md:px-8 md:py-8">
@@ -84,8 +96,8 @@ function daysAgo(days: number) {
  */
 function UpdatesNeeded({ missing }: { missing: { file: string; what: string }[] }) {
   return (
-    <div role="alert" className="mb-8 rounded-[5px] border-2 border-[var(--stamp,var(--destructive))] bg-card p-4 shadow-soft">
-      <p className="font-heading text-xl text-[var(--stamp,var(--destructive))]">Database update needed</p>
+    <div role="alert" className="mb-8 rounded-2xl border border-destructive/40 bg-destructive/5 p-4">
+      <p className="font-heading text-lg text-destructive">Database update needed</p>
       <p className="mt-1 text-sm">
         Some features won&apos;t work until you run {missing.length === 1 ? "this update" : "these updates, in this order"}. Open each file
         from <code className="font-receipt">supabase/sql-editor/</code>, paste all of it into Supabase → SQL Editor → New query, and click
