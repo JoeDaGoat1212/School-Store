@@ -21,6 +21,7 @@ import { staffNav } from "@/components/staff/nav-items";
 import { Button } from "@/components/ui/button";
 import { features } from "@/config/features";
 import { requireAdmin } from "@/lib/auth";
+import { EOP_PREFIX } from "@/lib/end-of-period";
 import { addDays, formatCents, formatDay, storeToday } from "@/lib/format";
 import type { OrderStatus } from "@/lib/order-status";
 import type { Insights } from "./insights/types";
@@ -52,12 +53,14 @@ export default async function DashboardPage() {
   const from = addDays(today, -20);
   const weekAgo = new Date(Date.now() - 7 * 86400000).toISOString();
 
-  const [summary, trend, teachers, requests, jobs] = await Promise.all([
+  const [summary, trend, teachers, requests, jobs, unmatchedLines] = await Promise.all([
     supabase.rpc("dashboard_summary"),
     supabase.rpc("insights", { p_from: from, p_to: today, p_bucket: "day" }),
     supabase.from("teachers").select("id", { count: "exact", head: true }).eq("status", "pending"),
     supabase.from("item_requests").select("id", { count: "exact", head: true }).gte("created_at", weekAgo),
     supabase.from("game_job_applications").select("id", { count: "exact", head: true }).eq("status", "pending"),
+    // Sale lines with no product, not counting End of Period day totals (those never get one).
+    supabase.from("sales_lines").select("id", { count: "exact", head: true }).is("product_id", null).not("raw_item_name", "like", `${EOP_PREFIX}%`),
   ]);
   if (summary.error) throw new Error(summary.error.message);
   const s = summary.data as unknown as Summary;
@@ -95,8 +98,9 @@ export default async function DashboardPage() {
       action: "Import",
       tone: "normal",
     });
-  if (s.unmatched_sales_lines > 0)
-    todos.push({ icon: FileUpIcon, text: `${s.unmatched_sales_lines} sale line${plural(s.unmatched_sales_lines)} need a product match`, href: "/admin/imports", action: "Match", tone: "normal" });
+  const needMatch = unmatchedLines.error ? 0 : (unmatchedLines.count ?? 0);
+  if (needMatch > 0)
+    todos.push({ icon: FileUpIcon, text: `${needMatch} sale line${plural(needMatch)} need a product match`, href: "/admin/imports", action: "Match", tone: "normal" });
   if (pendingTeachers > 0)
     todos.push({ icon: GraduationCapIcon, text: `${pendingTeachers} teacher${plural(pendingTeachers)} waiting for approval`, href: "/admin/teachers", action: "Review", tone: "normal" });
   if (pendingJobs > 0)

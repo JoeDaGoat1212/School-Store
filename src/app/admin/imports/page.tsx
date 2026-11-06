@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { PageHeader } from "@/components/staff/page-header";
 import { requireAdmin } from "@/lib/auth";
+import { EOP_PREFIX } from "@/lib/end-of-period";
 import { ImportHistory, type ImportRow } from "./import-history";
 import { ImportWizard } from "./import-wizard";
 import { UnmatchedPanel } from "./unmatched-panel";
@@ -30,11 +31,14 @@ export default async function ImportsPage() {
     <>
       <PageHeader
         title="Sales import"
-        description="Upload the sales export from InTouchPay. This is how revenue gets into the site, and how in-person sales come out of stock."
+        description="Upload a file from InTouchPay. The item-by-item export also updates stock; an End of Period Summary imports by itself with no questions."
       />
       <div className="grid gap-8">
         <ImportWizard products={products.data ?? []} aliases={aliases.data ?? []} />
-        <UnmatchedPanel items={unmatched.data ?? []} products={products.data ?? []} />
+        <UnmatchedPanel
+          // End of Period lines are day totals, not items, so they never need a product.
+          items={(unmatched.data ?? []).filter((u: { raw_item_name: string }) => !u.raw_item_name.startsWith(EOP_PREFIX))}
+          products={products.data ?? []} />
         <ImportHistory imports={(imports.data ?? []) as ImportRow[]} />
       </div>
     </>

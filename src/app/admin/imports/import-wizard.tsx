@@ -30,6 +30,7 @@ import {
   type ParsedLine,
   type RowError,
 } from "@/lib/sales-import";
+import { eopToLines, eopTotal, looksLikeEop, parseEopRows, type EopReport } from "@/lib/end-of-period";
 import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
 import { readSpreadsheet } from "./read-file";
@@ -48,7 +49,7 @@ type Review = {
   duplicateFingerprints: Set<string>;
 };
 
-type Result = { imported: number; duplicates: number; unmatched: number };
+type Result = { imported: number; duplicates: number; unmatched: number; eop?: EopReport[] };
 
 export function ImportWizard({ products, aliases }: { products: Product[]; aliases: { alias: string; product_id: string }[] }) {
   const router = useRouter();
@@ -85,6 +86,11 @@ export function ImportWizard({ products, aliases }: { products: Product[]; alias
     try {
       const [rows, hash] = await Promise.all([readSpreadsheet(f), f.arrayBuffer().then(sha256Hex)]);
       if (rows.length < 2) throw new Error("That file looks empty.");
+      // An End of Period Summary has everything we need: import it right away, no questions.
+      if (looksLikeEop(rows)) {
+        await importEop(rows, f.name);
+        return;
+      }
       const header = findHeaderRow(rows);
       // Reuse the column choices from the last file with the same headers.
       const saved = loadSavedMapping(rows[header]);
@@ -94,6 +100,47 @@ export function ImportWizard({ products, aliases }: { products: Product[]; alias
       setStep("columns");
     } catch (e) {
       setError(e instanceof Error ? e.message : "Couldn't read that file.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  // ---- End of Period Summary: straight to "done" ---------------------------------
+  async function importEop(rows: Cell[][], fileName: string) {
+    const reports = parseEopRows(rows);
+    const lines = await eopToLines(reports);
+    const supabase = createClient();
+    const { data, error: importError } = await supabase.rpc("import_sales", {
+      p: {
+        file_name: fileName,
+        // Based on the reports themselves, so the same report in a different file is still caught.
+        file_hash: await sha256Hex(`eop|${lines.map((l) => l.fingerprint).join("|")}`),
+        row_count: lines.length,
+        column_mapping: { format: "end_of_period" },
+        aliases: [],
+        lines: lines.map(({ row: _row, ...l }) => ({ ...l, product_id: null })),
+      },
+    });
+    if (importError) {
+      const hint = importError.hint || importError.message;
+      throw new Error(/already imported/i.test(hint) ? `The End of Period Summary for ${reports.map((r) => formatDay(r.date)).join(", ")} is already in. Nothing was added.` : hint);
+    }
+    setResult({ ...(data as unknown as Result), eop: reports });
+    setStep("done");
+    toast.success("End of Period Summary imported");
+    router.refresh();
+  }
+
+  /** The End of Period text, copied from the InTouchPay page and pasted in. */
+  async function onPaste(text: string) {
+    setError(null);
+    setBusy(true);
+    try {
+      const rows = text.split(/\r?\n/).map((l) => [l]);
+      if (!looksLikeEop(rows)) throw new Error("That doesn't look like an End of Period Summary. Copy the whole page, including the Grand Total.");
+      await importEop(rows, `End of Period (pasted)`);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Couldn't read that.");
     } finally {
       setBusy(false);
     }
@@ -243,7 +290,12 @@ export function ImportWizard({ products, aliases }: { products: Product[]; alias
           </p>
         )}
 
-        {step === "upload" && <DropZone busy={busy} onFile={onFile} />}
+        {step === "upload" && (
+          <div className="grid gap-4">
+            <DropZone busy={busy} onFile={onFile} />
+            <PasteBox busy={busy} onPaste={onPaste} />
+          </div>
+        )}
 
         {step === "columns" && file && mapping && (
           <div className="grid gap-5">
@@ -429,7 +481,39 @@ export function ImportWizard({ products, aliases }: { products: Product[]; alias
           </div>
         )}
 
-        {step === "done" && result && (
+        {step === "done" && result?.eop && (
+          <div className="grid justify-items-center gap-4 py-6 text-center">
+            <CheckCircle2Icon className="size-10 text-success" />
+            <p className="font-heading text-xl font-semibold">
+              {result.eop.length === 1 ? `${formatDay(result.eop[0].date, { weekday: "long" })} is in` : `${result.eop.length} days are in`}
+            </p>
+            <div className="w-full max-w-md overflow-hidden rounded-xl border text-left text-sm">
+              {result.eop.map((r) => (
+                <dl key={r.date + r.reconcile} className="grid grid-cols-2 gap-x-4 gap-y-1 border-b p-4 last:border-b-0">
+                  <dt className="col-span-2 mb-1 font-semibold">
+                    {formatDay(r.date)}
+                    {r.reconcile && <span className="font-normal text-muted-foreground"> · Reconcile #{r.reconcile}</span>}
+                  </dt>
+                  {r.cash !== 0 && (<><dt className="text-muted-foreground">Cash</dt><dd className="text-right tabular-nums">{formatCents(r.cash)}</dd></>)}
+                  {r.checks !== 0 && (<><dt className="text-muted-foreground">Checks</dt><dd className="text-right tabular-nums">{formatCents(r.checks)}</dd></>)}
+                  {r.credit !== 0 && (<><dt className="text-muted-foreground">Card</dt><dd className="text-right tabular-nums">{formatCents(r.credit)}</dd></>)}
+                  {r.account !== 0 && (<><dt className="text-muted-foreground">Account</dt><dd className="text-right tabular-nums">{formatCents(r.account)}</dd></>)}
+                  {r.other !== 0 && (<><dt className="text-muted-foreground">Other</dt><dd className="text-right tabular-nums">{formatCents(r.other)}</dd></>)}
+                  <dt className="mt-1 border-t pt-1 font-semibold">Total sales</dt>
+                  <dd className="mt-1 border-t pt-1 text-right font-semibold tabular-nums">{formatCents(eopTotal(r))}</dd>
+                </dl>
+              ))}
+            </div>
+            <p className="max-w-md text-sm text-muted-foreground">
+              Added to your sales, profit and charts. The summary doesn&apos;t list items, so stock wasn&apos;t changed.
+            </p>
+            <Button variant="outline" onClick={reset}>
+              Import another
+            </Button>
+          </div>
+        )}
+
+        {step === "done" && result && !result.eop && (
           <div className="grid justify-items-center gap-3 py-6 text-center">
             <CheckCircle2Icon className="size-10 text-success" />
             <p className="font-heading text-xl font-semibold">Imported {result.imported.toLocaleString()} sale{result.imported === 1 ? "" : "s"}</p>
@@ -471,8 +555,11 @@ function DropZone({ busy, onFile }: { busy: boolean; onFile: (f: File) => void }
       )}
     >
       {busy ? <Loader2Icon className="size-8 animate-spin text-muted-foreground" /> : <UploadCloudIcon className="size-8 text-muted-foreground" />}
-      <p className="font-medium">Drop the InTouchPay sales export here</p>
-      <p className="text-sm text-muted-foreground">CSV or Excel (.xlsx). Overlapping date ranges are fine: repeated sales are skipped.</p>
+      <p className="font-medium">Drop an InTouchPay file here</p>
+      <p className="max-w-md text-sm text-muted-foreground">
+        The item-by-item sales export, or an End of Period Summary (imports by itself, no questions). CSV or Excel. Anything
+        already imported is skipped.
+      </p>
       <input
         ref={input}
         type="file"
@@ -489,6 +576,33 @@ function DropZone({ busy, onFile }: { busy: boolean; onFile: (f: File) => void }
         Choose file
       </Button>
     </div>
+  );
+}
+
+/** For the End of Period Summary page: select all, copy, paste here. */
+function PasteBox({ busy, onPaste }: { busy: boolean; onPaste: (text: string) => void }) {
+  const [text, setText] = useState("");
+  return (
+    <details className="group rounded-xl border px-4 py-3">
+      <summary className="cursor-pointer text-sm font-medium">Or paste an End of Period Summary</summary>
+      <div className="mt-3 grid gap-2">
+        <p className="text-sm text-muted-foreground">
+          Open the End of Period page in InTouchPay, press Ctrl+A (⌘A on a Mac) to select everything, copy, and paste it here.
+        </p>
+        <textarea
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+          rows={6}
+          aria-label="End of Period Summary text"
+          placeholder={"End of Period Summary\nReconcile #: 10684\n10/29/2026\nCash 35.50\nCredit 186.00\nGrand Total 221.50"}
+          className="w-full rounded-lg border bg-background p-3 font-mono text-xs focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
+        />
+        <Button onClick={() => onPaste(text)} disabled={busy || !text.trim()} className="justify-self-end">
+          {busy && <Loader2Icon className="animate-spin" />}
+          Import it
+        </Button>
+      </div>
+    </details>
   );
 }
 
