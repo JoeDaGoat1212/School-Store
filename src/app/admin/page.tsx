@@ -15,6 +15,7 @@ import {
   MessageSquarePlusIcon,
   PiggyBankIcon,
   ReceiptIcon,
+  UsersIcon,
   WalletIcon,
 } from "lucide-react";
 import { staffNav } from "@/components/staff/nav-items";
@@ -26,6 +27,7 @@ import { addDays, formatCents, formatDay, storeToday } from "@/lib/format";
 import type { OrderStatus } from "@/lib/order-status";
 import type { Insights } from "./insights/types";
 import { WeekChart } from "./week-chart";
+import { TeamToday, loadTeamToday } from "./staff/team-today";
 
 type LowStockItem = { id: string; name: string; emoji: string | null; stock: number; reorder_point: number; reserved: number };
 
@@ -53,7 +55,7 @@ export default async function DashboardPage() {
   const from = addDays(today, -20);
   const weekAgo = new Date(Date.now() - 7 * 86400000).toISOString();
 
-  const [summary, trend, teachers, requests, jobs, unmatchedLines] = await Promise.all([
+  const [summary, trend, teachers, requests, jobs, unmatchedLines, team] = await Promise.all([
     supabase.rpc("dashboard_summary"),
     supabase.rpc("insights", { p_from: from, p_to: today, p_bucket: "day" }),
     supabase.from("teachers").select("id", { count: "exact", head: true }).eq("status", "pending"),
@@ -61,6 +63,7 @@ export default async function DashboardPage() {
     supabase.from("game_job_applications").select("id", { count: "exact", head: true }).eq("status", "pending"),
     // Sale lines with no product, not counting End of Period day totals (those never get one).
     supabase.from("sales_lines").select("id", { count: "exact", head: true }).is("product_id", null).not("raw_item_name", "like", `${EOP_PREFIX}%`),
+    loadTeamToday(supabase, today),
   ]);
   if (summary.error) throw new Error(summary.error.message);
   const s = summary.data as unknown as Summary;
@@ -105,6 +108,8 @@ export default async function DashboardPage() {
     todos.push({ icon: GraduationCapIcon, text: `${pendingTeachers} teacher${plural(pendingTeachers)} waiting for approval`, href: "/admin/teachers", action: "Review", tone: "normal" });
   if (pendingJobs > 0)
     todos.push({ icon: BriefcaseIcon, text: `${pendingJobs} job application${plural(pendingJobs)} to answer`, href: "/admin/jobs", action: "Review", tone: "normal" });
+  if (team.pending > 0)
+    todos.push({ icon: UsersIcon, text: `${team.pending} new employee${plural(team.pending)} waiting for approval`, href: "/admin/staff/people", action: "Review", tone: "normal" });
   if (newRequests > 0)
     todos.push({ icon: MessageSquarePlusIcon, text: `${newRequests} item request${plural(newRequests)} this week`, href: "/admin/requests", action: "See", tone: "normal" });
 
@@ -249,6 +254,9 @@ export default async function DashboardPage() {
           {s.low_stock.length > 9 && <p className="mt-3 text-sm text-muted-foreground">and {s.low_stock.length - 9} more on the shopping list</p>}
         </section>
       )}
+
+      {/* ---- Who's working today ---- */}
+      {team.ready && <TeamToday team={team} />}
 
       {/* ---- Every tool, one tap away ---- */}
       <section aria-labelledby="tools-title" className="mt-10">

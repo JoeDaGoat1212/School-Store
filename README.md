@@ -234,6 +234,8 @@ Accounts made before this update sign in once with "Forgot password?", then pick
 | Change the class hours teachers pick for room service | **Settings** page → Class hours |
 | Make a pick-your-own combo ("chips + a soda for $2.50") | **Deals** page → New combo |
 | See what students want us to sell, and answer ("Coming soon", "Now selling") | **Requests** page |
+| Schedule employees for 1st–7th hour, fix a timecard, approve a new employee, or record store credit they spent | **Team** pages in the staff dashboard (Schedule, Timecards, Employees, Store credit). The time clock itself is **/clock**. |
+| Change how much store credit employees earn ($1 per 45 minutes to start) | **Store credit** page → How much they earn |
 | Make a fresh sample InTouchPay file for testing imports | `npm run sample-csv` (writes `sample-data/intouchpay-sample.csv`) |
 | Change the database | Add a **new** file in `supabase/migrations/`. Never edit old ones; they have already run. Then run `npm run db:bundle` and `npm run db:types`, and apply it (see below). |
 | Check for mistakes before pushing | `npm run typecheck`, `npm run lint` and `npm test` |
@@ -303,6 +305,33 @@ count together), most asked first, with how many this week, people's notes, wher
 website, students or teachers) and what kinds of things people want. Give each item a status: **Coming soon** and
 **Now selling** show next to it for students; **Not doing** hides it from the "others are asking for" list. One device
 can send up to 8 requests an hour, and asking for the same thing twice in a day counts once.
+
+### Employees: time clock, schedule and store credit
+
+Student employees clock in and out at **/clock**. Leave it open on the store's tablet or laptop (the **Team** menu in the
+staff dashboard has a link, and the time clock's **Manager** button comes back here).
+
+- **Clocking in and out.** Each employee has their own 4-digit PIN. Typing it clocks them in; typing it again clocks them out.
+  A big green or red card confirms it, with their hours this week, their store credit and their next scheduled shift.
+  **Undo** works for 2 minutes. They can also scan their student ID with a USB barcode scanner if you saved the number
+  under the barcode as their badge code. After 8 wrong PINs in 15 minutes the device is locked out for 15 minutes.
+- **New employees** tap **Create account** and pick their own PIN. They can't clock in until you tap **Approve** on the
+  **Employees** page (the sidebar shows how many are waiting). You can turn approval off there, or add people yourself.
+- **Schedule** puts people on a class hour (the 1st–7th hour from **Settings → Class hours**) for each school day.
+  **Copy last week into this week** saves retyping a regular schedule. The time clock shows the upcoming shifts, and the
+  dashboard shows who's on today.
+- **Timecards** lists every shift. Fix a forgotten clock-out, add a missed shift, clock everyone out at closing, and
+  download the hours as a spreadsheet (CSV) for payroll. Shifts over 8 hours get a "Check" tag.
+- **Store credit**: every employee earns **$1 for every 45 minutes worked** (change it on the Store credit page). It's
+  worked out from all their finished shifts added together, so a 30-minute shift and a 15-minute shift earn $1 between
+  them, and fixing a timecard fixes the credit too. When they spend credit at the window, record it on **Store credit →
+  They used it**. A balance can't go below $0.
+- **Removing** someone stops their PIN working; their hours stay. Removed accounts can be restored, or **erased** for
+  good (one at a time or all at once). Active employees can't be erased.
+
+Students can't read any of this: the time clock talks to the database only through the website's server.
+Code: `src/app/clock/` (the time clock), `src/app/admin/staff/` (the Team pages), `src/lib/staff.ts`, and database update
+`supabase/migrations/20261106000015_staff_time_clock.sql`.
 
 ### The staff dashboard look
 

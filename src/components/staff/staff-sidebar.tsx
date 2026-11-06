@@ -28,6 +28,7 @@ export function StaffSidebar({
   pendingTeachers = 0,
   newRequests = 0,
   pendingJobs = 0,
+  pendingStaff = 0,
 }: {
   email: string;
   openOrders?: number;
@@ -36,6 +37,8 @@ export function StaffSidebar({
   newRequests?: number;
   /** Résumés for city jobs waiting for an answer. */
   pendingJobs?: number;
+  /** New time clock accounts waiting for approval. */
+  pendingStaff?: number;
 }) {
   const pathname = usePathname();
 
@@ -50,6 +53,7 @@ export function StaffSidebar({
     "/admin/requests": { count: newRequests, label: "requests this week" },
     "/admin/jobs": { count: pendingJobs, label: "job applications waiting" },
     "/admin/teachers": { count: pendingTeachers, label: "teachers waiting for approval" },
+    "/admin/staff/people": { count: pendingStaff, label: "new employees waiting for approval" },
   };
 
   return (

@@ -579,6 +579,9 @@ export type Database = {
           points_per_dollar: number;
           teacher_markup_cents: number;
           room_service_enabled: boolean;
+          staff_credit_cents: number;
+          staff_credit_minutes: number;
+          staff_signup_approval: boolean;
         };
         ComputedFields: never;
         Insert: {
@@ -603,6 +606,9 @@ export type Database = {
           points_per_dollar?: number;
           teacher_markup_cents?: number;
           room_service_enabled?: boolean;
+          staff_credit_cents?: number;
+          staff_credit_minutes?: number;
+          staff_signup_approval?: boolean;
         };
         Update: {
           banner_text?: string | null;
@@ -626,6 +632,9 @@ export type Database = {
           points_per_dollar?: number;
           teacher_markup_cents?: number;
           room_service_enabled?: boolean;
+          staff_credit_cents?: number;
+          staff_credit_minutes?: number;
+          staff_signup_approval?: boolean;
         };
         Relationships: [];
       };
@@ -1115,6 +1124,45 @@ export type Database = {
         };
         Relationships: [];
       };
+      staff: {
+        Row: { id: string; name: string; pin: string; badge: string | null; status: string; self_signup: boolean; created_at: string; updated_at: string };
+        ComputedFields: never;
+        Insert: { id?: string; name: string; pin: string; badge?: string | null; status?: string; self_signup?: boolean; created_at?: string; updated_at?: string };
+        Update: { name?: string; pin?: string; badge?: string | null; status?: string; updated_at?: string };
+        Relationships: [];
+      };
+      staff_shifts: {
+        Row: {
+          id: string;
+          staff_id: string | null;
+          staff_name: string;
+          clock_in: string;
+          clock_out: string | null;
+          manual: boolean;
+          undo_token: string | null;
+          undo_kind: string | null;
+          undo_until: string | null;
+          created_at: string;
+        };
+        ComputedFields: never;
+        Insert: { id?: string; staff_id?: string | null; staff_name: string; clock_in: string; clock_out?: string | null; manual?: boolean };
+        Update: { clock_in?: string; clock_out?: string | null; manual?: boolean; undo_token?: string | null; undo_kind?: string | null; undo_until?: string | null };
+        Relationships: [];
+      };
+      staff_schedule: {
+        Row: { id: string; staff_id: string; work_date: string; window_id: number; note: string | null; created_at: string };
+        ComputedFields: never;
+        Insert: { id?: string; staff_id: string; work_date: string; window_id: number; note?: string | null };
+        Update: { note?: string | null };
+        Relationships: [];
+      };
+      staff_credit_entries: {
+        Row: { id: string; staff_id: string; amount_cents: number; note: string | null; created_at: string };
+        ComputedFields: never;
+        Insert: { id?: string; staff_id: string; amount_cents: number; note?: string | null };
+        Update: { note?: string | null };
+        Relationships: [];
+      };
       rewards: {
         Row: {
           id: string;
@@ -1209,6 +1257,22 @@ export type Database = {
       leave_job: { Args: { p_business: string; p_reason: string }; Returns: undefined };
       record_job_level: { Args: { p_business: string; p_level: number }; Returns: undefined };
       record_golf_round: { Args: { p_holes: number[] }; Returns: undefined };
+      staff_punch: { Args: { p_code: string; p_ip_hash: string | null }; Returns: Json };
+      staff_punch_undo: { Args: { p_shift_id: string; p_token: string }; Returns: Json };
+      staff_signup: { Args: { p_name: string; p_pin: string; p_badge: string | null; p_ip_hash: string | null }; Returns: Json };
+      staff_board: { Args: Record<PropertyKey, never>; Returns: Json };
+      staff_credit_add: { Args: { p_staff_id: string; p_amount_cents: number; p_note: string | null }; Returns: number };
+      staff_credit_balances: {
+        Args: Record<PropertyKey, never>;
+        Returns: {
+          staff_id: string;
+          worked_minutes: number;
+          earned_cents: number;
+          adjust_cents: number;
+          balance_cents: number;
+          next_credit_minutes: number;
+        }[];
+      };
       golf_leaderboard: { Args: Record<PropertyKey, never>; Returns: Json };
       quote_cart: { Args: { p_bundles?: Json; p_items: Json; p_reward_id?: string }; Returns: Json };
       save_profile: { Args: { p_first_name: string; p_grade: string; p_last_name: string; p_username?: string | null }; Returns: undefined };

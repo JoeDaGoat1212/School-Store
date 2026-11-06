@@ -2,6 +2,7 @@ import {
   BarChart3Icon,
   BoxesIcon,
   BriefcaseIcon,
+  CalendarClockIcon,
   ClipboardListIcon,
   FileUpIcon,
   GiftIcon,
@@ -15,6 +16,9 @@ import {
   SettingsIcon,
   ShoppingCartIcon,
   TagIcon,
+  TimerIcon,
+  UsersIcon,
+  WalletIcon,
 } from "lucide-react";
 import { features } from "@/config/features";
 
@@ -63,6 +67,15 @@ const allGroups: StaffNavGroup[] = [
       { title: "Rewards", href: "/admin/rewards", icon: GiftIcon, blurb: "Points and free items" },
       { title: "Requests", href: "/admin/requests", icon: MessageSquarePlusIcon, blurb: "Items students asked for" },
       { title: "Teachers", href: "/admin/teachers", icon: GraduationCapIcon, blurb: "Approve teacher accounts" },
+    ],
+  },
+  {
+    label: "Team",
+    items: [
+      { title: "Schedule", href: "/admin/staff", icon: CalendarClockIcon, blurb: "Who works 1st–7th hour" },
+      { title: "Timecards", href: "/admin/staff/hours", icon: TimerIcon, blurb: "Hours worked, fix punches" },
+      { title: "Employees", href: "/admin/staff/people", icon: UsersIcon, blurb: "PINs, sign-ups, approvals" },
+      { title: "Store credit", href: "/admin/staff/credit", icon: WalletIcon, blurb: "$1 per 45 min worked" },
     ],
   },
   {
