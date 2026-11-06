@@ -11,6 +11,7 @@ import {
   type LucideIcon,
   PackageIcon,
   ReceiptIcon,
+  ScanBarcodeIcon,
   SettingsIcon,
   ShoppingCartIcon,
   TagIcon,
@@ -35,6 +36,7 @@ const allGroups: StaffNavGroup[] = [
     label: "Overview",
     items: [
       { title: "Dashboard", href: "/admin", icon: LayoutDashboardIcon, blurb: "Today at a glance" },
+      { title: "Register", href: "/admin/register", icon: ScanBarcodeIcon, blurb: "Scan items as they sell" },
       { title: "Orders", href: "/admin/orders", icon: ClipboardListIcon, blurb: "Online order queue", feature: "orders" },
       { title: "Insights", href: "/admin/insights", icon: BarChart3Icon, blurb: "Sales, profit and best sellers" },
     ],
