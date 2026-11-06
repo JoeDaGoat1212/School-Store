@@ -15,21 +15,8 @@ export function LoginForm({ next, initialError }: { next: string; initialError?:
       <input type="hidden" name="next" value={next} />
 
       <div className="grid gap-2">
-        <Label htmlFor="email">Email</Label>
-        <Input
-          id="email"
-          name="email"
-          type="email"
-          autoComplete="username"
-          required
-          defaultValue={state.email}
-          className="h-11"
-        />
-      </div>
-
-      <div className="grid gap-2">
-        <Label htmlFor="password">Password</Label>
-        <Input id="password" name="password" type="password" autoComplete="current-password" required className="h-11" />
+        <Label htmlFor="password">Admin password</Label>
+        <Input id="password" name="password" type="password" autoComplete="current-password" required autoFocus className="h-11" />
       </div>
 
       {state.error && (
@@ -40,7 +27,7 @@ export function LoginForm({ next, initialError }: { next: string; initialError?:
 
       <Button type="submit" size="xl" disabled={pending}>
         {pending && <Loader2Icon className="animate-spin" />}
-        Log in
+        Open dashboard
       </Button>
     </form>
   );

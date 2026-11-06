@@ -94,7 +94,7 @@ export function StaffSidebar({
         <SidebarMenu>
           <SidebarMenuItem>
             <SidebarMenuButton asChild tooltip="Open the menu students see">
-              <Link href="/" target="_blank">
+              <Link href="/home" target="_blank">
                 <ExternalLinkIcon />
                 <span>View public menu</span>
               </Link>
