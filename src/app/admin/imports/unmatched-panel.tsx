@@ -15,22 +15,25 @@ export function UnmatchedPanel({ items, products }: { items: Unmatched[]; produc
   if (items.length === 0) return null;
 
   return (
-    <section className="rounded-2xl border border-warning/40 bg-card shadow-soft" aria-labelledby="unmatched-heading">
-      <div className="border-b px-5 py-4">
-        <h2 id="unmatched-heading" className="font-heading text-lg font-semibold">
-          {items.length === 1 ? "1 item name needs" : `${items.length} item names need`} a product
-        </h2>
-        <p className="text-sm text-muted-foreground">
-          These sales count toward revenue, but not toward any product&apos;s stock or profit until they&apos;re linked.
-          Linking also fixes past stock and is remembered for future imports.
-        </p>
-      </div>
-      <ul className="divide-y">
+    <details className="group rounded-2xl border bg-card shadow-soft">
+      <summary className="flex cursor-pointer list-none items-center gap-3 px-5 py-4">
+        <span className="min-w-0 flex-1">
+          <span className="block font-heading text-lg font-semibold">
+            Optional: {items.length === 1 ? "1 item name" : `${items.length} item names`} not linked to a product
+          </span>
+          <span className="block text-sm text-muted-foreground">
+            Sales already count. Link them only if you want stock and per-item profit to track them too.
+          </span>
+        </span>
+        <span className="text-sm font-semibold text-ember-ink group-open:hidden">Show</span>
+        <span className="hidden text-sm font-semibold text-ember-ink group-open:inline">Hide</span>
+      </summary>
+      <ul className="divide-y border-t">
         {items.map((item) => (
           <UnmatchedRow key={item.raw_item_name} item={item} products={products} />
         ))}
       </ul>
-    </section>
+    </details>
   );
 }
 
