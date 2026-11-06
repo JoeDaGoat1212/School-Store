@@ -31,7 +31,7 @@ export default async function ImportsPage() {
     <>
       <PageHeader
         title="Sales import"
-        description="Upload a file from InTouchPay. The item-by-item export also updates stock; an End of Period Summary imports by itself with no questions."
+        description="Drop in the End of Period Summary (PDF, photo or spreadsheet). The day's sales go straight into your money charts."
       />
       <div className="grid gap-8">
         <ImportWizard products={products.data ?? []} aliases={aliases.data ?? []} />

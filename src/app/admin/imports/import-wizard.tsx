@@ -34,6 +34,7 @@ import { eopToLines, eopTotal, looksLikeEop, parseEopRows, type EopReport } from
 import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
 import { readSpreadsheet } from "./read-file";
+import { isImage, isPdf, readReport } from "./read-report";
 
 /** Very large files are better split, so the upload doesn't time out. */
 const MAX_LINES = 8000;
@@ -84,6 +85,11 @@ export function ImportWizard({ products, aliases }: { products: Product[]; alias
     setError(null);
     setBusy(true);
     try {
+      // A PDF or photo of the End of Period Summary: read the numbers off it and import them.
+      if (isPdf(f) || isImage(f)) {
+        await importEop(await readReport(f), f.name);
+        return;
+      }
       const [rows, hash] = await Promise.all([readSpreadsheet(f), f.arrayBuffer().then(sha256Hex)]);
       if (rows.length < 2) throw new Error("That file looks empty.");
       // An End of Period Summary has everything we need: import it right away, no questions.
@@ -585,17 +591,17 @@ function DropZone({ busy, onFile }: { busy: boolean; onFile: (f: File) => void }
       )}
     >
       {busy ? <Loader2Icon className="size-8 animate-spin text-muted-foreground" /> : <UploadCloudIcon className="size-8 text-muted-foreground" />}
-      <p className="font-medium">Drop an InTouchPay file here</p>
+      <p className="font-medium">{busy ? "Reading the numbers…" : "Drop your End of Period Summary here"}</p>
       <p className="max-w-md text-sm text-muted-foreground">
-        The item-by-item sales export, or an End of Period Summary (imports by itself, no questions). CSV or Excel. Anything
-        already imported is skipped.
+        PDF, photo, CSV or Excel. The sales totals go straight into your money charts. Nothing to fill in. A day that&apos;s
+        already in is skipped.
       </p>
       <input
         ref={input}
         type="file"
-        accept=".csv,.xlsx,.xls,text/csv"
+        accept=".csv,.xlsx,.xls,text/csv,.pdf,application/pdf,image/*"
         className="sr-only"
-        aria-label="Choose a sales file"
+        aria-label="Choose an End of Period Summary or sales file"
         onChange={(e) => {
           const f = e.target.files?.[0];
           if (f) onFile(f);

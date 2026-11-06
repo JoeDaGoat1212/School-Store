@@ -22,5 +22,5 @@ export async function readSpreadsheet(file: File): Promise<Cell[][]> {
   if (name.endsWith(".xls")) {
     throw new Error("Old .xls files can't be read. Open it in Excel or Google Sheets and save it as .xlsx or .csv.");
   }
-  throw new Error("Choose a .csv or .xlsx file.");
+  throw new Error("Choose a PDF, photo, .csv or .xlsx file.");
 }
