@@ -11,6 +11,7 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { formatCents, formatDay, storeToday } from "@/lib/format";
 import { formatMinutes, type StaffStatus } from "@/lib/staff";
+import { ImportOldClock } from "./import-old";
 import { addEmployee, declineSignup, eraseRemoved, setEmployeeStatus, setSignupApproval, updateEmployee } from "../actions";
 
 type Person = {
@@ -113,6 +114,7 @@ export function EmployeeList({ employees, signupApproval }: { employees: Person[
 
       <aside className="grid h-fit gap-6">
         <AddForm busy={busy} run={run} />
+        <ImportOldClock />
         <div className="rounded-2xl border bg-card p-5 shadow-soft">
           <div className="flex items-start justify-between gap-4">
             <div>
