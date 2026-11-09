@@ -4,6 +4,7 @@ import { createHash } from "node:crypto";
 import { headers } from "next/headers";
 import { revalidatePath } from "next/cache";
 import { ipHashSalt } from "@/lib/env";
+import { storeToday } from "@/lib/format";
 import { type ClockBoard, emptyBoard, type PunchResult } from "@/lib/staff";
 import { createSecretClient } from "@/lib/supabase/server";
 
@@ -23,18 +24,27 @@ async function deviceHash() {
 
 const OFFLINE = "Couldn't reach the store database. Check the Wi-Fi and try again.";
 
-/** Who's on the clock, today's shifts and the upcoming schedule, plus the auto clock-out limit. */
-export async function loadBoard(): Promise<{ board: ClockBoard; maxShiftMinutes: number; error?: string }> {
+/** The same team numbers the admin dashboard shows. */
+export type ClockStats = { scheduledToday: number; weekMinutes: number };
+
+/** Who's on the clock, today's shifts and the upcoming schedule, the auto clock-out limit, and team numbers. */
+export async function loadBoard(): Promise<{ board: ClockBoard; maxShiftMinutes: number; stats: ClockStats; error?: string }> {
   const db = createSecretClient();
   // End anyone past the limit first (the database also does this every minute).
   await db.rpc("staff_auto_clock_out");
-  const [{ data, error }, { data: settings }] = await Promise.all([
+  const [{ data, error }, { data: settings }, { data: balances }, { count: scheduledToday }] = await Promise.all([
     db.rpc("staff_board"),
     db.from("settings").select("staff_max_shift_minutes").eq("id", 1).maybeSingle(),
+    db.rpc("staff_credit_balances"),
+    db.from("staff_schedule").select("id", { count: "exact", head: true }).eq("work_date", storeToday()),
   ]);
   const maxShiftMinutes = settings?.staff_max_shift_minutes ?? 0;
-  if (error) return { board: emptyBoard, maxShiftMinutes, error: missingUpdate(error.message) ?? OFFLINE };
-  return { board: data as unknown as ClockBoard, maxShiftMinutes };
+  const stats: ClockStats = {
+    scheduledToday: scheduledToday ?? 0,
+    weekMinutes: ((balances ?? []) as { week_minutes?: number }[]).reduce((t, b) => t + (b.week_minutes ?? 0), 0),
+  };
+  if (error) return { board: emptyBoard, maxShiftMinutes, stats, error: missingUpdate(error.message) ?? OFFLINE };
+  return { board: data as unknown as ClockBoard, maxShiftMinutes, stats };
 }
 
 /** Clock in or out with a 4-digit PIN or a scanned badge. */

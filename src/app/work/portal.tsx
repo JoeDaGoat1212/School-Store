@@ -308,7 +308,7 @@ function DiscountPass({ name, discount, pct, now }: { name: string; discount: nu
   const d = new Date(now);
   return (
     <section aria-labelledby="discount" className="relative isolate overflow-hidden rounded-[2rem] bg-primary p-5 text-primary-foreground shadow-soft">
-      <div aria-hidden className="pointer-events-none absolute inset-0 -z-10 opacity-15 motion-safe:animate-[work-stripes_6s_linear_infinite]" style={stripes} />
+      <div aria-hidden className="pointer-events-none absolute inset-0 -z-10 opacity-10 motion-safe:animate-[work-stripes_6s_linear_infinite]" style={stripes} />
       <div className="flex items-start justify-between gap-3">
         <p id="discount" className="text-xs font-bold tracking-widest uppercase">
           Employee discount

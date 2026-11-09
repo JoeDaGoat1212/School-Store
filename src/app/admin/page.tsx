@@ -6,6 +6,7 @@ import { features } from "@/config/features";
 import { requireAdmin } from "@/lib/auth";
 import { EOP_PREFIX } from "@/lib/end-of-period";
 import { addDays, formatDay, storeToday } from "@/lib/format";
+import { minutesBetween } from "@/lib/staff";
 import type { OrderStatus } from "@/lib/order-status";
 import { AutoRefresh } from "./auto-refresh";
 import { type Day, DashboardNumbers, SalesChart, type YearTotals } from "./dashboard-numbers";
@@ -45,7 +46,7 @@ export default async function DashboardPage() {
   const lastYearStart = `${Number(today.slice(0, 4)) - 1}-01-01`;
   const lastYearSameDay = `${Number(today.slice(0, 4)) - 1}${today.slice(4) === "-02-29" ? "-02-28" : today.slice(4)}`;
 
-  const [summary, trend, teachers, requests, jobs, unmatchedLines, team, thisYear, lastYear] = await Promise.all([
+  const [summary, trend, teachers, requests, jobs, unmatchedLines, team, thisYear, lastYear, shifts] = await Promise.all([
     supabase.rpc("dashboard_summary"),
     supabase.rpc("insights", { p_from: from, p_to: today, p_bucket: "day" }),
     supabase.from("teachers").select("id", { count: "exact", head: true }).eq("status", "pending"),
@@ -56,16 +57,31 @@ export default async function DashboardPage() {
     loadTeamToday(supabase, today),
     supabase.rpc("insights", { p_from: yearStart, p_to: today, p_bucket: "month" }),
     supabase.rpc("insights", { p_from: lastYearStart, p_to: lastYearSameDay, p_bucket: "month" }),
+    // Every timecard since Jan 1 last year, for the hours-worked numbers (empty until the time clock is set up).
+    supabase
+      .from("staff_shifts")
+      .select("clock_in, clock_out")
+      .gte("clock_in", new Date(`${lastYearStart}T00:00:00-07:00`).toISOString())
+      .limit(20000),
   ]);
   if (summary.error) throw new Error(summary.error.message);
   const s = summary.data as unknown as Summary;
+
+  // Minutes worked per Arizona day, from the time clock (a shift still going counts up to now).
+  const teamReady = !shifts.error;
+  const staffByDay = new Map<string, number>();
+  for (const sh of shifts.data ?? []) {
+    const day = storeToday(new Date(sh.clock_in));
+    staffByDay.set(day, (staffByDay.get(day) ?? 0) + minutesBetween(sh.clock_in, sh.clock_out, loadedAt.getTime()));
+  }
+  const staffBetween = (a: string, b: string) => [...staffByDay].reduce((t, [d, m]) => (d >= a && d <= b ? t + m : t), 0);
 
   // Every day from `from` to today (days with no sales count as $0).
   const byDay = new Map(((trend.data as unknown as Insights | null)?.series ?? []).map((d) => [d.start.slice(0, 10), d]));
   const days: Day[] = [];
   for (let d = from; d <= today; d = addDays(d, 1)) {
     const t = byDay.get(d);
-    days.push({ date: d, sales: t?.revenue_cents ?? 0, spending: t?.spending_cents ?? 0 });
+    days.push({ date: d, sales: t?.revenue_cents ?? 0, spending: t?.spending_cents ?? 0, staff: staffByDay.get(d) ?? 0 });
   }
 
   const ty = thisYear.data as unknown as Insights | null;
@@ -75,7 +91,12 @@ export default async function DashboardPage() {
     spending: ty?.totals.spending_cents ?? 0,
     lastSales: ly?.totals.revenue_cents ?? 0,
     lastSpending: ly?.totals.spending_cents ?? 0,
-    months: (ty?.series ?? []).map((m) => ({ date: m.start.slice(0, 10), sales: m.revenue_cents, spending: m.spending_cents })),
+    staffMinutes: staffBetween(yearStart, today),
+    lastStaffMinutes: staffBetween(lastYearStart, lastYearSameDay),
+    months: (ty?.series ?? []).map((m) => {
+      const month = m.start.slice(0, 7);
+      return { date: m.start.slice(0, 10), sales: m.revenue_cents, spending: m.spending_cents, staff: staffBetween(`${month}-01`, `${month}-31`) };
+    }),
   };
 
   const outOfStock = s.low_stock.filter((p) => p.stock - p.reserved <= 0).length;
@@ -145,7 +166,7 @@ export default async function DashboardPage() {
         </div>
       </div>
 
-      <DashboardNumbers days={days} year={year} today={today} lowStock={s.low_stock.length} outOfStock={outOfStock} lastSaleDate={s.last_sale_date} />
+      <DashboardNumbers days={days} year={year} today={today} lowStock={s.low_stock.length} outOfStock={outOfStock} lastSaleDate={s.last_sale_date} team={teamReady} />
 
       <div className="mt-6 grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,360px)]">
         <SalesChart days={days} months={year.months} today={today} />

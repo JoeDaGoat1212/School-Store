@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { ArrowRightIcon } from "lucide-react";
 import type { requireAdmin } from "@/lib/auth";
-import { formatClock, formatTime } from "@/lib/format";
+import { formatCents, formatClock, formatTime } from "@/lib/format";
 import { formatMinutes, minutesBetween } from "@/lib/staff";
 import { Avatar } from "@/components/staff/avatar";
 import { ClockOutButton } from "./clock-out-button";
@@ -18,18 +18,30 @@ export type TeamToday = {
   /** Names of people clocked in right now, to mark them on the schedule. */
   onNames: string[];
   now: number;
+  /** Numbers that tie the time clock to the rest of the dashboard. */
+  totals: { todayMinutes: number; weekMinutes: number; creditCents: number; discounted: number };
 };
 
 /** For the dashboard: who's on the clock and who's on today's schedule. */
 export async function loadTeamToday(supabase: Supabase, today: string): Promise<TeamToday> {
   const now = new Date().getTime();
-  const [staff, open, schedule, hours] = await Promise.all([
+  const [staff, open, schedule, hours, todayShifts, balances] = await Promise.all([
     supabase.from("staff").select("id, name, status"),
     supabase.from("staff_shifts").select("id, staff_id, staff_name, clock_in").is("clock_out", null).order("clock_in"),
     supabase.from("staff_schedule").select("staff_id, window_id").eq("work_date", today),
     supabase.from("pickup_windows").select("id, label, starts_at").eq("kind", "class"),
+    supabase.from("staff_shifts").select("clock_in, clock_out").gte("clock_in", new Date(`${today}T00:00:00-07:00`).toISOString()),
+    supabase.rpc("staff_credit_balances"),
   ]);
-  if (staff.error) return { ready: false, pending: 0, onClock: [], scheduled: [], onNames: [], now };
+  const empty = { todayMinutes: 0, weekMinutes: 0, creditCents: 0, discounted: 0 };
+  if (staff.error) return { ready: false, pending: 0, onClock: [], scheduled: [], onNames: [], now, totals: empty };
+  const b = (balances.data ?? []) as { week_minutes?: number; balance_cents: number; discount_pct?: number }[];
+  const totals = {
+    todayMinutes: (todayShifts.data ?? []).reduce((t, sh) => t + minutesBetween(sh.clock_in, sh.clock_out, now), 0),
+    weekMinutes: b.reduce((t, x) => t + (x.week_minutes ?? 0), 0),
+    creditCents: b.reduce((t, x) => t + Math.max(0, x.balance_cents), 0),
+    discounted: b.filter((x) => (x.discount_pct ?? 0) > 0).length,
+  };
 
   const people = new Map((staff.data ?? []).map((s) => [s.id, s]));
   const byHour = new Map<number, { label: string; startsAt: string; names: string[] }>();
@@ -42,6 +54,7 @@ export async function loadTeamToday(supabase: Supabase, today: string): Promise<
   const onClock = (open.data ?? []).map((o) => ({ id: o.id, name: (o.staff_id && people.get(o.staff_id)?.name) || o.staff_name, in: o.clock_in }));
   return {
     ready: true,
+    totals,
     onNames: onClock.map((o) => o.name),
     now,
     pending: (staff.data ?? []).filter((s) => s.status === "pending").length,
@@ -64,6 +77,23 @@ export function TeamToday({ team }: { team: TeamToday }) {
         <Link href="/admin/staff" className="flex items-center gap-1 text-sm font-semibold text-ember-ink hover:underline">
           Schedule <ArrowRightIcon className="size-3.5" />
         </Link>
+      </div>
+      <div className="mb-5 grid grid-cols-2 gap-2 sm:grid-cols-4">
+        {[
+          { label: "Worked today", value: formatMinutes(team.totals.todayMinutes), href: "/admin/staff/hours?range=today" },
+          { label: "Team this week", value: formatMinutes(team.totals.weekMinutes), href: "/admin/staff/hours" },
+          { label: "Unspent credit", value: formatCents(team.totals.creditCents), href: "/admin/staff/credit" },
+          { label: "With a discount", value: `${team.totals.discounted} ${team.totals.discounted === 1 ? "person" : "people"}`, href: "/admin/staff/credit" },
+        ].map((t) => (
+          <Link
+            key={t.label}
+            href={t.href}
+            className="rounded-xl bg-muted/60 px-3 py-2.5 transition hover:bg-primary/10 focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
+          >
+            <span className="block text-xs font-medium text-muted-foreground">{t.label}</span>
+            <span className="block font-heading text-lg font-bold tabular-nums">{t.value}</span>
+          </Link>
+        ))}
       </div>
       <div className="grid gap-6 md:grid-cols-2">
         <div>
