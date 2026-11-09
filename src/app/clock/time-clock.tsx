@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -45,6 +45,8 @@ type Result = {
   undo?: { id: string; token: string };
 };
 
+const noSubscribe = () => () => {};
+
 const KEYS = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "clear", "0", "back"] as const;
 
 export function TimeClock({
@@ -73,6 +75,8 @@ export function TimeClock({
   const [result, setResult] = useState<Result | null>(null);
   const [signupOpen, setSignupOpen] = useState(false);
   const [now, setNow] = useState(() => new Date());
+  // The ticking clock is drawn only in the browser, so the server's second and the tablet's never clash.
+  const mounted = useSyncExternalStore(noSubscribe, () => true, () => false);
   const [shake, setShake] = useState(0);
   const autoSubmit = useRef<ReturnType<typeof setTimeout> | null>(null);
   const hideTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -235,7 +239,7 @@ export function TimeClock({
 
   const time = now.toLocaleTimeString("en-US", { timeZone: STORE_TIMEZONE, hour: "numeric", minute: "2-digit", second: "2-digit" });
   const [hms, ampm] = time.split(/\s/);
-  const [hh, mm, ss] = hms.split(":");
+  const [hh, mm, ss] = mounted ? hms.split(":") : ["--", "--", "--"];
 
   return (
     <div className="grid min-h-svh lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
@@ -304,11 +308,11 @@ export function TimeClock({
               </span>
               <span className="mt-2 ml-3 grid gap-1 text-left">
                 <span className="w-10 text-3xl text-primary">{ss}</span>
-                <span className="text-xl text-white/60">{ampm}</span>
+                <span className="text-xl text-white/60">{mounted ? ampm : ""}</span>
               </span>
             </p>
             <p className="mt-2 text-lg font-medium text-white/70" suppressHydrationWarning>
-              {now.toLocaleDateString("en-US", { timeZone: STORE_TIMEZONE, weekday: "long", month: "long", day: "numeric" })}
+              {mounted ? now.toLocaleDateString("en-US", { timeZone: STORE_TIMEZONE, weekday: "long", month: "long", day: "numeric" }) : "\u00a0"}
             </p>
           </div>
 
