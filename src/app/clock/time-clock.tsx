@@ -221,13 +221,13 @@ export function TimeClock({ initialBoard, maxShiftMinutes, initialError }: { ini
           </Link>
         </header>
 
-        <div className="mt-8 flex flex-1 flex-col items-center gap-6">
+        <div className="mt-6 flex flex-1 flex-col items-center gap-5">
           <div className="text-center">
             <p className="font-heading leading-none font-bold tabular-nums" suppressHydrationWarning>
-              <span className="text-8xl sm:text-9xl">{clockDigits}</span>
+              <span className="text-8xl 2xl:text-9xl">{clockDigits}</span>
               <span className="ml-2 text-3xl text-white/60 sm:text-4xl">{ampm}</span>
             </p>
-            <p className="mt-3 text-lg font-medium text-white/70" suppressHydrationWarning>
+            <p className="mt-2 text-lg font-medium text-white/70" suppressHydrationWarning>
               {now.toLocaleDateString("en-US", { timeZone: STORE_TIMEZONE, weekday: "long", month: "long", day: "numeric" })}
             </p>
           </div>
@@ -259,7 +259,7 @@ export function TimeClock({ initialBoard, maxShiftMinutes, initialError }: { ini
                 disabled={busy}
                 onClick={() => press(k)}
                 aria-label={k === "clear" ? "Clear" : k === "back" ? "Delete one digit" : k}
-                className={`grid h-[4.5rem] touch-manipulation place-items-center rounded-2xl border border-white/10 bg-white/[0.06] text-3xl font-semibold tabular-nums shadow-[inset_0_1px_0_rgb(255_255_255/0.08)] transition select-none hover:bg-white/10 active:scale-95 active:bg-white/20 focus-visible:ring-3 focus-visible:ring-primary/60 focus-visible:outline-none disabled:opacity-50 ${
+                className={`grid h-16 touch-manipulation 2xl:h-[4.5rem] place-items-center rounded-2xl border border-white/10 bg-white/[0.06] text-3xl font-semibold tabular-nums shadow-[inset_0_1px_0_rgb(255_255_255/0.08)] transition select-none hover:bg-white/10 active:scale-95 active:bg-white/20 focus-visible:ring-3 focus-visible:ring-primary/60 focus-visible:outline-none disabled:opacity-50 ${
                   k === "clear" ? "text-base text-white/70" : ""
                 }`}
               >
@@ -271,7 +271,7 @@ export function TimeClock({ initialBoard, maxShiftMinutes, initialError }: { ini
             type="button"
             disabled={busy || code.length === 0}
             onClick={() => press("enter")}
-            className="flex h-16 w-full max-w-sm items-center justify-center gap-2 rounded-2xl bg-primary font-heading text-3xl font-bold tracking-wide text-primary-foreground uppercase shadow-[0_10px_40px_-8px_var(--primary)] transition hover:brightness-110 active:scale-[0.98] focus-visible:ring-3 focus-visible:ring-white/60 focus-visible:outline-none disabled:opacity-40 disabled:shadow-none"
+            className="flex h-16 w-full max-w-sm items-center justify-center gap-2 rounded-2xl bg-primary font-heading text-3xl font-bold tracking-wide text-primary-foreground uppercase shadow-[0_10px_40px_-8px_var(--primary)] transition hover:brightness-110 active:scale-[0.98] focus-visible:ring-3 focus-visible:ring-white/60 focus-visible:outline-none disabled:bg-white/10 disabled:text-white/40 disabled:shadow-none"
           >
             {busy ? <Loader2Icon className="size-7 animate-spin" /> : "Enter"}
           </button>
@@ -281,7 +281,7 @@ export function TimeClock({ initialBoard, maxShiftMinutes, initialError }: { ini
             {limit > 0 && ` Shifts end on their own after ${formatMinutes(limit)}.`}
           </p>
 
-          <div className="mt-auto grid w-full max-w-sm gap-2 pt-2">
+          <div className="mt-auto grid w-full max-w-sm gap-2">
             <button
               type="button"
               onClick={() => setSignupOpen(true)}
