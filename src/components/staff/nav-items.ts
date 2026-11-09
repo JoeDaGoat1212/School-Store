@@ -12,6 +12,7 @@ import {
   type LucideIcon,
   PackageIcon,
   ReceiptIcon,
+  SmartphoneIcon,
   ScanBarcodeIcon,
   SettingsIcon,
   ShoppingCartIcon,
@@ -75,7 +76,8 @@ const allGroups: StaffNavGroup[] = [
       { title: "Schedule", href: "/admin/staff", icon: CalendarClockIcon, blurb: "Who works 1st–7th hour" },
       { title: "Timecards", href: "/admin/staff/hours", icon: TimerIcon, blurb: "Hours worked, fix punches" },
       { title: "Employees", href: "/admin/staff/people", icon: UsersIcon, blurb: "PINs, sign-ups, approvals" },
-      { title: "Store credit", href: "/admin/staff/credit", icon: WalletIcon, blurb: "$1 per 45 min worked" },
+      { title: "Store credit", href: "/admin/staff/credit", icon: WalletIcon, blurb: "Discounts and credit" },
+      { title: "Employee app", href: "/work", icon: SmartphoneIcon, blurb: "Clock in from a phone" },
     ],
   },
   {

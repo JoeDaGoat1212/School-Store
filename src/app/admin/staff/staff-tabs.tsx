@@ -37,13 +37,14 @@ export function StaffTabs({ pending = 0 }: { pending?: number }) {
           </Link>
         );
       })}
-      <Link
-        href="/clock"
-        target="_blank"
-        className="ml-auto inline-flex h-9 items-center gap-2 rounded-full px-3 text-sm font-semibold text-ember-ink hover:underline"
-      >
-        Open the time clock <ExternalLinkIcon className="size-4" />
-      </Link>
+      <span className="ml-auto flex flex-wrap gap-1">
+        <Link href="/clock" target="_blank" className="inline-flex h-9 items-center gap-2 rounded-full px-3 text-sm font-semibold text-ember-ink hover:underline">
+          Time clock <ExternalLinkIcon className="size-4" />
+        </Link>
+        <Link href="/work" target="_blank" className="inline-flex h-9 items-center gap-2 rounded-full px-3 text-sm font-semibold text-ember-ink hover:underline">
+          Employee app <ExternalLinkIcon className="size-4" />
+        </Link>
+      </span>
     </nav>
   );
 }

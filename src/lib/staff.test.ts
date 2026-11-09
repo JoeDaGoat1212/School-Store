@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { creditRuleText, formatMinutes, fromLocalInput, hoursDecimal, minutesBetween, toLocalInput } from "./staff";
+import { creditRuleText, formatMinutes, fromLocalInput, hoursDecimal, minutesBetween, nextReward, toLocalInput } from "./staff";
 
 describe("employee time helpers", () => {
   it("shows minutes as hours and minutes", () => {
@@ -22,8 +22,13 @@ describe("employee time helpers", () => {
     expect(fromLocalInput("not a time")).toBeNull();
   });
 
-  it("describes the store credit rule", () => {
-    expect(creditRuleText(100, 45)).toBe("$1 for every 45 minutes worked");
-    expect(creditRuleText(150, 60)).toBe("$1.50 for every 60 minutes worked");
+  it("describes the weekly discount and credit rule", () => {
+    const rule = { pct: 10, afterHours: 5, cents: 100 };
+    expect(creditRuleText(rule)).toBe(
+      "10% off for every hour worked (up to 50% at 5 hours), then $1 store credit for every hour after 5. Starts over each Monday.",
+    );
+    expect(nextReward(4 * 60 + 59, rule)).toBe("+10% off");
+    expect(nextReward(5 * 60, rule)).toBe("+$1 credit");
+    expect(nextReward(0, { pct: 10, afterHours: 5, cents: 150 })).toBe("+10% off");
   });
 });

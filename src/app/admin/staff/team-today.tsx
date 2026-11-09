@@ -4,6 +4,7 @@ import type { requireAdmin } from "@/lib/auth";
 import { formatClock, formatTime } from "@/lib/format";
 import { formatMinutes, minutesBetween } from "@/lib/staff";
 import { ClockOutButton } from "./clock-out-button";
+import { LiveShifts } from "./live-shifts";
 
 type Supabase = Awaited<ReturnType<typeof requireAdmin>>["supabase"];
 
@@ -56,8 +57,8 @@ export function TeamToday({ team }: { team: TeamToday }) {
   return (
     <section aria-labelledby="team-title" className="mt-6 rounded-2xl border bg-card p-5 shadow-soft sm:p-6">
       <div className="mb-3 flex items-baseline justify-between gap-4">
-        <h2 id="team-title" className="font-heading text-lg font-bold">
-          Team today
+        <h2 id="team-title" className="flex items-center gap-3 font-heading text-lg font-bold">
+          Team today <LiveShifts />
         </h2>
         <Link href="/admin/staff" className="flex items-center gap-1 text-sm font-semibold text-ember-ink hover:underline">
           Schedule <ArrowRightIcon className="size-3.5" />

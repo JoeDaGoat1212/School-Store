@@ -45,6 +45,7 @@ export default async function EmployeesPage() {
             ...e,
             weekMinutes: weekMinutes.get(e.id) ?? 0,
             creditCents: balances.get(e.id)?.balance_cents ?? 0,
+            discountPct: balances.get(e.id)?.discount_pct ?? 0,
             onClock: onClock.has(e.id),
           }))}
         />

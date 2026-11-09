@@ -8,7 +8,7 @@ import { formatDay, formatTime, storeToday } from "@/lib/format";
 import { formatMinutes, hoursDecimal, minutesBetween, toLocalInput } from "@/lib/staff";
 import { addShift, clockOutEveryone, clockOutShift, deleteShift, editShift } from "../actions";
 
-type Shift = { id: string; staffId: string | null; name: string; clockIn: string; clockOut: string | null; manual: boolean };
+type Shift = { id: string; staffId: string | null; name: string; clockIn: string; clockOut: string | null; manual: boolean; phone: boolean };
 
 const LONG_SHIFT = 8 * 60; // longer than this usually means someone forgot to clock out
 
@@ -59,10 +59,10 @@ export function HoursTable({
 
   const download = () => {
     const q = (v: string | number) => `"${String(v).replace(/"/g, '""')}"`;
-    const lines = [["Employee", "Date", "Clock in", "Clock out", "Hours", "Minutes", "Edited by staff"].map(q).join(",")];
+    const lines = [["Employee", "Date", "Clock in", "Clock out", "Hours", "Minutes", "Edited by staff", "From a phone"].map(q).join(",")];
     for (const s of [...shifts].reverse()) {
       lines.push(
-        [s.name, storeToday(new Date(s.clockIn)), formatTime(s.clockIn), s.clockOut ? formatTime(s.clockOut) : "still on", hoursDecimal(mins(s)), mins(s), s.manual ? "yes" : ""]
+        [s.name, storeToday(new Date(s.clockIn)), formatTime(s.clockIn), s.clockOut ? formatTime(s.clockOut) : "still on", hoursDecimal(mins(s)), mins(s), s.manual ? "yes" : "", s.phone ? "yes" : ""]
           .map(q)
           .join(","),
       );
@@ -186,6 +186,7 @@ export function HoursTable({
                       ) : s.manual ? (
                         <Pill>Edited</Pill>
                       ) : null}
+                      {s.phone && <Pill>Phone</Pill>}
                     </td>
                     <td className="p-3 whitespace-nowrap">{formatDay(storeToday(new Date(s.clockIn)))}</td>
                     <td className="p-3 font-receipt whitespace-nowrap">{formatTime(s.clockIn)}</td>

@@ -54,12 +54,18 @@ export default async function AdminLayout({ children }: LayoutProps<"/admin">) {
     .select("id", { count: "exact", head: true })
     .eq("status", "pending");
 
+  // Update 16 (the employee app) adds staff_sessions.
+  const { error: appMissing } = staffMissing
+    ? { error: true }
+    : await supabase.from("staff_sessions").select("token_hash", { count: "exact", head: true });
+
   // Database updates that haven't been run yet (their tables are missing).
   const missing = [
     ...(teachersMissing ? [{ file: "20261028000011_teachers_room_service.sql", what: "teachers, room service and combos" }] : []),
     ...(requestsMissing ? [{ file: "20261028000012_item_requests.sql", what: "item requests" }] : []),
     ...(jobsMissing ? [{ file: "20261029000013_city_game.sql", what: "the 3D city game (jobs, money, ID cards)" }] : []),
     ...(staffMissing ? [{ file: "20261106000015_staff_time_clock.sql", what: "the employee time clock, schedule and store credit" }] : []),
+    ...(appMissing ? [{ file: "20261109000016_employee_app.sql", what: "the employee app (phone clock-in, discounts and the new credit rule)" }] : []),
   ];
 
   // Remember whether the sidebar was collapsed last time.

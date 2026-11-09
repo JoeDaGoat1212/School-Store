@@ -8,7 +8,7 @@ import { EOP_PREFIX } from "@/lib/end-of-period";
 import { addDays, formatDay, storeToday } from "@/lib/format";
 import type { OrderStatus } from "@/lib/order-status";
 import { AutoRefresh } from "./auto-refresh";
-import { type Day, DashboardNumbers, SalesChart } from "./dashboard-numbers";
+import { type Day, DashboardNumbers, SalesChart, type YearTotals } from "./dashboard-numbers";
 import type { Insights } from "./insights/types";
 import { LowStock } from "./low-stock";
 import { TeamToday, loadTeamToday } from "./staff/team-today";
@@ -40,7 +40,12 @@ export default async function DashboardPage() {
   const loadedAt = new Date();
   const weekAgo = new Date(loadedAt.getTime() - 7 * 86400000).toISOString();
 
-  const [summary, trend, teachers, requests, jobs, unmatchedLines, team] = await Promise.all([
+  // This year so far by month, and last year up to the same date (for "This year").
+  const yearStart = `${today.slice(0, 4)}-01-01`;
+  const lastYearStart = `${Number(today.slice(0, 4)) - 1}-01-01`;
+  const lastYearSameDay = `${Number(today.slice(0, 4)) - 1}${today.slice(4) === "-02-29" ? "-02-28" : today.slice(4)}`;
+
+  const [summary, trend, teachers, requests, jobs, unmatchedLines, team, thisYear, lastYear] = await Promise.all([
     supabase.rpc("dashboard_summary"),
     supabase.rpc("insights", { p_from: from, p_to: today, p_bucket: "day" }),
     supabase.from("teachers").select("id", { count: "exact", head: true }).eq("status", "pending"),
@@ -49,6 +54,8 @@ export default async function DashboardPage() {
     // Sale lines with no product, not counting End of Period day totals (those never get one).
     supabase.from("sales_lines").select("id", { count: "exact", head: true }).is("product_id", null).not("raw_item_name", "like", `${EOP_PREFIX}%`),
     loadTeamToday(supabase, today),
+    supabase.rpc("insights", { p_from: yearStart, p_to: today, p_bucket: "month" }),
+    supabase.rpc("insights", { p_from: lastYearStart, p_to: lastYearSameDay, p_bucket: "month" }),
   ]);
   if (summary.error) throw new Error(summary.error.message);
   const s = summary.data as unknown as Summary;
@@ -60,6 +67,16 @@ export default async function DashboardPage() {
     const t = byDay.get(d);
     days.push({ date: d, sales: t?.revenue_cents ?? 0, spending: t?.spending_cents ?? 0 });
   }
+
+  const ty = thisYear.data as unknown as Insights | null;
+  const ly = lastYear.data as unknown as Insights | null;
+  const year: YearTotals = {
+    sales: ty?.totals.revenue_cents ?? 0,
+    spending: ty?.totals.spending_cents ?? 0,
+    lastSales: ly?.totals.revenue_cents ?? 0,
+    lastSpending: ly?.totals.spending_cents ?? 0,
+    months: (ty?.series ?? []).map((m) => ({ date: m.start.slice(0, 10), sales: m.revenue_cents, spending: m.spending_cents })),
+  };
 
   const outOfStock = s.low_stock.filter((p) => p.stock - p.reserved <= 0).length;
   const pendingTeachers = teachers.error ? 0 : (teachers.count ?? 0);
@@ -128,10 +145,10 @@ export default async function DashboardPage() {
         </div>
       </div>
 
-      <DashboardNumbers days={days} today={today} lowStock={s.low_stock.length} outOfStock={outOfStock} lastSaleDate={s.last_sale_date} />
+      <DashboardNumbers days={days} year={year} today={today} lowStock={s.low_stock.length} outOfStock={outOfStock} lastSaleDate={s.last_sale_date} />
 
       <div className="mt-6 grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,360px)]">
-        <SalesChart days={days} today={today} />
+        <SalesChart days={days} months={year.months} today={today} />
         <TodoList todos={todos} today={today} />
       </div>
 

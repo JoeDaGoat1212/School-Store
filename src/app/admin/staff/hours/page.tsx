@@ -5,6 +5,7 @@ import { requireAdmin } from "@/lib/auth";
 import { addDays, formatDay, startOfWeek, storeToday } from "@/lib/format";
 import { dayStart, loadEmployees } from "../data";
 import { StaffTabs } from "../staff-tabs";
+import { LiveShifts } from "../live-shifts";
 import { UpdateNeeded } from "../update-needed";
 import { HoursTable } from "./hours-table";
 
@@ -38,9 +39,10 @@ export default async function TimecardsPage(props: PageProps<"/admin/staff/hours
     to = isDate(params.to) && params.to >= from ? params.to : from;
   }
 
+  // "*" so this page works before and after database update 16 (which adds where a punch came from).
   let shiftsQuery = supabase
     .from("staff_shifts")
-    .select("id, staff_id, staff_name, clock_in, clock_out, manual")
+    .select("*")
     .gte("clock_in", dayStart(from))
     .lt("clock_in", dayStart(addDays(to, 1)))
     .order("clock_in", { ascending: false })
@@ -50,16 +52,26 @@ export default async function TimecardsPage(props: PageProps<"/admin/staff/hours
   const [{ employees, missing }, shifts, open] = await Promise.all([
     loadEmployees(supabase),
     shiftsQuery,
-    supabase.from("staff_shifts").select("id, staff_id, staff_name, clock_in, clock_out, manual").is("clock_out", null).order("clock_in"),
+    supabase.from("staff_shifts").select("*").is("clock_out", null).order("clock_in"),
   ]);
   const names = new Map(employees.map((e) => [e.id, e.name]));
-  const toRow = (s: { id: string; staff_id: string | null; staff_name: string; clock_in: string; clock_out: string | null; manual: boolean }) => ({
+  const toRow = (s: {
+    id: string;
+    staff_id: string | null;
+    staff_name: string;
+    clock_in: string;
+    clock_out: string | null;
+    manual: boolean;
+    source?: string | null;
+    out_source?: string | null;
+  }) => ({
     id: s.id,
     staffId: s.staff_id,
     name: (s.staff_id && names.get(s.staff_id)) || s.staff_name,
     clockIn: s.clock_in,
     clockOut: s.clock_out,
     manual: s.manual,
+    phone: s.source === "phone" || s.out_source === "phone",
   });
   const pending = employees.filter((e) => e.status === "pending").length;
   const period = from === to ? formatDay(from) : `${formatDay(from)} – ${formatDay(to)}`;
@@ -73,6 +85,9 @@ export default async function TimecardsPage(props: PageProps<"/admin/staff/hours
         <UpdateNeeded />
       ) : (
         <>
+          <div className="mb-3 flex justify-end">
+            <LiveShifts label="Live: updates when anyone clocks in or out" />
+          </div>
           <form method="get" className="mb-6 flex flex-wrap items-end gap-3 rounded-2xl border bg-card p-4 shadow-soft">
             <label className="grid gap-1 text-sm font-semibold">
               Period

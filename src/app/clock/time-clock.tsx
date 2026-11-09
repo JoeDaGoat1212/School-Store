@@ -90,7 +90,7 @@ export function TimeClock({ initialBoard, initialError }: { initialBoard: ClockB
           show({ tone: "note", title: "Almost there", name: r.name, lines: ["Your account is waiting for a manager to approve it. Ask them, then try again."] });
         } else {
           const next = r.next ? `Next shift: ${relativeDay(r.next.date)}, ${r.next.label} (${formatClock(r.next.startsAt)})` : null;
-          const credit = `Store credit: ${formatCents(r.creditCents)} · more in ${formatMinutes(r.nextCreditMinutes)} of work`;
+          const credit = `Employee discount: ${r.discountPct ?? 0}% off · Store credit: ${formatCents(r.creditCents)}`;
           show({
             tone: r.status,
             title: r.status === "in" ? "Clocked in" : "Clocked out",
@@ -236,7 +236,9 @@ export function TimeClock({ initialBoard, initialError }: { initialBoard: ClockB
             {busy ? <Loader2Icon className="size-7 animate-spin" /> : "Enter"}
           </button>
 
-          <p className="max-w-xs text-center text-sm text-muted-foreground">The same PIN clocks you in and out. Tap Undo if you hit it by mistake.</p>
+          <p className="max-w-xs text-center text-sm text-muted-foreground">
+            The same PIN clocks you in and out. Tap Undo if you hit it by mistake. On your phone? Open <strong>/work</strong> on this site to get the app.
+          </p>
 
           <button
             type="button"

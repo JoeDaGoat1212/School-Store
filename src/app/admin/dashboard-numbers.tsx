@@ -14,10 +14,20 @@ import { addDays, formatCents, formatDay } from "@/lib/format";
 
 export type Day = { date: string; sales: number; spending: number };
 
+/** This year so far, by month, plus last year up to the same date. */
+export type YearTotals = {
+  sales: number;
+  spending: number;
+  lastSales: number;
+  lastSpending: number;
+  months: Day[]; // date = first of the month
+};
+
 const PERIODS = {
   today: { label: "Today", vs: "vs same day last week" },
   week: { label: "This week", vs: "vs this point last week" },
   month: { label: "This month", vs: "vs this point last month" },
+  year: { label: "This year", vs: "vs this point last year" },
 } as const;
 type Period = keyof typeof PERIODS;
 
@@ -25,10 +35,12 @@ const RANGES = [
   { days: 10, label: "2 weeks" },
   { days: 20, label: "4 weeks" },
   { days: 40, label: "8 weeks" },
+  { days: 0, label: "This year" }, // by month
 ] as const;
 
 export function DashboardNumbers({
   days,
+  year,
   today,
   lowStock,
   outOfStock,
@@ -36,6 +48,7 @@ export function DashboardNumbers({
 }: {
   /** Daily totals, oldest first, ending today. */
   days: Day[];
+  year: YearTotals;
   today: string;
   lowStock: number;
   outOfStock: number;
@@ -55,9 +68,10 @@ export function DashboardNumbers({
     return { sales, spending, profit: sales - spending };
   };
 
-  const [from, to, prevFrom, prevTo] = periodDates(period, today);
-  const now = sum(from, to);
-  const before = sum(prevFrom, prevTo);
+  const [from, to, prevFrom, prevTo] = period === "year" ? ([`${today.slice(0, 4)}-01-01`, today, "", ""] as const) : periodDates(period, today);
+  const now = period === "year" ? { sales: year.sales, spending: year.spending, profit: year.sales - year.spending } : sum(from, to);
+  const before =
+    period === "year" ? { sales: year.lastSales, spending: year.lastSpending, profit: year.lastSales - year.lastSpending } : sum(prevFrom, prevTo);
   const vs = PERIODS[period].vs;
 
   return (
@@ -99,7 +113,7 @@ export function DashboardNumbers({
 }
 
 /** [from, to, previousFrom, previousTo] for a period, "so far" up to today. */
-function periodDates(period: Period, today: string): [string, string, string, string] {
+function periodDates(period: Exclude<Period, "year">, today: string): [string, string, string, string] {
   if (period === "today") return [today, today, addDays(today, -7), addDays(today, -7)];
   if (period === "week") {
     const dow = (new Date(`${today}T12:00:00Z`).getUTCDay() + 6) % 7; // Monday = 0
@@ -209,15 +223,16 @@ export function Segmented<T extends string>({
  * School-day sales (orange) and spending (teal). Hover, tap, or use the arrow
  * keys to read any day; the legend buttons hide or show each kind of bar.
  */
-export function SalesChart({ days: all, today }: { days: Day[]; today: string }) {
+export function SalesChart({ days: all, months, today }: { days: Day[]; months: Day[]; today: string }) {
   const [range, setRange] = useState<number>(10);
+  const byMonth = range === 0;
   const [showSales, setShowSales] = useState(true);
   const [showSpending, setShowSpending] = useState(true);
   const schoolDays = all.filter((d) => {
     const dow = new Date(`${d.date}T12:00:00Z`).getUTCDay();
     return dow !== 0 && dow !== 6;
   });
-  const days = schoolDays.slice(-range);
+  const days = byMonth ? months : schoolDays.slice(-range);
   const [picked, setPicked] = useState<string | null>(null);
   const active = days.find((d) => d.date === picked) ?? days[days.length - 1];
   const hasData = days.some((d) => d.sales > 0 || d.spending > 0);
@@ -236,7 +251,7 @@ export function SalesChart({ days: all, today }: { days: Day[]; today: string })
   const barW = Math.min(18, slot * (both ? 0.32 : 0.55));
   const y = (v: number) => pad.top + (1 - v / max) * innerH;
   const ticks = [0, 0.5, 1].map((f) => Math.round(max * f));
-  const labelEvery = days.length > 20 ? 5 : days.length > 10 ? 2 : 1;
+  const labelEvery = byMonth ? 1 : days.length > 20 ? 5 : days.length > 10 ? 2 : 1;
 
   const move = (step: number) => {
     const i = days.findIndex((d) => d.date === active?.date);
@@ -249,10 +264,10 @@ export function SalesChart({ days: all, today }: { days: Day[]; today: string })
       <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
         <div>
           <h2 id="chart-title" className="font-heading text-lg font-bold">
-            Sales by school day
+            {byMonth ? `Sales by month, ${today.slice(0, 4)}` : "Sales by school day"}
           </h2>
           <p className="text-sm text-muted-foreground">
-            Last {RANGES.find((r) => r.days === range)?.label}: sold {formatCents(totals.sales)}, spent {formatCents(totals.spending)}
+            {byMonth ? "This year" : `Last ${RANGES.find((r) => r.days === range)?.label}`}: sold {formatCents(totals.sales)}, spent {formatCents(totals.spending)}
           </p>
         </div>
         <Segmented label="How far back" options={RANGES.map((r) => ({ value: String(r.days), label: r.label }))} value={String(range)} onChange={(v) => setRange(Number(v))} />
@@ -275,8 +290,9 @@ export function SalesChart({ days: all, today }: { days: Day[]; today: string })
           {active && (
             <div aria-live="polite" className="mb-3 flex flex-wrap items-baseline gap-x-5 gap-y-1 rounded-xl bg-muted/60 px-4 py-2.5 text-sm">
               <span className="font-semibold">
-                {formatDay(active.date, { weekday: "long" })}
-                {active.date === today && " (today)"}
+                {byMonth ? monthName(active.date, "long") : formatDay(active.date, { weekday: "long" })}
+                {!byMonth && active.date === today && " (today)"}
+                {byMonth && active.date.slice(0, 7) === today.slice(0, 7) && " (so far)"}
               </span>
               <span>
                 Sold <strong className="tabular-nums">{formatCents(active.sales)}</strong>
@@ -297,7 +313,7 @@ export function SalesChart({ days: all, today }: { days: Day[]; today: string })
             viewBox={`0 0 ${W} ${H}`}
             className="h-auto w-full touch-pan-y rounded-lg focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
             role="img"
-            aria-label="Sales and spending by school day. Use the left and right arrow keys to read each day."
+            aria-label={`Sales and spending by ${byMonth ? "month" : "school day"}. Use the left and right arrow keys to read each one.`}
             tabIndex={0}
             onKeyDown={(e) => {
               if (e.key === "ArrowLeft") {
@@ -342,7 +358,11 @@ export function SalesChart({ days: all, today }: { days: Day[]; today: string })
                       fontWeight={isActive ? 700 : 400}
                       fill={isActive ? "var(--foreground)" : "var(--muted-foreground)"}
                     >
-                      {labelEvery > 1 ? Number(d.date.slice(8)) : `${formatDay(d.date, { weekday: "short" }).slice(0, 3)} ${Number(d.date.slice(8))}`}
+                      {byMonth
+                        ? monthName(d.date, "short")
+                        : labelEvery > 1
+                          ? Number(d.date.slice(8))
+                          : `${formatDay(d.date, { weekday: "short" }).slice(0, 3)} ${Number(d.date.slice(8))}`}
                     </text>
                   )}
                 </g>
@@ -359,7 +379,7 @@ export function SalesChart({ days: all, today }: { days: Day[]; today: string })
           </div>
 
           <table className="sr-only">
-            <caption>Sales and spending by day</caption>
+            <caption>Sales and spending by {byMonth ? "month" : "day"}</caption>
             <thead>
               <tr>
                 <th>Day</th>
@@ -370,7 +390,7 @@ export function SalesChart({ days: all, today }: { days: Day[]; today: string })
             <tbody>
               {days.map((d) => (
                 <tr key={d.date}>
-                  <td>{formatDay(d.date)}</td>
+                  <td>{byMonth ? monthName(d.date, "long") : formatDay(d.date)}</td>
                   <td>{formatCents(d.sales)}</td>
                   <td>{formatCents(d.spending)}</td>
                 </tr>
@@ -396,6 +416,11 @@ function LegendToggle({ color, label, on, onChange }: { color: string; label: st
       <span aria-hidden className="size-2.5 rounded-sm" style={{ background: color }} /> {label}
     </button>
   );
+}
+
+/** "2026-03-01" → "Mar" or "March" */
+function monthName(isoDate: string, width: "short" | "long") {
+  return new Date(`${isoDate.slice(0, 7)}-15T12:00:00Z`).toLocaleDateString("en-US", { month: width, timeZone: "UTC" });
 }
 
 /** Rounds the top of the chart up to a tidy dollar amount. */

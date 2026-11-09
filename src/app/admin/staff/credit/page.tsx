@@ -10,8 +10,9 @@ import { CreditBoard } from "./credit-board";
 export const metadata: Metadata = { title: "Store credit" };
 
 /**
- * Employees earn store credit for the time they work. Record what they spend
- * at the window here; the balance can't go below $0.
+ * Employee perks: a discount that grows with this week's hours, and store
+ * credit for every hour past 5. Record credit they spend at the window here;
+ * the balance can't go below $0.
  */
 export default async function StoreCreditPage() {
   const { supabase } = await requireAdmin();
@@ -27,14 +28,14 @@ export default async function StoreCreditPage() {
     <>
       <PageHeader
         title="Store credit"
-        description={`Every employee earns ${creditRuleText(rate.cents, rate.minutes)}. Their hours from all shifts add up, so short shifts still count.`}
+        description={`Each week: ${creditRuleText(rate.rule)}`}
       />
       <StaffTabs pending={employees.filter((e) => e.status === "pending").length} />
       {missing ? (
         <UpdateNeeded />
       ) : (
         <CreditBoard
-          rate={{ cents: rate.cents, minutes: rate.minutes }}
+          rule={rate.rule}
           people={employees
             .filter((e) => e.status !== "pending")
             .map((e) => {
@@ -44,10 +45,12 @@ export default async function StoreCreditPage() {
                 name: e.name,
                 removed: e.status === "removed",
                 workedMinutes: b?.worked_minutes ?? 0,
+                weekMinutes: b?.week_minutes ?? 0,
+                discountPct: b?.discount_pct ?? 0,
                 earnedCents: b?.earned_cents ?? 0,
                 adjustCents: b?.adjust_cents ?? 0,
                 balanceCents: b?.balance_cents ?? 0,
-                nextMinutes: b?.next_credit_minutes ?? rate.minutes,
+                nextMinutes: b?.next_credit_minutes ?? 60,
               };
             })}
           history={(entries.data ?? []).map((h) => ({

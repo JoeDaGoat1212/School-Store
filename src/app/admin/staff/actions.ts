@@ -179,7 +179,9 @@ export async function addShift(staffId: string, clockIn: string, clockOut: strin
   if (end <= start) return { error: "Clock out has to be after clock in." };
   const { data: person } = await supabase.from("staff").select("name").eq("id", staffId).maybeSingle();
   if (!person) return { error: "Pick an employee." };
-  const { error } = await supabase.from("staff_shifts").insert({ staff_id: staffId, staff_name: person.name, clock_in: start, clock_out: end, manual: true });
+  const { error } = await supabase
+    .from("staff_shifts")
+    .insert({ staff_id: staffId, staff_name: person.name, clock_in: start, clock_out: end, manual: true, source: "manual", out_source: "manual" });
   return error ? problem(error.message) : done();
 }
 
@@ -206,16 +208,19 @@ export async function deleteCreditEntry(id: string): Promise<Result> {
   return error ? problem(error.message) : done();
 }
 
-/** "$1 for every 45 minutes worked". */
-export async function saveCreditRate(dollars: string, minutes: string): Promise<Result> {
+/** "10% off per hour, up to 5 hours, then $1 per hour after that" (each week). */
+export async function saveCreditRule(pct: string, afterHours: string, dollars: string): Promise<Result> {
   const { supabase } = await requireAdmin();
+  const p = Number.parseInt(pct, 10);
+  const h = Number.parseInt(afterHours, 10);
   const cents = parseDollarsToCents(dollars);
-  const mins = Number.parseInt(minutes, 10);
-  if (cents === null || cents < 0 || cents > 2000) return { error: "Enter an amount from $0 to $20." };
-  if (!Number.isInteger(mins) || mins < 5 || mins > 480) return { error: "Enter minutes from 5 to 480." };
+  if (!Number.isInteger(p) || p < 0 || p > 100) return { error: "Enter a discount from 0 to 100%." };
+  if (!Number.isInteger(h) || h < 0 || h > 40) return { error: "Enter hours from 0 to 40." };
+  if (p * h > 100) return { error: `That would be ${p * h}% off at ${h} hours. Keep the top discount at 100% or less.` };
+  if (cents === null || cents < 0 || cents > 2000) return { error: "Enter a credit amount from $0 to $20." };
   const { error } = await supabase
     .from("settings")
-    .update({ staff_credit_cents: cents, staff_credit_minutes: mins, updated_at: new Date().toISOString() })
+    .update({ staff_discount_pct_per_hour: p, staff_credit_after_hours: h, staff_credit_cents_per_hour: cents, updated_at: new Date().toISOString() })
     .eq("id", 1);
   return error ? problem(error.message) : done();
 }

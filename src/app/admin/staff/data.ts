@@ -20,6 +20,8 @@ export type ClassHour = { id: number; label: string; starts_at: string };
 export type Balance = {
   staff_id: string;
   worked_minutes: number;
+  week_minutes: number;
+  discount_pct: number;
   earned_cents: number;
   adjust_cents: number;
   balance_cents: number;
@@ -49,12 +51,19 @@ export async function loadBalances(supabase: Supabase) {
   return new Map(((data ?? []) as Balance[]).map((b) => [b.staff_id, b]));
 }
 
-/** The credit rule from Settings. */
+/** The weekly discount/credit rule and the sign-up setting, from Settings. */
 export async function loadCreditRate(supabase: Supabase) {
-  const { data } = await supabase.from("settings").select("staff_credit_cents, staff_credit_minutes, staff_signup_approval").eq("id", 1).maybeSingle();
+  const { data } = await supabase
+    .from("settings")
+    .select("staff_discount_pct_per_hour, staff_credit_after_hours, staff_credit_cents_per_hour, staff_signup_approval")
+    .eq("id", 1)
+    .maybeSingle();
   return {
-    cents: data?.staff_credit_cents ?? 100,
-    minutes: data?.staff_credit_minutes ?? 45,
+    rule: {
+      pct: data?.staff_discount_pct_per_hour ?? 10,
+      afterHours: data?.staff_credit_after_hours ?? 5,
+      cents: data?.staff_credit_cents_per_hour ?? 100,
+    },
     signupApproval: data?.staff_signup_approval ?? true,
   };
 }

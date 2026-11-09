@@ -582,6 +582,9 @@ export type Database = {
           staff_credit_cents: number;
           staff_credit_minutes: number;
           staff_signup_approval: boolean;
+          staff_discount_pct_per_hour: number;
+          staff_credit_after_hours: number;
+          staff_credit_cents_per_hour: number;
         };
         ComputedFields: never;
         Insert: {
@@ -609,6 +612,9 @@ export type Database = {
           staff_credit_cents?: number;
           staff_credit_minutes?: number;
           staff_signup_approval?: boolean;
+          staff_discount_pct_per_hour?: number;
+          staff_credit_after_hours?: number;
+          staff_credit_cents_per_hour?: number;
         };
         Update: {
           banner_text?: string | null;
@@ -635,6 +641,9 @@ export type Database = {
           staff_credit_cents?: number;
           staff_credit_minutes?: number;
           staff_signup_approval?: boolean;
+          staff_discount_pct_per_hour?: number;
+          staff_credit_after_hours?: number;
+          staff_credit_cents_per_hour?: number;
         };
         Relationships: [];
       };
@@ -1142,11 +1151,31 @@ export type Database = {
           undo_token: string | null;
           undo_kind: string | null;
           undo_until: string | null;
+          source: string;
+          out_source: string | null;
           created_at: string;
         };
         ComputedFields: never;
-        Insert: { id?: string; staff_id?: string | null; staff_name: string; clock_in: string; clock_out?: string | null; manual?: boolean };
-        Update: { clock_in?: string; clock_out?: string | null; manual?: boolean; undo_token?: string | null; undo_kind?: string | null; undo_until?: string | null };
+        Insert: {
+          id?: string;
+          staff_id?: string | null;
+          staff_name: string;
+          clock_in: string;
+          clock_out?: string | null;
+          manual?: boolean;
+          source?: string;
+          out_source?: string | null;
+        };
+        Update: {
+          clock_in?: string;
+          clock_out?: string | null;
+          manual?: boolean;
+          source?: string;
+          out_source?: string | null;
+          undo_token?: string | null;
+          undo_kind?: string | null;
+          undo_until?: string | null;
+        };
         Relationships: [];
       };
       staff_schedule: {
@@ -1261,12 +1290,18 @@ export type Database = {
       staff_punch_undo: { Args: { p_shift_id: string; p_token: string }; Returns: Json };
       staff_signup: { Args: { p_name: string; p_pin: string; p_badge: string | null; p_ip_hash: string | null }; Returns: Json };
       staff_board: { Args: Record<PropertyKey, never>; Returns: Json };
+      staff_portal_login: { Args: { p_name: string; p_pin: string; p_token_hash: string; p_ip_hash: string | null; p_user_agent: string | null }; Returns: Json };
+      staff_portal: { Args: { p_token_hash: string }; Returns: Json };
+      staff_portal_punch: { Args: { p_token_hash: string }; Returns: Json };
+      staff_portal_logout: { Args: { p_token_hash: string }; Returns: undefined };
       staff_credit_add: { Args: { p_staff_id: string; p_amount_cents: number; p_note: string | null }; Returns: number };
       staff_credit_balances: {
         Args: Record<PropertyKey, never>;
         Returns: {
           staff_id: string;
           worked_minutes: number;
+          week_minutes: number;
+          discount_pct: number;
           earned_cents: number;
           adjust_cents: number;
           balance_cents: number;

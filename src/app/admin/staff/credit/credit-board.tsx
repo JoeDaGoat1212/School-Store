@@ -7,14 +7,16 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { formatCents, formatDay, formatTime, storeToday } from "@/lib/format";
-import { creditRuleText, formatMinutes, hoursDecimal } from "@/lib/staff";
-import { changeCredit, deleteCreditEntry, saveCreditRate } from "../actions";
+import { type CreditRule, creditRuleText, formatMinutes, hoursDecimal, nextReward } from "@/lib/staff";
+import { changeCredit, deleteCreditEntry, saveCreditRule } from "../actions";
 
 type Person = {
   id: string;
   name: string;
   removed: boolean;
   workedMinutes: number;
+  weekMinutes: number;
+  discountPct: number;
   earnedCents: number;
   adjustCents: number;
   balanceCents: number;
@@ -22,11 +24,11 @@ type Person = {
 };
 
 export function CreditBoard({
-  rate,
+  rule,
   people,
   history,
 }: {
-  rate: { cents: number; minutes: number };
+  rule: CreditRule;
   people: Person[];
   history: { id: string; name: string; cents: number; note: string | null; at: string }[];
 }) {
@@ -36,8 +38,9 @@ export function CreditBoard({
   const [amount, setAmount] = useState("");
   const [note, setNote] = useState("");
   const [confirm, setConfirm] = useState<string | null>(null);
-  const [dollars, setDollars] = useState((rate.cents / 100).toFixed(2));
-  const [minutes, setMinutes] = useState(String(rate.minutes));
+  const [pct, setPct] = useState(String(rule.pct));
+  const [afterHours, setAfterHours] = useState(String(rule.afterHours));
+  const [dollars, setDollars] = useState((rule.cents / 100).toFixed(2));
 
   const shown = people.filter((p) => !p.removed || p.balanceCents !== 0);
   const selected = people.find((p) => p.id === who);
@@ -75,11 +78,12 @@ export function CreditBoard({
                 <thead>
                   <tr className="border-b text-left text-xs tracking-wide text-muted-foreground uppercase">
                     <th className="p-3">Employee</th>
-                    <th className="p-3 text-right">Hours worked</th>
-                    <th className="p-3 text-right">Earned</th>
+                    <th className="p-3 text-right">This week</th>
+                    <th className="p-3 text-right">Discount now</th>
+                    <th className="p-3 text-right">Credit earned</th>
                     <th className="p-3 text-right">Used / added</th>
-                    <th className="p-3 text-right">Left</th>
-                    <th className="p-3 text-right">Next credit in</th>
+                    <th className="p-3 text-right">Credit left</th>
+                    <th className="p-3 text-right">Next hour</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -92,20 +96,28 @@ export function CreditBoard({
                       <td className="p-3 font-semibold">
                         {p.name} {p.removed && <span className="text-xs font-normal text-muted-foreground">(removed)</span>}
                       </td>
-                      <td className="p-3 text-right tabular-nums">{hoursDecimal(p.workedMinutes)}</td>
+                      <td className="p-3 text-right tabular-nums" title={`${hoursDecimal(p.workedMinutes)} hours worked in all`}>
+                        {formatMinutes(p.weekMinutes)}
+                      </td>
+                      <td className="p-3 text-right font-semibold tabular-nums">{p.discountPct > 0 ? `${p.discountPct}% off` : "—"}</td>
                       <td className="p-3 text-right tabular-nums">{formatCents(p.earnedCents)}</td>
                       <td className={`p-3 text-right tabular-nums ${p.adjustCents < 0 ? "text-destructive" : p.adjustCents > 0 ? "text-success" : "text-muted-foreground"}`}>
                         {p.adjustCents === 0 ? "—" : `${p.adjustCents > 0 ? "+" : "−"}${formatCents(Math.abs(p.adjustCents))}`}
                       </td>
                       <td className="p-3 text-right font-heading text-base font-bold tabular-nums">{formatCents(p.balanceCents)}</td>
-                      <td className="p-3 text-right text-muted-foreground tabular-nums">{formatMinutes(p.nextMinutes)}</td>
+                      <td className="p-3 text-right text-xs text-muted-foreground tabular-nums">
+                        {nextReward(p.weekMinutes, rule)} in {formatMinutes(p.nextMinutes)}
+                      </td>
                     </tr>
                   ))}
                 </tbody>
               </table>
             </div>
           )}
-          <p className="mt-2 text-xs text-muted-foreground">Tap a row to record credit for that person. Shifts still on the clock count once they clock out.</p>
+          <p className="mt-2 text-xs text-muted-foreground">
+            Tap a row to record credit for that person. The discount counts the shift they&apos;re on now; credit dollars are added when they clock out.
+            Hours start over each Monday.
+          </p>
         </section>
 
         <section aria-labelledby="history">
@@ -209,25 +221,28 @@ export function CreditBoard({
           onSubmit={(e) => {
             e.preventDefault();
             start(async () => {
-              const r = await saveCreditRate(dollars, minutes);
+              const r = await saveCreditRule(pct, afterHours, dollars);
               if (r.error) toast.error(r.error);
-              else toast.success("Credit rate saved");
+              else toast.success("Saved. Everyone's discount and credit were recounted.");
             });
           }}
         >
-          <h2 className="font-heading text-lg font-semibold">How much they earn</h2>
+          <h2 className="font-heading text-lg font-semibold">What they earn each week</h2>
           <div className="flex flex-wrap items-center gap-2 text-sm">
+            <Input aria-label="Percent off per hour" inputMode="numeric" value={pct} onChange={(e) => setPct(e.target.value.replace(/\D/g, ""))} className="h-10 w-16" />
+            % off for every hour, for the first
+            <Input aria-label="Hours" inputMode="numeric" value={afterHours} onChange={(e) => setAfterHours(e.target.value.replace(/\D/g, ""))} className="h-10 w-16" />
+            hours
+          </div>
+          <div className="flex flex-wrap items-center gap-2 text-sm">
+            then
             <div className="relative w-24">
               <span className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-muted-foreground">$</span>
-              <Input aria-label="Dollars" inputMode="decimal" value={dollars} onChange={(e) => setDollars(e.target.value)} className="h-10 pl-7" />
+              <Input aria-label="Dollars of credit per hour" inputMode="decimal" value={dollars} onChange={(e) => setDollars(e.target.value)} className="h-10 pl-7" />
             </div>
-            for every
-            <Input aria-label="Minutes" inputMode="numeric" value={minutes} onChange={(e) => setMinutes(e.target.value.replace(/\D/g, ""))} className="h-10 w-20" />
-            minutes worked
+            store credit for every hour after that
           </div>
-          <p className="text-xs text-muted-foreground">
-            Now: {creditRuleText(rate.cents, rate.minutes)}. Changing it recounts everyone&apos;s earned credit from all their hours.
-          </p>
+          <p className="text-xs text-muted-foreground">Now: {creditRuleText(rule)} Changing it recounts everyone&apos;s credit from all their hours.</p>
           <Button type="submit" variant="outline" disabled={busy}>
             Save
           </Button>

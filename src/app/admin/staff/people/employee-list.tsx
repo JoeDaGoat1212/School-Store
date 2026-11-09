@@ -21,6 +21,7 @@ type Person = {
   created_at: string;
   weekMinutes: number;
   creditCents: number;
+  discountPct: number;
   onClock: boolean;
 };
 
@@ -91,6 +92,7 @@ export function EmployeeList({ employees, signupApproval }: { employees: Person[
                     <th className="p-3">PIN</th>
                     <th className="p-3">Badge (student ID)</th>
                     <th className="p-3 text-right">This week</th>
+                    <th className="p-3 text-right">Discount</th>
                     <th className="p-3 text-right">Store credit</th>
                     <th className="p-3" />
                   </tr>
@@ -150,7 +152,7 @@ function ActiveRow({ person: p, busy, run }: { person: Person; busy: boolean; ru
         <td className="p-2">
           <Input aria-label="Badge code" value={badge} maxLength={40} onChange={(e) => setBadge(e.target.value)} />
         </td>
-        <td className="p-2" colSpan={3}>
+        <td className="p-2" colSpan={4}>
           <span className="flex justify-end gap-1">
             <Button size="sm" disabled={busy} onClick={() => run(() => updateEmployee(p.id, { name, pin, badge }), "Saved", () => setEditing(false))}>
               {busy && <Loader2Icon className="animate-spin" />} Save
@@ -173,6 +175,7 @@ function ActiveRow({ person: p, busy, run }: { person: Person; busy: boolean; ru
       <td className="p-3 font-receipt">{p.pin}</td>
       <td className="p-3 font-receipt text-muted-foreground">{p.badge ?? "—"}</td>
       <td className="p-3 text-right tabular-nums">{formatMinutes(p.weekMinutes)}</td>
+      <td className="p-3 text-right tabular-nums">{p.discountPct > 0 ? `${p.discountPct}%` : "—"}</td>
       <td className="p-3 text-right font-semibold tabular-nums">{formatCents(p.creditCents)}</td>
       <td className="p-3">
         {confirm ? (

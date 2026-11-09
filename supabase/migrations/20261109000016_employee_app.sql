@@ -1,0 +1,447 @@
+-- =============================================================================
+-- Employee app: new store-credit rule, phone sign-in, live time clock (update 16)
+-- =============================================================================
+-- Builds on update 15 (the time clock).
+--
+-- NEW CREDIT RULE (counted per week, Monday to Sunday, Arizona time):
+--   * Every whole hour worked this week adds 10% off everything, up to 50% at
+--     5 hours. The discount starts over each Monday.
+--   * Every whole hour after the first 5 in a week adds $1 of store credit.
+--     Credit dollars stay until they're spent.
+--   All three numbers (10%, 5 hours, $1) are settings on Admin → Store credit.
+--   Credit is still worked out from the timecards, so fixing a shift fixes it.
+--
+-- EMPLOYEE PORTAL (the app at /work): employees sign in with their name and
+-- their 4-digit PIN, then clock in and out from their phone and see their
+-- hours, discount, credit and schedule. Signing in makes a session (a random
+-- token kept in a cookie; only its hash is stored here). Changing someone's PIN
+-- or removing them signs them out everywhere. Wrong tries lock out the device
+-- (8 in 15 minutes) and the employee's account (10 in an hour).
+--
+-- LIVE: the staff dashboard listens for punches (Supabase Realtime) and
+-- updates by itself.
+-- =============================================================================
+
+
+-- -----------------------------------------------------------------------------
+-- 1. Settings and columns
+-- -----------------------------------------------------------------------------
+alter table public.settings
+  add column staff_discount_pct_per_hour int not null default 10  check (staff_discount_pct_per_hour between 0 and 100),
+  add column staff_credit_after_hours    int not null default 5   check (staff_credit_after_hours between 0 and 40),
+  add column staff_credit_cents_per_hour int not null default 100 check (staff_credit_cents_per_hour between 0 and 2000);
+-- (staff_credit_cents and staff_credit_minutes from update 15 are no longer used.)
+
+-- Where a punch came from: the time clock screen, someone's phone, or staff fixing it.
+alter table public.staff_shifts
+  add column source     text not null default 'kiosk' check (source in ('kiosk', 'phone', 'manual')),
+  add column out_source text check (out_source in ('kiosk', 'phone', 'manual'));
+update public.staff_shifts set source = 'manual' where manual;
+update public.staff_shifts set out_source = source where clock_out is not null;
+
+alter table public.staff_clock_attempts drop constraint staff_clock_attempts_kind_check;
+alter table public.staff_clock_attempts add constraint staff_clock_attempts_kind_check check (kind in ('pin', 'signup', 'portal'));
+
+create table public.staff_sessions (
+  token_hash  text primary key,
+  staff_id    uuid not null references public.staff (id) on delete cascade,
+  user_agent  text,
+  created_at  timestamptz not null default now(),
+  last_seen   timestamptz not null default now()
+);
+create index on public.staff_sessions (staff_id);
+alter table public.staff_sessions enable row level security;
+-- No policies: only the database functions below (run by the website's server) use it.
+
+-- A new PIN, or being removed, signs that person out on every phone.
+create or replace function public.staff_sessions_reset()
+returns trigger
+language plpgsql security definer
+set search_path = public
+as $$
+begin
+  if new.pin is distinct from old.pin or new.status <> 'active' then
+    delete from public.staff_sessions where staff_id = new.id;
+  end if;
+  return new;
+end;
+$$;
+create trigger staff_sessions_reset after update of pin, status on public.staff
+  for each row execute function public.staff_sessions_reset();
+
+
+-- -----------------------------------------------------------------------------
+-- 2. Store credit and discount
+-- -----------------------------------------------------------------------------
+-- Return columns changed, so the old function is replaced, not edited.
+drop function public.staff_credit_balances();
+
+-- Per employee:
+--   worked_minutes       all finished shifts, ever
+--   week_minutes         this week so far (counts a shift that's still going)
+--   discount_pct         10% per whole hour this week, up to 5 hours' worth
+--   earned_cents         $1 per whole hour past 5 in each week (finished shifts)
+--   adjust_cents         credit used (minus) or added by hand (plus)
+--   balance_cents        earned + adjust: what they can spend
+--   next_credit_minutes  minutes until their next whole hour this week
+create function public.staff_credit_balances()
+returns table (
+  staff_id            uuid,
+  worked_minutes      int,
+  week_minutes        int,
+  discount_pct        int,
+  earned_cents        int,
+  adjust_cents        int,
+  balance_cents       int,
+  next_credit_minutes int
+)
+language sql stable
+set search_path = public
+as $$
+  with cfg as (
+    select timezone as tz,
+           staff_discount_pct_per_hour as pct,
+           staff_credit_after_hours    as after_hours,
+           staff_credit_cents_per_hour as cents
+      from public.settings where id = 1
+  ),
+  per_week as (
+    select sh.staff_id,
+           date_trunc('week', sh.clock_in at time zone cfg.tz) as week,
+           coalesce(sum(extract(epoch from (sh.clock_out - sh.clock_in))) filter (where sh.clock_out is not null), 0) as done_secs,
+           sum(extract(epoch from (coalesce(sh.clock_out, now()) - sh.clock_in))) as all_secs
+      from public.staff_shifts sh cross join cfg
+     where sh.staff_id is not null
+     group by sh.staff_id, 2
+  ),
+  earned as (
+    select pw.staff_id,
+           sum(floor(pw.done_secs / 60))::int as minutes,
+           sum(greatest(0, floor(pw.done_secs / 3600)::int - cfg.after_hours) * cfg.cents)::int as cents
+      from per_week pw cross join cfg
+     group by pw.staff_id
+  ),
+  this_week as (
+    select pw.staff_id, floor(pw.all_secs / 60)::int as minutes
+      from per_week pw cross join cfg
+     where pw.week = date_trunc('week', now() at time zone cfg.tz)
+  ),
+  adjusted as (
+    select e.staff_id, sum(e.amount_cents)::int as cents from public.staff_credit_entries e group by e.staff_id
+  )
+  select s.id,
+         coalesce(e.minutes, 0),
+         coalesce(w.minutes, 0),
+         (least(coalesce(w.minutes, 0) / 60, cfg.after_hours) * cfg.pct)::int,
+         coalesce(e.cents, 0),
+         coalesce(a.cents, 0),
+         coalesce(e.cents, 0) + coalesce(a.cents, 0),
+         60 - (coalesce(w.minutes, 0) % 60)
+    from public.staff s
+    cross join cfg
+    left join earned    e on e.staff_id = s.id
+    left join this_week w on w.staff_id = s.id
+    left join adjusted  a on a.staff_id = s.id;
+$$;
+
+revoke execute on function public.staff_credit_balances() from public, anon;
+grant execute on function public.staff_credit_balances() to authenticated, service_role;
+
+
+-- -----------------------------------------------------------------------------
+-- 3. Clocking in and out (shared by the time clock screen and phones)
+-- -----------------------------------------------------------------------------
+create or replace function public.staff_punch_for(p_staff public.staff, p_source text)
+returns jsonb
+language plpgsql security definer
+set search_path = public
+as $$
+declare
+  v_now    timestamptz := now();
+  v_open   public.staff_shifts;
+  v_id     uuid;
+  v_in     timestamptz;
+  v_token  text := replace(gen_random_uuid()::text, '-', '');
+  v_status text;
+  v_credit record;
+begin
+  select * into v_open from public.staff_shifts where staff_id = p_staff.id and clock_out is null for update;
+  if v_open.id is not null then
+    update public.staff_shifts
+       set clock_out = v_now, out_source = p_source, undo_token = v_token, undo_kind = 'out', undo_until = v_now + interval '2 minutes'
+     where id = v_open.id;
+    v_id := v_open.id; v_in := v_open.clock_in; v_status := 'out';
+  else
+    insert into public.staff_shifts (staff_id, staff_name, clock_in, source, undo_token, undo_kind, undo_until)
+    values (p_staff.id, p_staff.name, v_now, p_source, v_token, 'in', v_now + interval '2 minutes')
+    returning id into v_id;
+    v_in := v_now; v_status := 'in';
+  end if;
+
+  select * into v_credit from public.staff_credit_balances() b where b.staff_id = p_staff.id;
+
+  return jsonb_build_object(
+    'status', v_status,
+    'name', p_staff.name,
+    'in', v_in,
+    'out', case when v_status = 'out' then v_now end,
+    'id', v_id,
+    'undo', v_token,
+    'weekMinutes', coalesce(v_credit.week_minutes, 0),
+    'discountPct', coalesce(v_credit.discount_pct, 0),
+    'creditCents', coalesce(v_credit.balance_cents, 0),
+    'nextCreditMinutes', coalesce(v_credit.next_credit_minutes, 60),
+    'next', public.staff_next_shift(p_staff.id)
+  );
+end;
+$$;
+
+-- The time clock screen (/clock): PIN or badge.
+create or replace function public.staff_punch(p_code text, p_ip_hash text)
+returns jsonb
+language plpgsql security definer
+set search_path = public
+as $$
+declare
+  v_code  text := btrim(coalesce(p_code, ''));
+  v_staff public.staff;
+begin
+  if p_ip_hash is not null and (
+    select count(*) from public.staff_clock_attempts
+     where ip_hash = p_ip_hash and kind = 'pin' and created_at > now() - interval '15 minutes'
+  ) >= 8 then
+    return jsonb_build_object('error', 'Too many wrong tries. Wait 15 minutes or ask a manager.', 'code', 'LOCKED');
+  end if;
+
+  if v_code <> '' and char_length(v_code) <= 40 then
+    select * into v_staff from public.staff
+     where status <> 'removed' and (pin = v_code or (badge is not null and lower(badge) = lower(v_code)))
+     limit 1;
+  end if;
+
+  if v_staff.id is null then
+    if p_ip_hash is not null then
+      insert into public.staff_clock_attempts (ip_hash, kind) values (p_ip_hash, 'pin');
+    end if;
+    delete from public.staff_clock_attempts where created_at < now() - interval '1 day';
+    return jsonb_build_object('error', 'No account has that PIN. Try again, or tap Create account if you''re new.', 'code', 'NOT_FOUND');
+  end if;
+
+  if v_staff.status = 'pending' then
+    return jsonb_build_object('status', 'pending', 'name', v_staff.name);
+  end if;
+
+  return public.staff_punch_for(v_staff, 'kiosk');
+end;
+$$;
+
+
+-- -----------------------------------------------------------------------------
+-- 4. The employee portal (/work)
+-- -----------------------------------------------------------------------------
+-- "Maya R." → "mayar": names match however they're typed.
+create or replace function public.staff_name_key(p_name text)
+returns text
+language sql immutable
+as $$ select lower(regexp_replace(coalesce(p_name, ''), '[^A-Za-z0-9]', '', 'g')) $$;
+
+-- Sign in with name + PIN. p_token_hash is the hash of a random token the
+-- website puts in a cookie. Returns { ok, name } or { error, code }.
+create or replace function public.staff_portal_login(p_name text, p_pin text, p_token_hash text, p_ip_hash text, p_user_agent text)
+returns jsonb
+language plpgsql security definer
+set search_path = public
+as $$
+declare
+  v_key   text := public.staff_name_key(p_name);
+  v_pin   text := btrim(coalesce(p_pin, ''));
+  v_staff public.staff;
+  v_count int;
+  v_wrong constant text := 'That name and PIN don''t match. Use your name the way your manager has it, and your time clock PIN.';
+begin
+  if p_ip_hash is not null and (
+    select count(*) from public.staff_clock_attempts
+     where ip_hash = p_ip_hash and kind = 'portal' and created_at > now() - interval '15 minutes'
+  ) >= 8 then
+    return jsonb_build_object('error', 'Too many wrong tries on this phone. Wait 15 minutes, or ask a manager.', 'code', 'LOCKED');
+  end if;
+  if v_key = '' or v_pin !~ '^[0-9]{4}$' or p_token_hash is null or char_length(p_token_hash) < 32 then
+    return jsonb_build_object('error', 'Type your name and your 4-digit PIN.', 'code', 'INVALID');
+  end if;
+
+  -- Full name first; if nobody matches, a first name that only one person has.
+  select count(*) into v_count from public.staff where status <> 'removed' and public.staff_name_key(name) = v_key;
+  if v_count = 1 then
+    select * into v_staff from public.staff where status <> 'removed' and public.staff_name_key(name) = v_key;
+  elsif v_count = 0 then
+    select count(*) into v_count from public.staff where status <> 'removed' and public.staff_name_key(split_part(name, ' ', 1)) = v_key;
+    if v_count = 1 then
+      select * into v_staff from public.staff where status <> 'removed' and public.staff_name_key(split_part(name, ' ', 1)) = v_key;
+    elsif v_count > 1 then
+      return jsonb_build_object('error', 'More than one employee has that first name. Type your full name, like "Maya R".', 'code', 'AMBIGUOUS');
+    end if;
+  end if;
+
+  -- The employee's own account locks after 10 wrong PINs in an hour, from anywhere.
+  if v_staff.id is not null and (
+    select count(*) from public.staff_clock_attempts
+     where ip_hash = 'staff:' || v_staff.id and kind = 'portal' and created_at > now() - interval '1 hour'
+  ) >= 10 then
+    return jsonb_build_object('error', 'This account is locked for an hour after too many wrong PINs. Ask a manager.', 'code', 'LOCKED');
+  end if;
+
+  if v_staff.id is null or v_staff.pin <> v_pin then
+    if p_ip_hash is not null then
+      insert into public.staff_clock_attempts (ip_hash, kind) values (p_ip_hash, 'portal');
+    end if;
+    if v_staff.id is not null then
+      insert into public.staff_clock_attempts (ip_hash, kind) values ('staff:' || v_staff.id, 'portal');
+    end if;
+    delete from public.staff_clock_attempts where created_at < now() - interval '1 day';
+    return jsonb_build_object('error', v_wrong, 'code', 'NOT_FOUND');
+  end if;
+
+  if v_staff.status = 'pending' then
+    return jsonb_build_object('error', 'Your account is waiting for a manager to approve it.', 'code', 'PENDING');
+  end if;
+
+  delete from public.staff_sessions where last_seen < now() - interval '90 days';
+  insert into public.staff_sessions (token_hash, staff_id, user_agent)
+  values (p_token_hash, v_staff.id, left(p_user_agent, 200));
+  return jsonb_build_object('ok', true, 'name', v_staff.name);
+end;
+$$;
+
+-- The signed-in employee, or null if the session is gone.
+create or replace function public.staff_portal_staff(p_token_hash text)
+returns public.staff
+language plpgsql security definer
+set search_path = public
+as $$
+declare
+  v_staff public.staff;
+begin
+  update public.staff_sessions set last_seen = now()
+   where token_hash = p_token_hash and last_seen < now() - interval '5 minutes';
+  select s.* into v_staff
+    from public.staff_sessions ss join public.staff s on s.id = ss.staff_id
+   where ss.token_hash = p_token_hash and s.status = 'active';
+  return v_staff;
+end;
+$$;
+
+-- Everything the portal shows. Returns null when signed out.
+create or replace function public.staff_portal(p_token_hash text)
+returns jsonb
+language plpgsql security definer
+set search_path = public
+as $$
+declare
+  v_staff  public.staff := public.staff_portal_staff(p_token_hash);
+  v_credit record;
+  v_cfg    record;
+begin
+  if v_staff.id is null then
+    return null;
+  end if;
+  select * into v_credit from public.staff_credit_balances() b where b.staff_id = v_staff.id;
+  select staff_discount_pct_per_hour as pct, staff_credit_after_hours as after_hours, staff_credit_cents_per_hour as cents
+    into v_cfg from public.settings where id = 1;
+
+  return jsonb_build_object(
+    'id', v_staff.id,
+    'name', v_staff.name,
+    'open', (
+      select jsonb_build_object('id', id, 'in', clock_in, 'source', source)
+        from public.staff_shifts where staff_id = v_staff.id and clock_out is null
+    ),
+    'weekMinutes', coalesce(v_credit.week_minutes, 0),
+    'discountPct', coalesce(v_credit.discount_pct, 0),
+    'creditCents', coalesce(v_credit.balance_cents, 0),
+    'earnedCents', coalesce(v_credit.earned_cents, 0),
+    'workedMinutes', coalesce(v_credit.worked_minutes, 0),
+    'rule', jsonb_build_object('pct', v_cfg.pct, 'afterHours', v_cfg.after_hours, 'cents', v_cfg.cents),
+    'schedule', (
+      select coalesce(jsonb_agg(jsonb_build_object('date', t.work_date, 'label', t.label, 'startsAt', to_char(t.starts_at, 'HH24:MI'))
+                                order by t.work_date, t.starts_at), '[]'::jsonb)
+        from (
+          select sc.work_date, w.label, w.starts_at
+            from public.staff_schedule sc join public.pickup_windows w on w.id = sc.window_id
+           where sc.staff_id = v_staff.id
+             and sc.work_date between public.store_today() and public.store_today() + 21
+             and (sc.work_date > public.store_today() or w.starts_at > public.store_now_time() - interval '50 minutes')
+           order by sc.work_date, w.starts_at
+           limit 15
+        ) t
+    ),
+    'shifts', (
+      select coalesce(jsonb_agg(jsonb_build_object('in', t.clock_in, 'out', t.clock_out, 'phone', t.source = 'phone' or t.out_source = 'phone') order by t.clock_in desc), '[]'::jsonb)
+        from (
+          select clock_in, clock_out, source, out_source from public.staff_shifts
+           where staff_id = v_staff.id order by clock_in desc limit 12
+        ) t
+    ),
+    'credit', (
+      select coalesce(jsonb_agg(jsonb_build_object('cents', t.amount_cents, 'note', t.note, 'at', t.created_at) order by t.created_at desc), '[]'::jsonb)
+        from (
+          select amount_cents, note, created_at from public.staff_credit_entries
+           where staff_id = v_staff.id order by created_at desc limit 10
+        ) t
+    )
+  );
+end;
+$$;
+
+-- Clock in or out from the phone.
+create or replace function public.staff_portal_punch(p_token_hash text)
+returns jsonb
+language plpgsql security definer
+set search_path = public
+as $$
+declare
+  v_staff public.staff := public.staff_portal_staff(p_token_hash);
+begin
+  if v_staff.id is null then
+    return jsonb_build_object('error', 'You''re signed out. Sign in again.', 'code', 'SIGNED_OUT');
+  end if;
+  return public.staff_punch_for(v_staff, 'phone');
+end;
+$$;
+
+create or replace function public.staff_portal_logout(p_token_hash text)
+returns void
+language sql security definer
+set search_path = public
+as $$ delete from public.staff_sessions where token_hash = p_token_hash $$;
+
+
+-- -----------------------------------------------------------------------------
+-- 5. Live updates on the staff dashboard (Supabase Realtime)
+-- -----------------------------------------------------------------------------
+-- Only the admin can read staff_shifts (Row Level Security), so only the admin
+-- hears about punches.
+do $$
+begin
+  if exists (select 1 from pg_publication where pubname = 'supabase_realtime')
+     and not exists (select 1 from pg_publication_tables where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = 'staff_shifts') then
+    alter publication supabase_realtime add table public.staff_shifts;
+  end if;
+end;
+$$;
+
+
+-- -----------------------------------------------------------------------------
+-- 6. Who may call what
+-- -----------------------------------------------------------------------------
+revoke execute on function public.staff_punch_for(public.staff, text)                   from public, anon, authenticated;
+revoke execute on function public.staff_portal_login(text, text, text, text, text)       from public, anon, authenticated;
+revoke execute on function public.staff_portal_staff(text)                               from public, anon, authenticated;
+revoke execute on function public.staff_portal(text)                                     from public, anon, authenticated;
+revoke execute on function public.staff_portal_punch(text)                               from public, anon, authenticated;
+revoke execute on function public.staff_portal_logout(text)                              from public, anon, authenticated;
+revoke execute on function public.staff_sessions_reset()                                 from public, anon, authenticated;
+
+grant execute on function public.staff_portal_login(text, text, text, text, text) to service_role;
+grant execute on function public.staff_portal(text)                               to service_role;
+grant execute on function public.staff_portal_punch(text)                         to service_role;
+grant execute on function public.staff_portal_logout(text)                        to service_role;

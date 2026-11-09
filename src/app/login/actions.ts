@@ -52,8 +52,8 @@ export async function login(_prev: LoginState, formData: FormData): Promise<Logi
     return { error: "This account isn't the store admin." };
   }
 
-  // Only allow redirects inside the staff area.
-  redirect(next.startsWith("/admin") ? next : "/admin");
+  // Only allow redirects inside the staff area (or back to the employee app).
+  redirect(next.startsWith("/admin") || next === "/work" ? next : "/admin");
 }
 
 /** Logs out and goes back to the login page. */
