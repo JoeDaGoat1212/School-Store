@@ -1185,6 +1185,13 @@ export type Database = {
         Update: { note?: string | null };
         Relationships: [];
       };
+      staff_sessions: {
+        Row: { token_hash: string; staff_id: string; user_agent: string | null; created_at: string; last_seen: string };
+        ComputedFields: never;
+        Insert: { token_hash: string; staff_id: string; user_agent?: string | null };
+        Update: { last_seen?: string };
+        Relationships: [];
+      };
       staff_credit_entries: {
         Row: { id: string; staff_id: string; amount_cents: number; note: string | null; created_at: string };
         ComputedFields: never;
