@@ -2,8 +2,9 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { ArrowDownRightIcon, ArrowRightIcon, ArrowUpRightIcon, BoxesIcon, DollarSignIcon, type LucideIcon, PiggyBankIcon, WalletIcon } from "lucide-react";
+import { ArrowDownRightIcon, ArrowRightIcon, ArrowUpRightIcon, BoxesIcon, DollarSignIcon, GaugeIcon, type LucideIcon, PiggyBankIcon, TimerIcon, WalletIcon } from "lucide-react";
 import { addDays, formatCents, formatDay } from "@/lib/format";
+import { formatMinutes } from "@/lib/staff";
 
 /*
  * The top of the dashboard: sales, spending and profit for today, this week or
@@ -12,7 +13,8 @@ import { addDays, formatCents, formatDay } from "@/lib/format";
  * loaded, so switching is instant.
  */
 
-export type Day = { date: string; sales: number; spending: number };
+/** One day (or month): sales and spending in cents, and minutes employees worked (from the time clock). */
+export type Day = { date: string; sales: number; spending: number; staff?: number };
 
 /** This year so far, by month, plus last year up to the same date. */
 export type YearTotals = {
@@ -20,6 +22,9 @@ export type YearTotals = {
   spending: number;
   lastSales: number;
   lastSpending: number;
+  /** Minutes employees worked this year so far / last year to the same date. */
+  staffMinutes: number;
+  lastStaffMinutes: number;
   months: Day[]; // date = first of the month
 };
 
@@ -45,6 +50,7 @@ export function DashboardNumbers({
   lowStock,
   outOfStock,
   lastSaleDate,
+  team,
 }: {
   /** Daily totals, oldest first, ending today. */
   days: Day[];
@@ -53,6 +59,8 @@ export function DashboardNumbers({
   lowStock: number;
   outOfStock: number;
   lastSaleDate: string | null;
+  /** True once the time clock is set up: shows the hours-worked cards. */
+  team: boolean;
 }) {
   const [period, setPeriod] = useState<Period>("week");
   const byDate = new Map(days.map((d) => [d.date, d]));
@@ -60,18 +68,25 @@ export function DashboardNumbers({
   const sum = (from: string, to: string) => {
     let sales = 0;
     let spending = 0;
+    let staff = 0;
     for (let d = from; d <= to; d = addDays(d, 1)) {
       const day = byDate.get(d);
       sales += day?.sales ?? 0;
       spending += day?.spending ?? 0;
+      staff += day?.staff ?? 0;
     }
-    return { sales, spending, profit: sales - spending };
+    return { sales, spending, profit: sales - spending, staff };
   };
 
   const [from, to, prevFrom, prevTo] = period === "year" ? ([`${today.slice(0, 4)}-01-01`, today, "", ""] as const) : periodDates(period, today);
-  const now = period === "year" ? { sales: year.sales, spending: year.spending, profit: year.sales - year.spending } : sum(from, to);
+  const now =
+    period === "year" ? { sales: year.sales, spending: year.spending, profit: year.sales - year.spending, staff: year.staffMinutes } : sum(from, to);
   const before =
-    period === "year" ? { sales: year.lastSales, spending: year.lastSpending, profit: year.lastSales - year.lastSpending } : sum(prevFrom, prevTo);
+    period === "year"
+      ? { sales: year.lastSales, spending: year.lastSpending, profit: year.lastSales - year.lastSpending, staff: year.lastStaffMinutes }
+      : sum(prevFrom, prevTo);
+  // Sales per hour employees worked: the time clock and the register, together.
+  const perHour = (t: { sales: number; staff: number }) => (t.staff > 0 ? Math.round(t.sales / (t.staff / 60)) : 0);
   const vs = PERIODS[period].vs;
 
   return (
@@ -92,10 +107,31 @@ export function DashboardNumbers({
             {lastSaleDate && lastSaleDate < to && ` · sales imported through ${formatDay(lastSaleDate)}`}
           </p>
         </div>
-        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4 lg:gap-4">
+        <div className={`grid grid-cols-2 gap-3 lg:gap-4 ${team ? "md:grid-cols-3" : "lg:grid-cols-4"}`}>
           <StatCard icon={DollarSignIcon} label="Sales" value={now.sales} last={before.sales} vs={vs} href="/admin/insights" />
           <StatCard icon={WalletIcon} label="Spent" value={now.spending} last={before.spending} vs={vs} upIsBad href="/admin/expenses" />
           <StatCard icon={PiggyBankIcon} label="Profit" value={now.profit} last={before.profit} vs={vs} tone href="/admin/insights" />
+          {team && (
+            <>
+              <StatCard
+                icon={TimerIcon}
+                label="Hours worked"
+                value={now.staff}
+                last={before.staff}
+                vs={vs}
+                format={formatMinutes}
+                href="/admin/staff/hours"
+              />
+              <StatCard
+                icon={GaugeIcon}
+                label="Sales per staff hour"
+                value={perHour(now)}
+                last={perHour(before)}
+                vs={vs}
+                href="/admin/staff"
+              />
+            </>
+          )}
           <Link
             href="/admin/inventory/shopping-list"
             className="group rounded-2xl border bg-card p-4 shadow-soft transition hover:-translate-y-0.5 hover:border-primary/50 focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none sm:p-5"
@@ -146,6 +182,7 @@ function StatCard({
   vs,
   upIsBad = false,
   tone = false,
+  format = formatCents,
   href,
 }: {
   icon: LucideIcon;
@@ -157,6 +194,8 @@ function StatCard({
   upIsBad?: boolean;
   /** Profit: the number itself is green, or red below $0. */
   tone?: boolean;
+  /** How to show the number (money unless told otherwise). */
+  format?: (n: number) => string;
   href: string;
 }) {
   const diff = value - last;
@@ -170,7 +209,7 @@ function StatCard({
     >
       <CardTop icon={icon} label={label} />
       <p className={`mt-2 font-heading text-2xl font-extrabold tabular-nums sm:text-3xl ${tone ? (value < 0 ? "text-destructive" : "text-success") : ""}`}>
-        {formatCents(value)}
+        {format(value)}
       </p>
       <p className="mt-1 text-xs font-medium">
         {value === 0 && last === 0 ? (
@@ -178,7 +217,7 @@ function StatCard({
         ) : (
           <span className={`inline-flex items-center gap-0.5 ${diff === 0 ? "text-muted-foreground" : good ? "text-success" : "text-destructive"}`}>
             <Arrow className="size-3.5" />
-            {formatCents(Math.abs(diff))} {vs}
+            {format(Math.abs(diff))} {vs}
           </span>
         )}
       </p>
@@ -306,6 +345,14 @@ export function SalesChart({ days: all, months, today }: { days: Day[]; months: 
                   {formatCents(active.sales - active.spending)}
                 </strong>
               </span>
+              {(active.staff ?? 0) > 0 && (
+                <span>
+                  Staff <strong className="tabular-nums">{formatMinutes(active.staff ?? 0)}</strong>
+                  {active.sales > 0 && (
+                    <span className="text-muted-foreground"> ({formatCents(Math.round(active.sales / ((active.staff ?? 0) / 60)))}/hr)</span>
+                  )}
+                </span>
+              )}
             </div>
           )}
 

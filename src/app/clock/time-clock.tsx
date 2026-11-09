@@ -23,7 +23,10 @@ import { BrandMark } from "@/components/brand-mark";
 import { brand } from "@/config/brand";
 import { formatCents, formatClock, formatTime, relativeDay, STORE_TIMEZONE, storeToday } from "@/lib/format";
 import { autoOutAt, type ClockBoard, formatMinutes, minutesBetween } from "@/lib/staff";
-import { loadBoard, punch, signUp, undoPunch } from "./actions";
+import { type ClockStats, loadBoard, punch, signUp, undoPunch } from "./actions";
+import { Confetti } from "./confetti";
+
+const CONFETTI = [brand.colors.primary, brand.colors.accent, "#FFD23F", "#FFFFFF"];
 
 /*
  * The time clock screen. Left: the clock and a big keypad (dark, like a
@@ -43,9 +46,21 @@ type Result = {
 
 const KEYS = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "clear", "0", "back"] as const;
 
-export function TimeClock({ initialBoard, maxShiftMinutes, initialError }: { initialBoard: ClockBoard; maxShiftMinutes: number; initialError?: string }) {
+export function TimeClock({
+  initialBoard,
+  maxShiftMinutes,
+  initialStats,
+  initialError,
+}: {
+  initialBoard: ClockBoard;
+  maxShiftMinutes: number;
+  initialStats: ClockStats;
+  initialError?: string;
+}) {
   const [board, setBoard] = useState(initialBoard);
   const [limit, setLimit] = useState(maxShiftMinutes);
+  const [stats, setStats] = useState(initialStats);
+  const [burst, setBurst] = useState(0);
   const [boardError, setBoardError] = useState(initialError);
   const [code, setCode] = useState("");
   const [busy, setBusy] = useState(false);
@@ -60,12 +75,13 @@ export function TimeClock({ initialBoard, maxShiftMinutes, initialError }: { ini
     const r = await loadBoard();
     setBoard(r.board);
     setLimit(r.maxShiftMinutes);
+    setStats(r.stats);
     setBoardError(r.error);
   }, []);
 
   // The clock ticks; the board refreshes every 20 seconds while the screen is showing.
   useEffect(() => {
-    const tick = setInterval(() => setNow(new Date()), 5_000);
+    const tick = setInterval(() => setNow(new Date()), 1_000);
     const poll = setInterval(() => {
       if (document.visibilityState === "visible") void refresh();
     }, 20_000);
@@ -89,6 +105,7 @@ export function TimeClock({ initialBoard, maxShiftMinutes, initialError }: { ini
   const show = useCallback((r: Result) => {
     setResult(r);
     beep(r.tone);
+    if (r.tone === "in") setBurst((n) => n + 1);
     if (hideTimer.current) clearTimeout(hideTimer.current);
     hideTimer.current = setTimeout(() => setResult(null), r.undo ? 7000 : r.tone === "auto" ? 8000 : 5000);
   }, []);
@@ -197,15 +214,23 @@ export function TimeClock({ initialBoard, maxShiftMinutes, initialError }: { ini
     void refresh();
   };
 
-  const time = now.toLocaleTimeString("en-US", { timeZone: STORE_TIMEZONE, hour: "numeric", minute: "2-digit" });
-  const [clockDigits, ampm] = time.split(" ");
+  const time = now.toLocaleTimeString("en-US", { timeZone: STORE_TIMEZONE, hour: "numeric", minute: "2-digit", second: "2-digit" });
+  const [hms, ampm] = time.split(/\s/);
+  const [hh, mm, ss] = hms.split(":");
 
   return (
     <div className="grid min-h-svh lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
       {/* ================= Keypad side ================= */}
       <section aria-label="Clock in or out" className="relative isolate flex flex-col overflow-hidden bg-neutral-950 px-5 pt-5 pb-8 text-white sm:px-8">
-        <div aria-hidden className="pointer-events-none absolute -top-40 left-1/2 -z-10 size-[42rem] -translate-x-1/2 rounded-full bg-primary/25 blur-3xl" />
-        <div aria-hidden className="pointer-events-none absolute -bottom-48 -left-24 -z-10 size-[30rem] rounded-full bg-teal/20 blur-3xl" />
+        <div aria-hidden className="pointer-events-none absolute -top-40 left-1/2 -z-10 size-[42rem] -translate-x-1/2 rounded-full bg-primary/25 blur-3xl motion-safe:animate-[aurora-a_14s_ease-in-out_infinite]" />
+        <div aria-hidden className="pointer-events-none absolute -bottom-48 -left-24 -z-10 size-[30rem] rounded-full bg-teal/25 blur-3xl motion-safe:animate-[aurora-b_18s_ease-in-out_infinite]" />
+        <div aria-hidden className="pointer-events-none absolute top-1/3 -right-40 -z-10 size-[24rem] rounded-full bg-fuchsia-500/10 blur-3xl motion-safe:animate-[aurora-a_22s_ease-in-out_infinite_reverse]" />
+        {/* faint grid, like a register screen */}
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-0 -z-10 opacity-[0.07] [mask-image:radial-gradient(ellipse_at_center,black,transparent_75%)]"
+          style={{ backgroundImage: "linear-gradient(#fff 1px, transparent 1px), linear-gradient(90deg, #fff 1px, transparent 1px)", backgroundSize: "44px 44px" }}
+        />
 
         <header className="flex items-center gap-3">
           <BrandMark size={40} />
@@ -221,11 +246,31 @@ export function TimeClock({ initialBoard, maxShiftMinutes, initialError }: { ini
           </Link>
         </header>
 
-        <div className="mt-6 flex flex-1 flex-col items-center gap-5">
+        <div className="mt-5 flex flex-wrap justify-center gap-2 text-sm">
+          {[
+            { dot: "bg-success", text: `${board.onClock.length} on the clock` },
+            { dot: "bg-primary", text: `${stats.scheduledToday} scheduled today` },
+            { dot: "bg-teal", text: `${formatMinutes(stats.weekMinutes)} team hours this week` },
+          ].map((s) => (
+            <span key={s.text} className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1 text-white/80 backdrop-blur">
+              <span aria-hidden className={`size-2 rounded-full ${s.dot} ${s.dot === "bg-success" && board.onClock.length ? "animate-pulse" : ""}`} />
+              {s.text}
+            </span>
+          ))}
+        </div>
+
+        <div className="mt-5 flex flex-1 flex-col items-center gap-5">
           <div className="text-center">
-            <p className="font-heading leading-none font-bold tabular-nums" suppressHydrationWarning>
-              <span className="text-8xl 2xl:text-9xl">{clockDigits}</span>
-              <span className="ml-2 text-3xl text-white/60 sm:text-4xl">{ampm}</span>
+            <p className="flex items-start justify-center font-heading leading-none font-bold tabular-nums" suppressHydrationWarning>
+              <span className="bg-gradient-to-b from-white to-white/70 bg-clip-text text-8xl text-transparent drop-shadow-[0_0_30px_rgb(255_90_31/0.35)] 2xl:text-9xl">
+                {hh}
+                <span className="motion-safe:animate-[clock-blink_1s_steps(1)_infinite]">:</span>
+                {mm}
+              </span>
+              <span className="mt-2 ml-3 grid gap-1 text-left">
+                <span className="w-10 text-3xl text-primary">{ss}</span>
+                <span className="text-xl text-white/60">{ampm}</span>
+              </span>
             </p>
             <p className="mt-2 text-lg font-medium text-white/70" suppressHydrationWarning>
               {now.toLocaleDateString("en-US", { timeZone: STORE_TIMEZONE, weekday: "long", month: "long", day: "numeric" })}
@@ -259,7 +304,7 @@ export function TimeClock({ initialBoard, maxShiftMinutes, initialError }: { ini
                 disabled={busy}
                 onClick={() => press(k)}
                 aria-label={k === "clear" ? "Clear" : k === "back" ? "Delete one digit" : k}
-                className={`grid h-16 touch-manipulation 2xl:h-[4.5rem] place-items-center rounded-2xl border border-white/10 bg-white/[0.06] text-3xl font-semibold tabular-nums shadow-[inset_0_1px_0_rgb(255_255_255/0.08)] transition select-none hover:bg-white/10 active:scale-95 active:bg-white/20 focus-visible:ring-3 focus-visible:ring-primary/60 focus-visible:outline-none disabled:opacity-50 ${
+                className={`grid h-16 touch-manipulation 2xl:h-[4.5rem] place-items-center rounded-2xl border border-white/10 bg-white/[0.06] text-3xl font-semibold tabular-nums shadow-[inset_0_1px_0_rgb(255_255_255/0.08)] transition select-none hover:border-white/20 hover:bg-white/10 active:scale-95 active:border-primary/60 active:bg-primary/25 active:shadow-[0_0_28px_-4px_var(--primary)] focus-visible:ring-3 focus-visible:ring-primary/60 focus-visible:outline-none disabled:opacity-50 ${
                   k === "clear" ? "text-base text-white/70" : ""
                 }`}
               >
@@ -320,7 +365,14 @@ export function TimeClock({ initialBoard, maxShiftMinutes, initialError }: { ini
           }}
         />
       )}
-      <style>{`@keyframes clock-shake{25%{transform:translateX(-8px)}50%{transform:translateX(8px)}75%{transform:translateX(-4px)}}`}</style>
+      <Confetti burst={burst} colors={CONFETTI} />
+      <style>{`
+        @keyframes clock-shake{25%{transform:translateX(-8px)}50%{transform:translateX(8px)}75%{transform:translateX(-4px)}}
+        @keyframes clock-blink{50%{opacity:.25}}
+        @keyframes aurora-a{0%,100%{transform:translate(-50%,0) scale(1)}50%{transform:translate(-40%,40px) scale(1.15)}}
+        @keyframes aurora-b{0%,100%{transform:translate(0,0) scale(1)}50%{transform:translate(60px,-50px) scale(1.2)}}
+        @keyframes result-glow{0%,100%{box-shadow:0 0 0 0 var(--glow),0 25px 50px -12px rgb(0 0 0/.5)}50%{box-shadow:0 0 60px 4px var(--glow),0 25px 50px -12px rgb(0 0 0/.5)}}
+      `}</style>
     </div>
   );
 }
@@ -483,12 +535,15 @@ function ResultCard({ result, onClose, onUndo }: { result: Result; onClose: () =
   const t = TONES[result.tone];
   const Icon = t.icon;
   const light = result.tone === "in" || result.tone === "out";
+  const glow =
+    result.tone === "in" ? "var(--success)" : result.tone === "out" ? "var(--primary)" : result.tone === "error" ? "var(--destructive)" : "var(--warning)";
   return (
     <div className="fixed inset-0 z-50 grid place-items-center bg-neutral-950/60 p-6 backdrop-blur-sm" onClick={onClose}>
       <div
         role="status"
         onClick={(e) => e.stopPropagation()}
-        className={`grid w-full max-w-lg justify-items-center gap-3 rounded-[2rem] p-8 text-center shadow-2xl motion-safe:animate-in motion-safe:zoom-in-95 ${t.card}`}
+        style={{ "--glow": glow } as React.CSSProperties}
+        className={`grid w-full max-w-lg justify-items-center gap-3 rounded-[2rem] p-8 text-center shadow-2xl motion-safe:animate-[result-glow_2.4s_ease-in-out_infinite] ${t.card}`}
       >
         <span className={`grid size-16 place-items-center rounded-full ${t.badge}`}>
           <Icon className="size-8" />
