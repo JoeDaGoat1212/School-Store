@@ -8,6 +8,7 @@ const browser = await chromium.launch();
 async function page(name, url, viewport, setup) {
   const ctx = await browser.newContext({ viewport, deviceScaleFactor: 1 });
   if (setup?.cookie) await ctx.addCookies([{ name: "fn_work", value: "preview", url: base }]);
+  if (setup?.kiosk) await ctx.addCookies([{ name: "fn_kiosk", value: "preview", url: base }]);
   const p = await ctx.newPage();
   p.on("pageerror", (e) => console.log(`[${name}] page error:`, e.message));
   p.on("console", (m) => m.type() === "error" && console.log(`[${name}] console:`, m.text()));
@@ -36,6 +37,7 @@ await page("clock-confetti", "/clock", { width: 1280, height: 860 }, {
 });
 await page("clock-manager", "/clock", { width: 1280, height: 860 }, {
   full: false,
+  kiosk: true,
   act: async (p) => {
     await p.getByRole("button", { name: "Manager" }).click();
     for (const k of ["2", "5", "8"]) await p.getByRole("button", { name: k, exact: true }).click();
