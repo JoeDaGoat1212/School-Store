@@ -64,6 +64,11 @@ export default async function AdminLayout({ children }: LayoutProps<"/admin">) {
     ? { error: true }
     : await supabase.from("settings").select("staff_max_shift_minutes").eq("id", 1).maybeSingle();
 
+  // Update 18 (store tablet lock) adds the manager code.
+  const { error: kioskMissing } = staffMissing
+    ? { error: true }
+    : await supabase.from("settings").select("kiosk_pin_hash").eq("id", 1).maybeSingle();
+
   // Database updates that haven't been run yet (their tables are missing).
   const missing = [
     ...(teachersMissing ? [{ file: "20261028000011_teachers_room_service.sql", what: "teachers, room service and combos" }] : []),
@@ -72,6 +77,7 @@ export default async function AdminLayout({ children }: LayoutProps<"/admin">) {
     ...(staffMissing ? [{ file: "20261106000015_staff_time_clock.sql", what: "the employee time clock, schedule and store credit" }] : []),
     ...(appMissing ? [{ file: "20261109000016_employee_app.sql", what: "the employee app (phone clock-in, discounts and the new credit rule)" }] : []),
     ...(autoMissing ? [{ file: "20261109000017_auto_clock_out.sql", what: "automatic clock-out after 1 hour 15 minutes" }] : []),
+    ...(kioskMissing ? [{ file: "20261109000018_kiosk_lock.sql", what: "locking the store tablet on the time clock" }] : []),
   ];
 
   // Remember whether the sidebar was collapsed last time.

@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   AlarmClockOffIcon,
   CalendarClockIcon,
@@ -23,7 +24,7 @@ import { BrandMark } from "@/components/brand-mark";
 import { brand } from "@/config/brand";
 import { formatCents, formatClock, formatTime, relativeDay, STORE_TIMEZONE, storeToday } from "@/lib/format";
 import { autoOutAt, type ClockBoard, formatMinutes, minutesBetween } from "@/lib/staff";
-import { type ClockStats, loadBoard, punch, signUp, undoPunch } from "./actions";
+import { type ClockStats, loadBoard, punch, signUp, undoPunch, unlockTablet } from "./actions";
 import { Confetti } from "./confetti";
 
 const CONFETTI = [brand.colors.primary, brand.colors.accent, "#FFD23F", "#FFFFFF"];
@@ -50,13 +51,18 @@ export function TimeClock({
   initialBoard,
   maxShiftMinutes,
   initialStats,
+  locked,
   initialError,
 }: {
   initialBoard: ClockBoard;
   maxShiftMinutes: number;
   initialStats: ClockStats;
+  /** This is the store tablet, locked on the time clock (Manager asks for the manager code). */
+  locked: boolean;
   initialError?: string;
 }) {
+  const router = useRouter();
+  const [manager, setManager] = useState(false);
   const [board, setBoard] = useState(initialBoard);
   const [limit, setLimit] = useState(maxShiftMinutes);
   const [stats, setStats] = useState(initialStats);
@@ -118,6 +124,19 @@ export function TimeClock({
       if (!typed || busy) return;
       setBusy(true);
       try {
+        if (manager) {
+          // The manager code on the locked tablet: right code → the dashboard.
+          const u = await unlockTablet(typed);
+          if (u.ok) {
+            show({ tone: "note", title: "Unlocked", lines: ["Opening the dashboard…"] });
+            router.push("/admin");
+          } else {
+            setShake((n) => n + 1);
+            show({ tone: "error", title: "Still locked", lines: [u.error ?? "That isn't the manager code."] });
+          }
+          setManager(false);
+          return;
+        }
         const r = await punch(typed);
         if ("error" in r) {
           setShake((n) => n + 1);
@@ -163,7 +182,7 @@ export function TimeClock({
         setBusy(false);
       }
     },
-    [busy, refresh, show],
+    [busy, manager, refresh, router, show],
   );
 
   const press = useCallback(
@@ -177,9 +196,9 @@ export function TimeClock({
       setCode(next);
       // PINs are 4 digits: go on our own after a short pause. (A badge scanner
       // types faster than that and keeps going, then presses Enter.)
-      if (/^\d{4}$/.test(next)) autoSubmit.current = setTimeout(() => void submit(next), 400);
+      if (!manager && /^\d{4}$/.test(next)) autoSubmit.current = setTimeout(() => void submit(next), 400);
     },
-    [busy, code, submit],
+    [busy, code, manager, submit],
   );
 
   // Typing on a keyboard, or a USB barcode scanner.
@@ -238,12 +257,28 @@ export function TimeClock({
             <p className="font-heading text-2xl font-bold tracking-wide uppercase">{brand.name}</p>
             <p className="text-sm text-white/60">Employee time clock</p>
           </div>
-          <Link
-            href="/admin/staff"
-            className="inline-flex h-10 items-center gap-2 rounded-full border border-white/15 bg-white/5 px-4 text-sm font-semibold text-white/90 backdrop-blur transition hover:bg-white/10 focus-visible:ring-3 focus-visible:ring-primary/60 focus-visible:outline-none"
-          >
-            <LockIcon className="size-4" /> Manager
-          </Link>
+          {locked ? (
+            <button
+              type="button"
+              onClick={() => {
+                setManager(!manager);
+                setCode("");
+              }}
+              aria-pressed={manager}
+              className={`inline-flex h-10 items-center gap-2 rounded-full border px-4 text-sm font-semibold backdrop-blur transition focus-visible:ring-3 focus-visible:ring-primary/60 focus-visible:outline-none ${
+                manager ? "border-primary bg-primary text-primary-foreground" : "border-white/15 bg-white/5 text-white/90 hover:bg-white/10"
+              }`}
+            >
+              <LockIcon className="size-4" /> {manager ? "Cancel" : "Manager"}
+            </button>
+          ) : (
+            <Link
+              href="/login?next=/admin"
+              className="inline-flex h-10 items-center gap-2 rounded-full border border-white/15 bg-white/5 px-4 text-sm font-semibold text-white/90 backdrop-blur transition hover:bg-white/10 focus-visible:ring-3 focus-visible:ring-primary/60 focus-visible:outline-none"
+            >
+              <LockIcon className="size-4" /> Manager
+            </Link>
+          )}
         </header>
 
         <div className="mt-5 flex flex-wrap justify-center gap-2 text-sm">
@@ -259,12 +294,12 @@ export function TimeClock({
           ))}
         </div>
 
-        <div className="mt-5 flex flex-1 flex-col items-center gap-5">
+        <div className="mt-5 flex flex-1 flex-col items-center gap-5 lg:gap-4">
           <div className="text-center">
             <p className="flex items-start justify-center font-heading leading-none font-bold tabular-nums" suppressHydrationWarning>
-              <span className="bg-gradient-to-b from-white to-white/70 bg-clip-text text-8xl text-transparent drop-shadow-[0_0_30px_rgb(255_90_31/0.35)] 2xl:text-9xl">
+              <span className="bg-gradient-to-b from-white to-white/70 bg-clip-text text-8xl text-transparent drop-shadow-[0_0_30px_rgb(255_90_31/0.35)] lg:text-7xl 2xl:text-9xl">
                 {hh}
-                <span className="motion-safe:animate-[clock-blink_1s_steps(1)_infinite]">:</span>
+                <span className="text-white/90 motion-safe:animate-[clock-blink_1s_steps(1)_infinite]">:</span>
                 {mm}
               </span>
               <span className="mt-2 ml-3 grid gap-1 text-left">
@@ -278,7 +313,8 @@ export function TimeClock({
           </div>
 
           <div className="grid justify-items-center gap-3">
-            <p className="text-lg font-semibold">Enter your PIN</p>
+            <p className={`text-lg font-semibold ${manager ? "text-primary" : ""}`}>{manager ? "Manager code" : "Enter your PIN"}</p>
+            {manager && <p className="-mt-2 text-sm text-white/60">Type your code, then Enter, to open the dashboard.</p>}
             <div key={shake} aria-live="polite" className={`flex h-8 items-center gap-4 ${shake ? "animate-[clock-shake_0.35s]" : ""}`}>
               {code.length > 6 ? (
                 <span className="font-receipt text-xl tracking-[0.3em]">{"•".repeat(Math.min(code.length, 14))}</span>
@@ -304,7 +340,7 @@ export function TimeClock({
                 disabled={busy}
                 onClick={() => press(k)}
                 aria-label={k === "clear" ? "Clear" : k === "back" ? "Delete one digit" : k}
-                className={`grid h-16 touch-manipulation 2xl:h-[4.5rem] place-items-center rounded-2xl border border-white/10 bg-white/[0.06] text-3xl font-semibold tabular-nums shadow-[inset_0_1px_0_rgb(255_255_255/0.08)] transition select-none hover:border-white/20 hover:bg-white/10 active:scale-95 active:border-primary/60 active:bg-primary/25 active:shadow-[0_0_28px_-4px_var(--primary)] focus-visible:ring-3 focus-visible:ring-primary/60 focus-visible:outline-none disabled:opacity-50 ${
+                className={`grid h-16 touch-manipulation lg:h-14 2xl:h-[4.5rem] place-items-center rounded-2xl border border-white/10 bg-white/[0.06] text-3xl font-semibold tabular-nums shadow-[inset_0_1px_0_rgb(255_255_255/0.08)] transition select-none hover:border-white/20 hover:bg-white/10 active:scale-95 active:border-primary/60 active:bg-primary/25 active:shadow-[0_0_28px_-4px_var(--primary)] focus-visible:ring-3 focus-visible:ring-primary/60 focus-visible:outline-none disabled:opacity-50 ${
                   k === "clear" ? "text-base text-white/70" : ""
                 }`}
               >

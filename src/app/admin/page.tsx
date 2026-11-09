@@ -11,6 +11,7 @@ import type { OrderStatus } from "@/lib/order-status";
 import { AutoRefresh } from "./auto-refresh";
 import { type Day, DashboardNumbers, SalesChart, type YearTotals } from "./dashboard-numbers";
 import type { Insights } from "./insights/types";
+import { LockTablet } from "./lock-tablet";
 import { LowStock } from "./low-stock";
 import { TeamToday, loadTeamToday } from "./staff/team-today";
 import { type Todo, TodoList } from "./todo-list";
@@ -46,7 +47,7 @@ export default async function DashboardPage() {
   const lastYearStart = `${Number(today.slice(0, 4)) - 1}-01-01`;
   const lastYearSameDay = `${Number(today.slice(0, 4)) - 1}${today.slice(4) === "-02-29" ? "-02-28" : today.slice(4)}`;
 
-  const [summary, trend, teachers, requests, jobs, unmatchedLines, team, thisYear, lastYear, shifts] = await Promise.all([
+  const [summary, trend, teachers, requests, jobs, unmatchedLines, team, thisYear, lastYear, shifts, kiosk] = await Promise.all([
     supabase.rpc("dashboard_summary"),
     supabase.rpc("insights", { p_from: from, p_to: today, p_bucket: "day" }),
     supabase.from("teachers").select("id", { count: "exact", head: true }).eq("status", "pending"),
@@ -63,6 +64,8 @@ export default async function DashboardPage() {
       .select("clock_in, clock_out")
       .gte("clock_in", new Date(`${lastYearStart}T00:00:00-07:00`).toISOString())
       .limit(20000),
+    // Whether a manager code for the store tablet is set (errors until database update 18).
+    supabase.from("settings").select("kiosk_pin_hash").eq("id", 1).maybeSingle(),
   ]);
   if (summary.error) throw new Error(summary.error.message);
   const s = summary.data as unknown as Summary;
@@ -153,6 +156,7 @@ export default async function DashboardPage() {
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
+          <LockTablet ready={!kiosk.error} hasPin={Boolean(kiosk.data?.kiosk_pin_hash)} />
           <Button asChild variant="outline" className="h-10 px-4">
             <Link href="/admin/imports">
               <FileUpIcon /> Import sales
