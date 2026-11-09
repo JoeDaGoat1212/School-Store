@@ -23,11 +23,18 @@ async function deviceHash() {
 
 const OFFLINE = "Couldn't reach the store database. Check the Wi-Fi and try again.";
 
-/** Who's on the clock, today's shifts and the upcoming schedule. */
-export async function loadBoard(): Promise<{ board: ClockBoard; error?: string }> {
-  const { data, error } = await createSecretClient().rpc("staff_board");
-  if (error) return { board: emptyBoard, error: missingUpdate(error.message) ?? OFFLINE };
-  return { board: data as unknown as ClockBoard };
+/** Who's on the clock, today's shifts and the upcoming schedule, plus the auto clock-out limit. */
+export async function loadBoard(): Promise<{ board: ClockBoard; maxShiftMinutes: number; error?: string }> {
+  const db = createSecretClient();
+  // End anyone past the limit first (the database also does this every minute).
+  await db.rpc("staff_auto_clock_out");
+  const [{ data, error }, { data: settings }] = await Promise.all([
+    db.rpc("staff_board"),
+    db.from("settings").select("staff_max_shift_minutes").eq("id", 1).maybeSingle(),
+  ]);
+  const maxShiftMinutes = settings?.staff_max_shift_minutes ?? 0;
+  if (error) return { board: emptyBoard, maxShiftMinutes, error: missingUpdate(error.message) ?? OFFLINE };
+  return { board: data as unknown as ClockBoard, maxShiftMinutes };
 }
 
 /** Clock in or out with a 4-digit PIN or a scanned badge. */

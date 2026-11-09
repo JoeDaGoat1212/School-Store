@@ -1,14 +1,14 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { DownloadIcon, Loader2Icon, PencilIcon, PlusIcon, Trash2Icon } from "lucide-react";
+import { AlarmClockOffIcon, DownloadIcon, Loader2Icon, PencilIcon, PlusIcon, Trash2Icon } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { formatDay, formatTime, storeToday } from "@/lib/format";
 import { formatMinutes, hoursDecimal, minutesBetween, toLocalInput } from "@/lib/staff";
-import { addShift, clockOutEveryone, clockOutShift, deleteShift, editShift } from "../actions";
+import { addShift, clockOutEveryone, clockOutShift, deleteShift, editShift, saveShiftLimit } from "../actions";
 
-type Shift = { id: string; staffId: string | null; name: string; clockIn: string; clockOut: string | null; manual: boolean; phone: boolean };
+type Shift = { id: string; staffId: string | null; name: string; clockIn: string; clockOut: string | null; manual: boolean; phone: boolean; auto: boolean };
 
 const LONG_SHIFT = 8 * 60; // longer than this usually means someone forgot to clock out
 
@@ -21,6 +21,7 @@ export function HoursTable({
   open,
   employees,
   defaultDate,
+  shiftLimit,
 }: {
   period: string;
   fileName: string;
@@ -29,6 +30,8 @@ export function HoursTable({
   open: Shift[];
   employees: { id: string; name: string }[];
   defaultDate: string;
+  /** Minutes before a shift ends on its own (0 = off; null before database update 17). */
+  shiftLimit: number | null;
 }) {
   const [busy, start] = useTransition();
   const [editing, setEditing] = useState<string | null>(null);
@@ -59,10 +62,10 @@ export function HoursTable({
 
   const download = () => {
     const q = (v: string | number) => `"${String(v).replace(/"/g, '""')}"`;
-    const lines = [["Employee", "Date", "Clock in", "Clock out", "Hours", "Minutes", "Edited by staff", "From a phone"].map(q).join(",")];
+    const lines = [["Employee", "Date", "Clock in", "Clock out", "Hours", "Minutes", "Edited by staff", "From a phone", "Auto clock-out"].map(q).join(",")];
     for (const s of [...shifts].reverse()) {
       lines.push(
-        [s.name, storeToday(new Date(s.clockIn)), formatTime(s.clockIn), s.clockOut ? formatTime(s.clockOut) : "still on", hoursDecimal(mins(s)), mins(s), s.manual ? "yes" : "", s.phone ? "yes" : ""]
+        [s.name, storeToday(new Date(s.clockIn)), formatTime(s.clockIn), s.clockOut ? formatTime(s.clockOut) : "still on", hoursDecimal(mins(s)), mins(s), s.manual ? "yes" : "", s.phone ? "yes" : "", s.auto ? "yes" : ""]
           .map(q)
           .join(","),
       );
@@ -154,6 +157,9 @@ export function HoursTable({
         )}
       </section>
 
+      {/* ---- Automatic clock-out ---- */}
+      {shiftLimit !== null && <ShiftLimit minutes={shiftLimit} busy={busy} run={run} />}
+
       {/* ---- Add a shift by hand ---- */}
       <AddShift employees={employees} defaultDate={defaultDate} busy={busy} run={run} />
 
@@ -187,6 +193,7 @@ export function HoursTable({
                         <Pill>Edited</Pill>
                       ) : null}
                       {s.phone && <Pill>Phone</Pill>}
+                      {s.auto && <Pill tone="warn">Auto clock-out</Pill>}
                     </td>
                     <td className="p-3 whitespace-nowrap">{formatDay(storeToday(new Date(s.clockIn)))}</td>
                     <td className="p-3 font-receipt whitespace-nowrap">{formatTime(s.clockIn)}</td>
@@ -231,8 +238,15 @@ export function HoursTable({
   );
 }
 
-function Pill({ tone, children }: { tone?: "good" | "bad"; children: React.ReactNode }) {
-  const colors = tone === "good" ? "bg-success/15 text-success" : tone === "bad" ? "bg-destructive/10 text-destructive" : "bg-muted text-muted-foreground";
+function Pill({ tone, children }: { tone?: "good" | "bad" | "warn"; children: React.ReactNode }) {
+  const colors =
+    tone === "good"
+      ? "bg-success/15 text-success"
+      : tone === "bad"
+        ? "bg-destructive/10 text-destructive"
+        : tone === "warn"
+          ? "bg-warning/15 text-warning"
+          : "bg-muted text-muted-foreground";
   return <span className={`ml-1 inline-block rounded-full px-2 py-0.5 text-xs font-semibold whitespace-nowrap ${colors}`}>{children}</span>;
 }
 
@@ -268,6 +282,34 @@ function EditRow({ shift, busy, onCancel, onSaved, run }: { shift: Shift; busy: 
         </span>
       </td>
     </tr>
+  );
+}
+
+function ShiftLimit({ minutes, busy, run }: { minutes: number; busy: boolean; run: Run }) {
+  const [value, setValue] = useState(String(minutes));
+  return (
+    <form
+      className="flex flex-wrap items-center gap-3 rounded-2xl border bg-card p-4 text-sm shadow-soft"
+      onSubmit={(e) => {
+        e.preventDefault();
+        run(() => saveShiftLimit(value), Number(value) > 0 ? `Shifts now end on their own after ${formatMinutes(Number(value))}` : "Automatic clock-out turned off");
+      }}
+    >
+      <AlarmClockOffIcon className="size-5 text-warning" />
+      <span className="font-semibold">Automatic clock-out after</span>
+      <input
+        aria-label="Minutes"
+        inputMode="numeric"
+        value={value}
+        onChange={(e) => setValue(e.target.value.replace(/\D/g, ""))}
+        className="h-9 w-16 rounded-lg border bg-background px-2 text-center font-receipt"
+      />
+      <span>minutes {Number(value) > 0 && <span className="text-muted-foreground">({formatMinutes(Number(value))})</span>}</span>
+      <Button type="submit" size="sm" variant="outline" disabled={busy || value === String(minutes)}>
+        Save
+      </Button>
+      <span className="w-full text-xs text-muted-foreground sm:w-auto">0 turns it off. The shift is ended at exactly that length, so a forgotten clock-out doesn&apos;t add time.</span>
+    </form>
   );
 }
 

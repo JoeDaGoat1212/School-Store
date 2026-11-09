@@ -22,6 +22,6 @@ export const viewport: Viewport = {
  */
 export default async function ClockPage() {
   await connection(); // always fresh, never built ahead of time
-  const { board, error } = await loadBoard();
-  return <TimeClock initialBoard={board} initialError={error} />;
+  const { board, maxShiftMinutes, error } = await loadBoard();
+  return <TimeClock initialBoard={board} maxShiftMinutes={maxShiftMinutes} initialError={error} />;
 }

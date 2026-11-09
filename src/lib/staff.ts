@@ -32,6 +32,8 @@ export type PunchResult =
       out: string | null;
       id: string;
       undo: string;
+      /** When they'll be clocked out automatically (clock-ins only; null if the limit is off). */
+      autoOutAt?: string | null;
       weekMinutes: number;
       discountPct: number;
       creditCents: number;
@@ -39,9 +41,31 @@ export type PunchResult =
       next: { date: string; label: string; startsAt: string } | null;
     }
   | { status: "pending"; name: string }
+  /** They'd already been clocked out automatically; this punch only tells them. The next one clocks in. */
+  | {
+      status: "auto";
+      name: string;
+      in: string;
+      out: string;
+      weekMinutes: number;
+      discountPct: number;
+      creditCents: number;
+      next: { date: string; label: string; startsAt: string } | null;
+    }
   | { error: string; code?: "LOCKED" | "NOT_FOUND" };
 
 export const emptyBoard: ClockBoard = { onClock: [], today: [], upcoming: [], signupApproval: true };
+
+/** "Auto clock-out at 9:20 AM": a shift's start plus the limit, or null when the limit is off. */
+export function autoOutAt(clockIn: string, maxMinutes: number) {
+  return maxMinutes > 0 ? new Date(new Date(clockIn).getTime() + maxMinutes * 60000).toISOString() : null;
+}
+
+/** Two-letter initials for a name: "Maya R" → "MR". */
+export function initials(name: string) {
+  const parts = name.trim().split(/\s+/);
+  return ((parts[0]?.[0] ?? "") + (parts.length > 1 ? (parts[parts.length - 1]?.[0] ?? "") : (parts[0]?.[1] ?? ""))).toUpperCase();
+}
 
 /** 135 → "2h 15m", 40 → "40m" */
 export function formatMinutes(minutes: number) {
@@ -107,6 +131,8 @@ export function nextReward(weekMinutes: number, rule: CreditRule) {
 export type PortalData = {
   id: string;
   name: string;
+  /** The automatic clock-out limit in minutes (0 = off). Added by the website, not the database. */
+  maxShiftMinutes: number;
   open: { id: string; in: string; source: string } | null;
   weekMinutes: number;
   discountPct: number;

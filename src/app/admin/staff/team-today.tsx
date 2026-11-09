@@ -3,6 +3,7 @@ import { ArrowRightIcon } from "lucide-react";
 import type { requireAdmin } from "@/lib/auth";
 import { formatClock, formatTime } from "@/lib/format";
 import { formatMinutes, minutesBetween } from "@/lib/staff";
+import { Avatar } from "@/components/staff/avatar";
 import { ClockOutButton } from "./clock-out-button";
 import { LiveShifts } from "./live-shifts";
 
@@ -72,8 +73,8 @@ export function TeamToday({ team }: { team: TeamToday }) {
           ) : (
             <ul className="grid gap-1.5">
               {team.onClock.map((p) => (
-                <li key={p.id} className="flex items-center gap-2 text-sm">
-                  <span aria-hidden className="size-2 rounded-full bg-success" />
+                <li key={p.id} className="flex items-center gap-2.5 text-sm">
+                  <Avatar name={p.name} size={30} ring="on" />
                   <span className="min-w-0 flex-1 truncate font-semibold">{p.name}</span>
                   <span className="text-muted-foreground">
                     since {formatTime(p.in)} · {formatMinutes(minutesBetween(p.in, null, team.now))}

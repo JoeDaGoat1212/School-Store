@@ -185,6 +185,17 @@ export async function addShift(staffId: string, clockIn: string, clockOut: strin
   return error ? problem(error.message) : done();
 }
 
+/** Ends shifts automatically after this many minutes (0 = never). */
+export async function saveShiftLimit(minutes: string): Promise<Result> {
+  const { supabase } = await requireAdmin();
+  const m = Number.parseInt(minutes, 10);
+  if (!Number.isInteger(m) || m < 0 || m > 720) return { error: "Enter minutes from 0 (off) to 720." };
+  const { error } = await supabase.from("settings").update({ staff_max_shift_minutes: m, updated_at: new Date().toISOString() }).eq("id", 1);
+  if (error) return problem(error.message);
+  await supabase.rpc("staff_auto_clock_out");
+  return done();
+}
+
 /* ------------------------------------------------------------ store credit */
 
 /** Record credit an employee used at the window, or add some by hand. */

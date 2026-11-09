@@ -59,6 +59,11 @@ export default async function AdminLayout({ children }: LayoutProps<"/admin">) {
     ? { error: true }
     : await supabase.from("staff_sessions").select("token_hash", { count: "exact", head: true });
 
+  // Update 17 (automatic clock-out) adds a setting.
+  const { error: autoMissing } = staffMissing
+    ? { error: true }
+    : await supabase.from("settings").select("staff_max_shift_minutes").eq("id", 1).maybeSingle();
+
   // Database updates that haven't been run yet (their tables are missing).
   const missing = [
     ...(teachersMissing ? [{ file: "20261028000011_teachers_room_service.sql", what: "teachers, room service and combos" }] : []),
@@ -66,6 +71,7 @@ export default async function AdminLayout({ children }: LayoutProps<"/admin">) {
     ...(jobsMissing ? [{ file: "20261029000013_city_game.sql", what: "the 3D city game (jobs, money, ID cards)" }] : []),
     ...(staffMissing ? [{ file: "20261106000015_staff_time_clock.sql", what: "the employee time clock, schedule and store credit" }] : []),
     ...(appMissing ? [{ file: "20261109000016_employee_app.sql", what: "the employee app (phone clock-in, discounts and the new credit rule)" }] : []),
+    ...(autoMissing ? [{ file: "20261109000017_auto_clock_out.sql", what: "automatic clock-out after 1 hour 15 minutes" }] : []),
   ];
 
   // Remember whether the sidebar was collapsed last time.

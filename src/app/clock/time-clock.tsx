@@ -2,32 +2,50 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { CalendarClockIcon, DeleteIcon, Loader2Icon, LockIcon, type LucideIcon, TimerIcon, UserPlusIcon } from "lucide-react";
+import {
+  AlarmClockOffIcon,
+  CalendarClockIcon,
+  CheckIcon,
+  CircleAlertIcon,
+  DeleteIcon,
+  Loader2Icon,
+  LockIcon,
+  LogInIcon,
+  LogOutIcon,
+  type LucideIcon,
+  SmartphoneIcon,
+  SparklesIcon,
+  TimerIcon,
+  UserPlusIcon,
+} from "lucide-react";
+import { Avatar } from "@/components/staff/avatar";
 import { BrandMark } from "@/components/brand-mark";
 import { brand } from "@/config/brand";
 import { formatCents, formatClock, formatTime, relativeDay, STORE_TIMEZONE, storeToday } from "@/lib/format";
-import { type ClockBoard, formatMinutes, minutesBetween } from "@/lib/staff";
+import { autoOutAt, type ClockBoard, formatMinutes, minutesBetween } from "@/lib/staff";
 import { loadBoard, punch, signUp, undoPunch } from "./actions";
 
 /*
- * The time clock screen: a big keypad on the left, who's working and the
- * schedule on the right. Built for a tablet on the counter, but a laptop works
- * too: type the PIN on the keyboard, or plug in a USB barcode scanner and scan
- * a student ID (the scanner "types" the number and presses Enter).
+ * The time clock screen. Left: the clock and a big keypad (dark, like a
+ * register). Right: who's working, who's up next, and who's done today.
+ * Built for a tablet on the counter; a laptop works too (type the PIN, or
+ * scan a student ID with a USB barcode scanner, which types it and presses Enter).
  */
 
 type Result = {
-  tone: "in" | "out" | "note" | "error";
+  tone: "in" | "out" | "auto" | "note" | "error";
   title: string;
   name?: string;
   lines: string[];
+  stats?: { label: string; value: string }[];
   undo?: { id: string; token: string };
 };
 
 const KEYS = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "clear", "0", "back"] as const;
 
-export function TimeClock({ initialBoard, initialError }: { initialBoard: ClockBoard; initialError?: string }) {
+export function TimeClock({ initialBoard, maxShiftMinutes, initialError }: { initialBoard: ClockBoard; maxShiftMinutes: number; initialError?: string }) {
   const [board, setBoard] = useState(initialBoard);
+  const [limit, setLimit] = useState(maxShiftMinutes);
   const [boardError, setBoardError] = useState(initialError);
   const [code, setCode] = useState("");
   const [busy, setBusy] = useState(false);
@@ -41,12 +59,13 @@ export function TimeClock({ initialBoard, initialError }: { initialBoard: ClockB
   const refresh = useCallback(async () => {
     const r = await loadBoard();
     setBoard(r.board);
+    setLimit(r.maxShiftMinutes);
     setBoardError(r.error);
   }, []);
 
-  // The clock ticks, and the board refreshes every 20 seconds while the screen is showing.
+  // The clock ticks; the board refreshes every 20 seconds while the screen is showing.
   useEffect(() => {
-    const tick = setInterval(() => setNow(new Date()), 10_000);
+    const tick = setInterval(() => setNow(new Date()), 5_000);
     const poll = setInterval(() => {
       if (document.visibilityState === "visible") void refresh();
     }, 20_000);
@@ -71,7 +90,7 @@ export function TimeClock({ initialBoard, initialError }: { initialBoard: ClockB
     setResult(r);
     beep(r.tone);
     if (hideTimer.current) clearTimeout(hideTimer.current);
-    hideTimer.current = setTimeout(() => setResult(null), r.undo ? 7000 : 4500);
+    hideTimer.current = setTimeout(() => setResult(null), r.undo ? 7000 : r.tone === "auto" ? 8000 : 5000);
   }, []);
 
   const submit = useCallback(
@@ -89,22 +108,38 @@ export function TimeClock({ initialBoard, initialError }: { initialBoard: ClockB
         } else if (r.status === "pending") {
           show({ tone: "note", title: "Almost there", name: r.name, lines: ["Your account is waiting for a manager to approve it. Ask them, then try again."] });
         } else {
+          const stats = [
+            { label: "This week", value: formatMinutes(r.weekMinutes) },
+            { label: "Discount", value: `${r.discountPct ?? 0}% off` },
+            { label: "Store credit", value: formatCents(r.creditCents) },
+          ];
           const next = r.next ? `Next shift: ${relativeDay(r.next.date)}, ${r.next.label} (${formatClock(r.next.startsAt)})` : null;
-          const credit = `Employee discount: ${r.discountPct ?? 0}% off · Store credit: ${formatCents(r.creditCents)}`;
-          show({
-            tone: r.status,
-            title: r.status === "in" ? "Clocked in" : "Clocked out",
-            name: r.name,
-            lines: [
-              r.status === "in"
-                ? `Started at ${formatTime(r.in)}. Have a good shift!`
-                : `Worked ${formatMinutes(minutesBetween(r.in, r.out))} · ${formatTime(r.in)} to ${formatTime(r.out ?? r.in)}`,
-              `This week: ${formatMinutes(r.weekMinutes)}`,
-              credit,
-              ...(next ? [next] : []),
-            ],
-            undo: { id: r.id, token: r.undo },
-          });
+          if (r.status === "auto") {
+            show({
+              tone: "auto",
+              title: "Already clocked out",
+              name: r.name,
+              lines: [
+                `You were clocked out automatically at ${formatTime(r.out)}, after ${formatMinutes(minutesBetween(r.in, r.out))}.`,
+                "Starting a new shift? Type your PIN again.",
+              ],
+              stats,
+            });
+          } else {
+            show({
+              tone: r.status,
+              title: r.status === "in" ? "Clocked in" : "Clocked out",
+              name: r.name,
+              lines: [
+                r.status === "in"
+                  ? `Started at ${formatTime(r.in)}.${r.autoOutAt ? ` You'll be clocked out automatically at ${formatTime(r.autoOutAt)}.` : ""}`
+                  : `Worked ${formatMinutes(minutesBetween(r.in, r.out))} · ${formatTime(r.in)} to ${formatTime(r.out ?? r.in)}`,
+                ...(next ? [next] : []),
+              ],
+              stats,
+              undo: { id: r.id, token: r.undo },
+            });
+          }
         }
         void refresh();
       } finally {
@@ -162,53 +197,58 @@ export function TimeClock({ initialBoard, initialError }: { initialBoard: ClockB
     void refresh();
   };
 
+  const time = now.toLocaleTimeString("en-US", { timeZone: STORE_TIMEZONE, hour: "numeric", minute: "2-digit" });
+  const [clockDigits, ampm] = time.split(" ");
+
   return (
-    <div className="flex min-h-svh flex-col bg-muted/40">
-      <header className="flex flex-wrap items-center justify-between gap-3 border-b bg-background px-4 py-3 sm:px-6">
-        <div className="flex items-center gap-3">
+    <div className="grid min-h-svh lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+      {/* ================= Keypad side ================= */}
+      <section aria-label="Clock in or out" className="relative isolate flex flex-col overflow-hidden bg-neutral-950 px-5 pt-5 pb-8 text-white sm:px-8">
+        <div aria-hidden className="pointer-events-none absolute -top-40 left-1/2 -z-10 size-[42rem] -translate-x-1/2 rounded-full bg-primary/25 blur-3xl" />
+        <div aria-hidden className="pointer-events-none absolute -bottom-48 -left-24 -z-10 size-[30rem] rounded-full bg-teal/20 blur-3xl" />
+
+        <header className="flex items-center gap-3">
           <BrandMark size={40} />
-          <div className="leading-tight">
+          <div className="min-w-0 flex-1 leading-tight">
             <p className="font-heading text-2xl font-bold tracking-wide uppercase">{brand.name}</p>
-            <p className="text-sm text-muted-foreground">Employee time clock</p>
+            <p className="text-sm text-white/60">Employee time clock</p>
           </div>
-        </div>
-        <div className="flex items-center gap-3">
-          {boardError && <p className="max-w-md text-sm font-semibold text-destructive">{boardError}</p>}
           <Link
             href="/admin/staff"
-            className="inline-flex h-10 items-center gap-2 rounded-full border bg-background px-4 text-sm font-semibold hover:bg-muted focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
+            className="inline-flex h-10 items-center gap-2 rounded-full border border-white/15 bg-white/5 px-4 text-sm font-semibold text-white/90 backdrop-blur transition hover:bg-white/10 focus-visible:ring-3 focus-visible:ring-primary/60 focus-visible:outline-none"
           >
             <LockIcon className="size-4" /> Manager
           </Link>
-        </div>
-      </header>
+        </header>
 
-      <main className="mx-auto grid w-full max-w-6xl flex-1 gap-6 p-4 sm:p-6 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)]">
-        {/* ---- Keypad ---- */}
-        <section aria-label="Clock in or out" className="flex flex-col items-center gap-5 rounded-3xl border bg-card p-6 shadow-soft">
+        <div className="mt-8 flex flex-1 flex-col items-center gap-6">
           <div className="text-center">
-            <p className="font-heading text-7xl leading-none font-bold tabular-nums sm:text-8xl" suppressHydrationWarning>
-              {now.toLocaleTimeString("en-US", { timeZone: STORE_TIMEZONE, hour: "numeric", minute: "2-digit" })}
+            <p className="font-heading leading-none font-bold tabular-nums" suppressHydrationWarning>
+              <span className="text-8xl sm:text-9xl">{clockDigits}</span>
+              <span className="ml-2 text-3xl text-white/60 sm:text-4xl">{ampm}</span>
             </p>
-            <p className="mt-2 font-medium text-muted-foreground" suppressHydrationWarning>
+            <p className="mt-3 text-lg font-medium text-white/70" suppressHydrationWarning>
               {now.toLocaleDateString("en-US", { timeZone: STORE_TIMEZONE, weekday: "long", month: "long", day: "numeric" })}
             </p>
           </div>
 
-          <div className="text-center">
-            <p className="text-lg font-bold">Enter your PIN</p>
-            <p className="text-sm text-muted-foreground">or scan your student ID</p>
-          </div>
-
-          <div key={shake} aria-live="polite" className={`flex h-8 items-center gap-3 ${shake ? "animate-[clock-shake_0.35s]" : ""}`}>
-            {code.length > 6 ? (
-              <span className="font-receipt text-xl tracking-[0.3em]">{"•".repeat(Math.min(code.length, 14))}</span>
-            ) : (
-              Array.from({ length: Math.max(4, code.length) }, (_, i) => (
-                <span key={i} className={`size-5 rounded-full border-[2.5px] ${i < code.length ? "border-foreground bg-foreground" : "border-muted-foreground"}`} />
-              ))
-            )}
-            <span className="sr-only">{code.length} digits typed</span>
+          <div className="grid justify-items-center gap-3">
+            <p className="text-lg font-semibold">Enter your PIN</p>
+            <div key={shake} aria-live="polite" className={`flex h-8 items-center gap-4 ${shake ? "animate-[clock-shake_0.35s]" : ""}`}>
+              {code.length > 6 ? (
+                <span className="font-receipt text-xl tracking-[0.3em]">{"•".repeat(Math.min(code.length, 14))}</span>
+              ) : (
+                Array.from({ length: Math.max(4, code.length) }, (_, i) => (
+                  <span
+                    key={i}
+                    className={`size-4 rounded-full transition-all duration-150 ${
+                      i < code.length ? "scale-110 bg-primary shadow-[0_0_16px_var(--primary)]" : "border-2 border-white/30"
+                    }`}
+                  />
+                ))
+              )}
+              <span className="sr-only">{code.length} digits typed</span>
+            </div>
           </div>
 
           <div className="grid w-full max-w-sm grid-cols-3 gap-3">
@@ -219,8 +259,8 @@ export function TimeClock({ initialBoard, initialError }: { initialBoard: ClockB
                 disabled={busy}
                 onClick={() => press(k)}
                 aria-label={k === "clear" ? "Clear" : k === "back" ? "Delete one digit" : k}
-                className={`grid h-18 touch-manipulation place-items-center rounded-2xl border bg-background text-3xl font-bold tabular-nums transition select-none hover:bg-muted active:scale-95 focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none disabled:opacity-60 ${
-                  k === "clear" ? "text-base font-semibold text-muted-foreground" : ""
+                className={`grid h-[4.5rem] touch-manipulation place-items-center rounded-2xl border border-white/10 bg-white/[0.06] text-3xl font-semibold tabular-nums shadow-[inset_0_1px_0_rgb(255_255_255/0.08)] transition select-none hover:bg-white/10 active:scale-95 active:bg-white/20 focus-visible:ring-3 focus-visible:ring-primary/60 focus-visible:outline-none disabled:opacity-50 ${
+                  k === "clear" ? "text-base text-white/70" : ""
                 }`}
               >
                 {k === "clear" ? "Clear" : k === "back" ? <DeleteIcon className="size-7" /> : k}
@@ -231,31 +271,42 @@ export function TimeClock({ initialBoard, initialError }: { initialBoard: ClockB
             type="button"
             disabled={busy || code.length === 0}
             onClick={() => press("enter")}
-            className="flex h-16 w-full max-w-sm items-center justify-center gap-2 rounded-2xl bg-primary font-heading text-3xl font-bold tracking-wide text-primary-foreground uppercase transition hover:bg-primary/85 active:scale-[0.98] disabled:opacity-50"
+            className="flex h-16 w-full max-w-sm items-center justify-center gap-2 rounded-2xl bg-primary font-heading text-3xl font-bold tracking-wide text-primary-foreground uppercase shadow-[0_10px_40px_-8px_var(--primary)] transition hover:brightness-110 active:scale-[0.98] focus-visible:ring-3 focus-visible:ring-white/60 focus-visible:outline-none disabled:opacity-40 disabled:shadow-none"
           >
             {busy ? <Loader2Icon className="size-7 animate-spin" /> : "Enter"}
           </button>
 
-          <p className="max-w-xs text-center text-sm text-muted-foreground">
-            The same PIN clocks you in and out. Tap Undo if you hit it by mistake. On your phone? Open <strong>/work</strong> on this site to get the app.
+          <p className="max-w-xs text-center text-sm text-white/60">
+            The same PIN clocks you in and out.
+            {limit > 0 && ` Shifts end on their own after ${formatMinutes(limit)}.`}
           </p>
 
-          <button
-            type="button"
-            onClick={() => setSignupOpen(true)}
-            className="mt-auto flex w-full max-w-sm items-center justify-center gap-2 rounded-2xl border-2 border-dashed px-4 py-3 font-semibold hover:border-primary focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
-          >
-            <UserPlusIcon className="size-5" /> New here? Create account
-          </button>
-        </section>
-
-        {/* ---- Who's working ---- */}
-        <div className="grid content-start gap-6">
-          <OnClock board={board} now={now} />
-          <Upcoming board={board} />
-          <TodayDone board={board} />
+          <div className="mt-auto grid w-full max-w-sm gap-2 pt-2">
+            <button
+              type="button"
+              onClick={() => setSignupOpen(true)}
+              className="flex items-center justify-center gap-2 rounded-2xl border border-dashed border-white/25 px-4 py-3 font-semibold text-white/90 transition hover:border-primary hover:text-white focus-visible:ring-3 focus-visible:ring-primary/60 focus-visible:outline-none"
+            >
+              <UserPlusIcon className="size-5" /> New here? Create account
+            </button>
+            <p className="flex items-center justify-center gap-1.5 text-xs text-white/50">
+              <SmartphoneIcon className="size-3.5" /> Clock in from your phone: open <strong className="text-white/70">/work</strong> on the store site
+            </p>
+          </div>
         </div>
-      </main>
+      </section>
+
+      {/* ================= Who's working ================= */}
+      <div className="grid content-start gap-5 bg-muted/50 p-5 sm:p-8">
+        {boardError && (
+          <p role="alert" className="flex items-start gap-2 rounded-2xl border border-destructive/30 bg-destructive/5 p-4 text-sm font-semibold text-destructive">
+            <CircleAlertIcon className="mt-0.5 size-4 shrink-0" /> {boardError}
+          </p>
+        )}
+        <OnClock board={board} now={now} limit={limit} />
+        <Upcoming board={board} />
+        <TodayDone board={board} />
+      </div>
 
       {result && <ResultCard result={result} onClose={() => setResult(null)} onUndo={doUndo} />}
       {signupOpen && (
@@ -276,36 +327,66 @@ export function TimeClock({ initialBoard, initialError }: { initialBoard: ClockB
 
 /* ---------------------------------------------------------------- boards */
 
-function Panel({ title, icon: Icon, aside, children }: { title: string; icon: LucideIcon; aside?: string; children: React.ReactNode }) {
+function Panel({ title, icon: Icon, aside, children }: { title: string; icon: LucideIcon; aside?: React.ReactNode; children: React.ReactNode }) {
   return (
     <section className="rounded-3xl border bg-card p-5 shadow-soft">
-      <div className="mb-3 flex items-baseline justify-between gap-3">
-        <h2 className="flex items-center gap-2 font-heading text-2xl font-bold tracking-wide uppercase">
-          <Icon className="size-5 text-ember-ink" /> {title}
+      <div className="mb-4 flex items-center justify-between gap-3">
+        <h2 className="flex items-center gap-2.5 font-heading text-xl font-bold tracking-wide uppercase">
+          <span className="grid size-8 place-items-center rounded-xl bg-primary/10 text-ember-ink">
+            <Icon className="size-4.5" />
+          </span>
+          {title}
         </h2>
-        {aside && <span className="font-receipt text-sm text-muted-foreground">{aside}</span>}
+        {aside}
       </div>
       {children}
     </section>
   );
 }
 
-function OnClock({ board, now }: { board: ClockBoard; now: Date }) {
+function OnClock({ board, now, limit }: { board: ClockBoard; now: Date; limit: number }) {
   const people = board.onClock;
   return (
-    <Panel title="On the clock" icon={TimerIcon} aside={`${people.length} ${people.length === 1 ? "person" : "people"}`}>
+    <Panel
+      title="On the clock"
+      icon={TimerIcon}
+      aside={
+        <span className={`rounded-full px-3 py-1 text-sm font-bold ${people.length ? "bg-success/15 text-success" : "bg-muted text-muted-foreground"}`}>
+          {people.length} {people.length === 1 ? "person" : "people"}
+        </span>
+      }
+    >
       {people.length === 0 ? (
-        <p className="text-muted-foreground">Nobody is clocked in right now.</p>
+        <p className="rounded-2xl border border-dashed p-6 text-center text-muted-foreground">Nobody is clocked in right now.</p>
       ) : (
-        <ul className="divide-y divide-dashed">
-          {people.map((p) => (
-            <li key={`${p.name}-${p.in}`} className="flex items-center gap-3 py-2.5">
-              <span aria-hidden className="size-2.5 shrink-0 rounded-full bg-success ring-4 ring-success/20" />
-              <span className="min-w-0 flex-1 truncate font-semibold">{p.name}</span>
-              <span className="text-sm text-muted-foreground">since {formatTime(p.in)}</span>
-              <span className="w-16 text-right font-receipt font-bold tabular-nums">{formatMinutes(minutesBetween(p.in, null, now.getTime()))}</span>
-            </li>
-          ))}
+        <ul className="grid gap-2">
+          {people.map((p) => {
+            const mins = minutesBetween(p.in, null, now.getTime());
+            const out = autoOutAt(p.in, limit);
+            const pct = limit > 0 ? Math.min(100, (mins / limit) * 100) : 0;
+            return (
+              <li key={`${p.name}-${p.in}`} className="flex items-center gap-3 rounded-2xl bg-muted/50 p-3">
+                <Avatar name={p.name} size={40} ring="on" />
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-baseline justify-between gap-2">
+                    <span className="truncate font-semibold">{p.name}</span>
+                    <span className="font-receipt font-bold tabular-nums">{formatMinutes(mins)}</span>
+                  </div>
+                  <div className="mt-1.5 flex items-center gap-2 text-xs text-muted-foreground">
+                    <span className="shrink-0">in {formatTime(p.in)}</span>
+                    {out && (
+                      <>
+                        <span aria-hidden className="h-1.5 flex-1 overflow-hidden rounded-full bg-background">
+                          <span className={`block h-full rounded-full ${pct > 85 ? "bg-warning" : "bg-success"}`} style={{ width: `${Math.max(4, pct)}%` }} />
+                        </span>
+                        <span className="shrink-0">out {formatTime(out)}</span>
+                      </>
+                    )}
+                  </div>
+                </div>
+              </li>
+            );
+          })}
         </ul>
       )}
     </Panel>
@@ -325,26 +406,40 @@ function Upcoming({ board }: { board: ClockBoard }) {
     day.set(key, hour);
     days.set(u.date, day);
   }
-  const shown = [...days.entries()].slice(0, 5);
+  const shown = [...days.entries()].slice(0, 4);
+  const onNow = new Set(board.onClock.map((p) => p.name));
 
   return (
-    <Panel title="Upcoming shifts" icon={CalendarClockIcon}>
+    <Panel title="Up next" icon={CalendarClockIcon}>
       {shown.length === 0 ? (
-        <p className="text-muted-foreground">Nothing on the schedule yet.</p>
+        <p className="rounded-2xl border border-dashed p-6 text-center text-muted-foreground">Nothing on the schedule yet.</p>
       ) : (
-        <div className="grid gap-4">
+        <div className="grid gap-5">
           {shown.map(([date, hours]) => (
             <div key={date}>
-              <p className={`mb-1.5 text-sm font-bold tracking-wide uppercase ${date === today ? "text-ember-ink" : "text-muted-foreground"}`}>{relativeDay(date, today)}</p>
-              <ul className="grid gap-1.5">
+              <p className={`mb-2 text-xs font-bold tracking-widest uppercase ${date === today ? "text-ember-ink" : "text-muted-foreground"}`}>{relativeDay(date, today)}</p>
+              <ol className="relative grid gap-2 border-l-2 border-dashed border-border pl-4">
                 {[...hours.values()].map((h) => (
-                  <li key={h.label} className="flex flex-wrap items-baseline gap-x-3 gap-y-0.5 rounded-xl bg-muted/60 px-3 py-2">
-                    <span className="w-20 shrink-0 font-semibold">{h.label}</span>
-                    <span className="w-16 shrink-0 font-receipt text-sm text-muted-foreground">{formatClock(h.startsAt)}</span>
-                    <span className="min-w-0 flex-1">{h.names.join(", ")}</span>
+                  <li key={h.label} className="relative">
+                    <span aria-hidden className="absolute top-3 -left-[1.4rem] size-2.5 rounded-full border-2 border-background bg-primary" />
+                    <div className="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-2xl bg-muted/50 px-3 py-2.5">
+                      <span className="w-16 shrink-0">
+                        <span className="block text-sm font-bold">{h.label}</span>
+                        <span className="block font-receipt text-xs text-muted-foreground">{formatClock(h.startsAt)}</span>
+                      </span>
+                      <span className="flex min-w-0 flex-1 flex-wrap gap-1.5">
+                        {h.names.map((n) => (
+                          <span key={n} className="inline-flex items-center gap-1.5 rounded-full border bg-background py-0.5 pr-2.5 pl-0.5 text-sm font-medium">
+                            <Avatar name={n} size={22} />
+                            {n}
+                            {date === today && onNow.has(n) && <CheckIcon className="size-3.5 text-success" aria-label="clocked in" />}
+                          </span>
+                        ))}
+                      </span>
+                    </div>
                   </li>
                 ))}
-              </ul>
+              </ol>
             </div>
           ))}
         </div>
@@ -357,10 +452,11 @@ function TodayDone({ board }: { board: ClockBoard }) {
   if (board.today.length === 0) return null;
   const total = board.today.reduce((t, s) => t + minutesBetween(s.in, s.out), 0);
   return (
-    <Panel title="Done today" icon={TimerIcon} aside={`${formatMinutes(total)} worked`}>
+    <Panel title="Done today" icon={CheckIcon} aside={<span className="font-receipt text-sm text-muted-foreground">{formatMinutes(total)} worked</span>}>
       <ul className="divide-y divide-dashed">
         {board.today.slice(0, 8).map((s) => (
           <li key={`${s.name}-${s.in}`} className="flex items-center gap-3 py-2 text-sm">
+            <Avatar name={s.name} size={28} />
             <span className="min-w-0 flex-1 truncate font-semibold">{s.name}</span>
             <span className="text-muted-foreground">
               {formatTime(s.in)} – {formatTime(s.out)}
@@ -375,36 +471,57 @@ function TodayDone({ board }: { board: ClockBoard }) {
 
 /* ---------------------------------------------------------------- result */
 
+const TONES: Record<Result["tone"], { card: string; icon: LucideIcon; badge: string }> = {
+  in: { card: "bg-success text-white", icon: LogInIcon, badge: "bg-white/20" },
+  out: { card: "bg-neutral-900 text-white", icon: LogOutIcon, badge: "bg-primary text-primary-foreground" },
+  auto: { card: "bg-card text-foreground border-2 border-warning", icon: AlarmClockOffIcon, badge: "bg-warning/15 text-warning" },
+  note: { card: "bg-card text-foreground border-2 border-success", icon: SparklesIcon, badge: "bg-success/15 text-success" },
+  error: { card: "bg-card text-foreground border-2 border-destructive", icon: CircleAlertIcon, badge: "bg-destructive/10 text-destructive" },
+};
+
 function ResultCard({ result, onClose, onUndo }: { result: Result; onClose: () => void; onUndo: (u: { id: string; token: string }) => void }) {
-  const colors =
-    result.tone === "in"
-      ? "bg-success text-white"
-      : result.tone === "out"
-        ? "bg-destructive text-white"
-        : result.tone === "error"
-          ? "border-2 border-destructive bg-card text-foreground"
-          : "border-2 border-success bg-card text-foreground";
+  const t = TONES[result.tone];
+  const Icon = t.icon;
+  const light = result.tone === "in" || result.tone === "out";
   return (
-    <div className="fixed inset-0 z-50 grid place-items-center bg-background/70 p-6 backdrop-blur-sm" onClick={onClose}>
+    <div className="fixed inset-0 z-50 grid place-items-center bg-neutral-950/60 p-6 backdrop-blur-sm" onClick={onClose}>
       <div
         role="status"
         onClick={(e) => e.stopPropagation()}
-        className={`grid w-full max-w-lg gap-2 rounded-3xl p-8 text-center shadow-2xl motion-safe:animate-in motion-safe:zoom-in-95 ${colors}`}
+        className={`grid w-full max-w-lg justify-items-center gap-3 rounded-[2rem] p-8 text-center shadow-2xl motion-safe:animate-in motion-safe:zoom-in-95 ${t.card}`}
       >
-        <p className="font-heading text-6xl leading-none font-bold tracking-wide uppercase">{result.title}</p>
+        <span className={`grid size-16 place-items-center rounded-full ${t.badge}`}>
+          <Icon className="size-8" />
+        </span>
+        <p className="font-heading text-5xl leading-none font-bold tracking-wide uppercase sm:text-6xl">{result.title}</p>
         {result.name && <p className="text-2xl font-bold">{result.name}</p>}
         {result.lines.map((l, i) => (
-          <p key={i} className={i === 0 ? "text-lg" : "text-base opacity-90"}>
+          <p key={i} className={i === 0 ? "text-lg" : "text-base opacity-85"}>
             {l}
           </p>
         ))}
+        {result.stats && (
+          <dl className="mt-2 grid w-full grid-cols-3 gap-2">
+            {result.stats.map((s) => (
+              <div key={s.label} className={`rounded-2xl px-2 py-3 ${light ? "bg-white/10" : "bg-muted"}`}>
+                <dt className="text-xs font-semibold tracking-wide uppercase opacity-75">{s.label}</dt>
+                <dd className="mt-0.5 font-heading text-xl font-bold tabular-nums">{s.value}</dd>
+              </div>
+            ))}
+          </dl>
+        )}
         <div className="mt-3 flex flex-wrap justify-center gap-3">
           {result.undo && (
-            <button type="button" onClick={() => onUndo(result.undo!)} className="rounded-full border-2 border-current px-5 py-2.5 font-bold">
+            <button type="button" onClick={() => onUndo(result.undo!)} className="rounded-full border-2 border-current px-6 py-2.5 font-bold opacity-90 hover:opacity-100">
               Undo
             </button>
           )}
-          <button type="button" autoFocus onClick={onClose} className="rounded-full border-2 border-current px-5 py-2.5 font-bold">
+          <button
+            type="button"
+            autoFocus
+            onClick={onClose}
+            className={`rounded-full px-6 py-2.5 font-bold ${light ? "bg-white text-neutral-950" : "bg-foreground text-background"}`}
+          >
             Done
           </button>
         </div>
@@ -448,30 +565,35 @@ function SignUp({ approval, onClose, onDone }: { approval: boolean; onClose: () 
       title: r.pending ? "Account made" : "You're all set",
       name: r.name,
       lines: r.pending
-        ? ["A manager needs to approve you before your first clock-in.", "Remember your PIN!"]
-        : ["Type your PIN on the keypad to clock in.", "Remember your PIN!"],
+        ? ["A manager needs to approve you before your first clock-in.", "Remember your PIN! You'll also use it to sign in to the app at /work."]
+        : ["Type your PIN on the keypad to clock in.", "Remember your PIN! You'll also use it to sign in to the app at /work."],
     });
   };
 
   const field = "h-12 w-full rounded-xl border bg-background px-3 text-lg outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50";
 
   return (
-    <div className="fixed inset-0 z-50 grid place-items-center overflow-y-auto bg-background/70 p-4 backdrop-blur-sm" onClick={onClose}>
+    <div className="fixed inset-0 z-50 grid place-items-center overflow-y-auto bg-neutral-950/60 p-4 backdrop-blur-sm" onClick={onClose}>
       <form
         onSubmit={submit}
         onClick={(e) => e.stopPropagation()}
         onKeyDown={(e) => e.key === "Escape" && onClose()}
-        className="grid w-full max-w-md gap-4 rounded-3xl border bg-card p-6 shadow-2xl"
+        className="grid w-full max-w-md gap-4 rounded-[2rem] border bg-card p-6 shadow-2xl sm:p-8"
         aria-labelledby="signup-title"
       >
-        <div>
-          <h2 id="signup-title" className="font-heading text-3xl font-bold tracking-wide uppercase">
-            Create your account
-          </h2>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Pick a 4-digit PIN you&apos;ll remember. You type it every time you clock in and out.
-            {approval && " A manager approves new accounts."}
-          </p>
+        <div className="flex items-start gap-3">
+          <span className="grid size-12 shrink-0 place-items-center rounded-2xl bg-primary/15 text-ember-ink">
+            <UserPlusIcon className="size-6" />
+          </span>
+          <div>
+            <h2 id="signup-title" className="font-heading text-3xl font-bold tracking-wide uppercase">
+              Create your account
+            </h2>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Pick a 4-digit PIN you&apos;ll remember. You type it every time you clock in and out.
+              {approval && " A manager approves new accounts."}
+            </p>
+          </div>
         </div>
         <label className="grid gap-1.5 text-sm font-semibold">
           Your name
@@ -503,7 +625,7 @@ function SignUp({ approval, onClose, onDone }: { approval: boolean; onClose: () 
             />
           </label>
         </div>
-        <button type="button" onClick={suggest} className="justify-self-start text-sm font-semibold text-muted-foreground underline underline-offset-4">
+        <button type="button" onClick={suggest} className="justify-self-start text-sm font-semibold text-ember-ink underline underline-offset-4">
           Pick a PIN for me
         </button>
         <label className="grid gap-1.5 text-sm font-semibold">

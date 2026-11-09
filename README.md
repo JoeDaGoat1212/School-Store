@@ -330,7 +330,12 @@ Managing it, in the **Team** menu of the staff dashboard:
 - **Schedule** puts people on a class hour (the 1st–7th hour from **Settings → Class hours**) for each school day.
   **Copy last week into this week** saves retyping. The time clock, the app and the dashboard show upcoming shifts.
 - **Timecards** lists every shift: fix a forgotten clock-out, add a missed shift, clock everyone out at closing, and
-  download a CSV for payroll. Shifts over 8 hours get a "Check" tag. It updates live when anyone clocks in or out.
+  download a CSV for payroll. It updates live when anyone clocks in or out.
+- **Automatic clock-out**: nobody stays on the clock longer than **1 hour 15 minutes**. A shift still open after that is
+  ended at exactly 1h 15m (tagged **Auto clock-out** on Timecards), so a forgotten clock-out doesn't add time or credit.
+  If that person then types their PIN, it tells them they were already clocked out instead of starting a new shift; the
+  next punch clocks in. Change the limit (or 0 to turn it off) at the top of **Timecards**. It runs every minute (database
+  update 17).
 - **Store credit**: employee perks are counted **each week (Monday to Sunday)**:
   - every whole hour worked adds **10% off everything**, up to **50% at 5 hours** (it starts over each Monday);
   - every whole hour **after 5** adds **$1 of store credit**, which stays until it's spent.
@@ -343,8 +348,8 @@ updates live. Students can't read any of this: the time clock and the app talk t
 website's server.
 
 Code: `src/app/clock/` (time clock), `src/app/work/` (employee app), `src/app/admin/staff/` (Team pages),
-`src/lib/staff.ts`, and database updates 15 and 16 (`supabase/migrations/20261106000015_staff_time_clock.sql`,
-`supabase/migrations/20261109000016_employee_app.sql`).
+`src/lib/staff.ts`, and database updates 15, 16 and 17 (`supabase/migrations/20261106000015_staff_time_clock.sql`,
+`supabase/migrations/20261109000016_employee_app.sql`, `supabase/migrations/20261109000017_auto_clock_out.sql`).
 
 ### The staff dashboard look
 

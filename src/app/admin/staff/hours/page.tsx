@@ -49,10 +49,12 @@ export default async function TimecardsPage(props: PageProps<"/admin/staff/hours
     .limit(1000);
   if (who) shiftsQuery = shiftsQuery.eq("staff_id", who);
 
-  const [{ employees, missing }, shifts, open] = await Promise.all([
+  const [{ employees, missing }, shifts, open, limit] = await Promise.all([
     loadEmployees(supabase),
     shiftsQuery,
     supabase.from("staff_shifts").select("*").is("clock_out", null).order("clock_in"),
+    // null before database update 17 (the automatic clock-out) has been run
+    supabase.from("settings").select("staff_max_shift_minutes").eq("id", 1).maybeSingle(),
   ]);
   const names = new Map(employees.map((e) => [e.id, e.name]));
   const toRow = (s: {
@@ -72,6 +74,7 @@ export default async function TimecardsPage(props: PageProps<"/admin/staff/hours
     clockOut: s.clock_out,
     manual: s.manual,
     phone: s.source === "phone" || s.out_source === "phone",
+    auto: s.out_source === "auto",
   });
   const pending = employees.filter((e) => e.status === "pending").length;
   const period = from === to ? formatDay(from) : `${formatDay(from)} – ${formatDay(to)}`;
@@ -136,6 +139,7 @@ export default async function TimecardsPage(props: PageProps<"/admin/staff/hours
             open={(open.data ?? []).map(toRow)}
             employees={employees.filter((e) => e.status === "active").map((e) => ({ id: e.id, name: e.name }))}
             defaultDate={to < today ? to : today}
+            shiftLimit={limit.data?.staff_max_shift_minutes ?? null}
           />
         </>
       )}

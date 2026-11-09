@@ -38,9 +38,15 @@ const notSetUp = (message: string) => /staff_portal|does not exist|schema cache/
 export async function loadPortal(): Promise<{ data: PortalData | null; error?: string }> {
   const t = await token();
   if (!t) return { data: null };
-  const { data, error } = await createSecretClient().rpc("staff_portal", { p_token_hash: hash(t) });
+  const db = createSecretClient();
+  await db.rpc("staff_auto_clock_out");
+  const [{ data, error }, { data: settings }] = await Promise.all([
+    db.rpc("staff_portal", { p_token_hash: hash(t) }),
+    db.from("settings").select("staff_max_shift_minutes").eq("id", 1).maybeSingle(),
+  ]);
   if (error) return { data: null, error: notSetUp(error.message) ? NOT_READY : OFFLINE };
-  return { data: (data as unknown as PortalData | null) ?? null };
+  const portal = data as unknown as Omit<PortalData, "maxShiftMinutes"> | null;
+  return { data: portal ? { ...portal, maxShiftMinutes: settings?.staff_max_shift_minutes ?? 0 } : null };
 }
 
 export async function signIn(name: string, pin: string): Promise<{ ok?: boolean; error?: string }> {

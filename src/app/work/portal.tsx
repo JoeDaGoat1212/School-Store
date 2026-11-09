@@ -2,17 +2,37 @@
 
 import { useCallback, useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { CalendarClockIcon, Loader2Icon, LogOutIcon, SmartphoneIcon, TimerIcon, WalletIcon } from "lucide-react";
+import {
+  AlarmClockOffIcon,
+  CalendarClockIcon,
+  HomeIcon,
+  Loader2Icon,
+  LogOutIcon,
+  type LucideIcon,
+  PercentIcon,
+  SmartphoneIcon,
+  TimerIcon,
+  WalletIcon,
+} from "lucide-react";
+import { Avatar } from "@/components/staff/avatar";
 import { formatCents, formatClock, formatDay, formatTime, relativeDay, STORE_TIMEZONE, storeToday } from "@/lib/format";
-import { creditRuleText, formatMinutes, minutesBetween, nextReward, type PortalData, shortMoney } from "@/lib/staff";
+import { autoOutAt, creditRuleText, formatMinutes, minutesBetween, nextReward, type PortalData, shortMoney } from "@/lib/staff";
 import { loadPortal, phonePunch, phoneUndo, signOut } from "./actions";
 
-type Note = { tone: "in" | "out" | "error"; text: string; undo?: { id: string; token: string } };
+type Note = { tone: "in" | "out" | "auto" | "error"; text: string; undo?: { id: string; token: string } };
+type Tab = "today" | "schedule" | "money";
 
-/** One employee's own screen: clock in/out, live shift timer, discount, credit, schedule. */
+const TABS: { id: Tab; label: string; icon: LucideIcon }[] = [
+  { id: "today", label: "Today", icon: HomeIcon },
+  { id: "schedule", label: "Schedule", icon: CalendarClockIcon },
+  { id: "money", label: "Money", icon: WalletIcon },
+];
+
+/** One employee's own app: clock in/out, live shift ring, discount pass, credit, schedule. */
 export function Portal({ initial }: { initial: PortalData }) {
   const router = useRouter();
   const [data, setData] = useState(initial);
+  const [tab, setTab] = useState<Tab>("today");
   const [loadedAt, setLoadedAt] = useState(() => new Date().getTime());
   const [now, setNow] = useState(() => new Date().getTime());
   const [note, setNote] = useState<Note | null>(null);
@@ -45,12 +65,22 @@ export function Portal({ initial }: { initial: PortalData }) {
     };
   }, [refresh]);
 
+  // The shift ended on its own while the app was open: reload to show it.
+  const autoOut = data.open ? autoOutAt(data.open.in, data.maxShiftMinutes) : null;
+  useEffect(() => {
+    if (!autoOut) return;
+    const wait = new Date(autoOut).getTime() - Date.now() + 1500;
+    const t = setTimeout(() => void refresh(), Math.max(1000, wait));
+    return () => clearTimeout(t);
+  }, [autoOut, refresh]);
+
   // This week's minutes keep counting up while they're on the clock.
   const live = data.open ? Math.max(0, Math.floor((now - loadedAt) / 60000)) : 0;
   const weekMinutes = data.weekMinutes + live;
   const rule = data.rule;
-  const discount = Math.min(Math.floor(weekMinutes / 60), rule.afterHours) * rule.pct;
-  const hoursPast = Math.max(0, Math.floor(weekMinutes / 60) - rule.afterHours);
+  const hours = Math.floor(weekMinutes / 60);
+  const discount = Math.min(hours, rule.afterHours) * rule.pct;
+  const hoursPast = Math.max(0, hours - rule.afterHours);
   const intoHour = weekMinutes % 60;
 
   const punch = () =>
@@ -62,14 +92,21 @@ export function Portal({ initial }: { initial: PortalData }) {
         return;
       }
       if (r.status === "pending") return;
-      setNote({
-        tone: r.status,
-        text:
-          r.status === "in"
-            ? `Clocked in at ${formatTime(r.in)}.`
-            : `Clocked out. You worked ${formatMinutes(minutesBetween(r.in, r.out))} (${formatTime(r.in)} – ${formatTime(r.out ?? r.in)}).`,
-        undo: { id: r.id, token: r.undo },
-      });
+      if (r.status === "auto") {
+        setNote({
+          tone: "auto",
+          text: `You were already clocked out automatically at ${formatTime(r.out)} (after ${formatMinutes(minutesBetween(r.in, r.out))}). Tap Clock in to start a new shift.`,
+        });
+      } else {
+        setNote({
+          tone: r.status,
+          text:
+            r.status === "in"
+              ? `Clocked in at ${formatTime(r.in)}.${r.autoOutAt ? ` You'll be clocked out automatically at ${formatTime(r.autoOutAt)}.` : ""}`
+              : `Clocked out. You worked ${formatMinutes(minutesBetween(r.in, r.out))} (${formatTime(r.in)} – ${formatTime(r.out ?? r.in)}).`,
+          undo: { id: r.id, token: r.undo },
+        });
+      }
       buzz();
       await refresh();
     });
@@ -81,14 +118,16 @@ export function Portal({ initial }: { initial: PortalData }) {
       await refresh();
     });
 
-  const elapsed = data.open ? Math.max(0, Math.floor((now - new Date(data.open.in).getTime()) / 1000)) : 0;
-  const clock = `${Math.floor(elapsed / 3600)}:${String(Math.floor((elapsed % 3600) / 60)).padStart(2, "0")}:${String(elapsed % 60).padStart(2, "0")}`;
-  const nowDate = new Date(now);
-
   return (
-    <div className="grid gap-5">
-      <div className="flex items-center justify-between gap-3">
-        <h1 className="font-heading text-3xl font-bold">Hi, {data.name.split(" ")[0]}</h1>
+    <div className="grid gap-5 pb-24">
+      <div className="flex items-center gap-3">
+        <Avatar name={data.name} size={44} ring={data.open ? "on" : undefined} />
+        <div className="min-w-0 flex-1">
+          <p className="text-sm text-muted-foreground" suppressHydrationWarning>
+            {greeting(now)}
+          </p>
+          <h1 className="truncate font-heading text-2xl font-bold">{data.name}</h1>
+        </div>
         <button
           type="button"
           onClick={() =>
@@ -97,161 +136,304 @@ export function Portal({ initial }: { initial: PortalData }) {
               router.refresh();
             })
           }
-          className="inline-flex items-center gap-1.5 text-sm font-semibold text-muted-foreground"
+          className="inline-flex h-9 items-center gap-1.5 rounded-full border bg-card px-3 text-sm font-semibold text-muted-foreground"
         >
           <LogOutIcon className="size-4" /> Sign out
         </button>
       </div>
 
-      {/* ---- Clock in / out ---- */}
-      <section aria-label="Time clock" className={`grid gap-4 rounded-3xl border p-5 shadow-soft ${data.open ? "border-success/50 bg-success/5" : "bg-card"}`}>
-        <div className="flex items-center gap-3">
-          <span aria-hidden className={`size-3 rounded-full ${data.open ? "animate-pulse bg-success" : "bg-muted-foreground/40"}`} />
-          <p className="flex-1 font-semibold">{data.open ? `On the clock since ${formatTime(data.open.in)}` : "Off the clock"}</p>
-          {data.open && <p className="font-receipt text-2xl font-bold tabular-nums">{clock}</p>}
+      {tab === "today" && (
+        <>
+          <ClockCard data={data} now={now} autoOut={autoOut} busy={busy} onPunch={punch} note={note} onUndo={undo} />
+          <DiscountPass name={data.name} discount={discount} pct={rule.pct} now={now} />
+          <WeekCard weekMinutes={weekMinutes} rule={rule} hours={hours} hoursPast={hoursPast} intoHour={intoHour} />
+          {data.schedule[0] && (
+            <button type="button" onClick={() => setTab("schedule")} className="flex items-center gap-3 rounded-3xl border bg-card p-4 text-left shadow-soft">
+              <span className="grid size-11 place-items-center rounded-2xl bg-primary/10 text-ember-ink">
+                <CalendarClockIcon className="size-5" />
+              </span>
+              <span className="flex-1">
+                <span className="block text-xs font-bold tracking-wide text-muted-foreground uppercase">Next shift</span>
+                <span className="block font-semibold">
+                  {relativeDay(data.schedule[0].date)} · {data.schedule[0].label} · {formatClock(data.schedule[0].startsAt)}
+                </span>
+              </span>
+            </button>
+          )}
+        </>
+      )}
+
+      {tab === "schedule" && <ScheduleTab data={data} now={now} />}
+      {tab === "money" && <MoneyTab data={data} />}
+
+      {/* ---- App tab bar ---- */}
+      <nav
+        aria-label="App sections"
+        className="fixed inset-x-0 bottom-0 z-40 border-t bg-background/95 pb-[env(safe-area-inset-bottom)] backdrop-blur supports-[backdrop-filter]:bg-background/80"
+      >
+        <div className="mx-auto grid max-w-xl grid-cols-3">
+          {TABS.map((t) => (
+            <button
+              key={t.id}
+              type="button"
+              onClick={() => {
+                setTab(t.id);
+                window.scrollTo({ top: 0, behavior: "smooth" });
+              }}
+              aria-current={tab === t.id ? "page" : undefined}
+              className={`relative flex flex-col items-center gap-0.5 py-2.5 text-xs font-semibold transition-colors ${tab === t.id ? "text-foreground" : "text-muted-foreground"}`}
+            >
+              {tab === t.id && <span aria-hidden className="absolute top-0 h-0.5 w-10 rounded-full bg-primary" />}
+              <t.icon className={`size-6 ${tab === t.id ? "text-ember-ink" : ""}`} />
+              {t.label}
+            </button>
+          ))}
         </div>
+      </nav>
+
+      <style>{`@keyframes work-stripes{from{background-position:0 0}to{background-position:56px 0}}`}</style>
+    </div>
+  );
+}
+
+/* ---------------------------------------------------------------- Today */
+
+function ClockCard({
+  data,
+  now,
+  autoOut,
+  busy,
+  onPunch,
+  note,
+  onUndo,
+}: {
+  data: PortalData;
+  now: number;
+  autoOut: string | null;
+  busy: boolean;
+  onPunch: () => void;
+  note: Note | null;
+  onUndo: (u: { id: string; token: string }) => void;
+}) {
+  const on = Boolean(data.open);
+  const elapsed = data.open ? Math.max(0, Math.floor((now - new Date(data.open.in).getTime()) / 1000)) : 0;
+  const timer = `${Math.floor(elapsed / 3600)}:${String(Math.floor((elapsed % 3600) / 60)).padStart(2, "0")}:${String(elapsed % 60).padStart(2, "0")}`;
+  const limitSecs = data.maxShiftMinutes * 60;
+  const progress = on && limitSecs > 0 ? Math.min(1, elapsed / limitSecs) : on ? 1 : 0;
+  const R = 92;
+  const C = 2 * Math.PI * R;
+
+  return (
+    <section aria-label="Time clock" className="relative isolate overflow-hidden rounded-[2rem] bg-neutral-950 p-6 text-white shadow-soft">
+      <div aria-hidden className={`pointer-events-none absolute -top-24 left-1/2 -z-10 size-80 -translate-x-1/2 rounded-full blur-3xl ${on ? "bg-success/40" : "bg-primary/30"}`} />
+      <div className="grid justify-items-center gap-5">
+        <div className="relative grid size-56 place-items-center">
+          <svg viewBox="0 0 200 200" className="absolute inset-0 -rotate-90" aria-hidden>
+            <circle cx="100" cy="100" r={R} fill="none" stroke="rgb(255 255 255 / 0.1)" strokeWidth="10" />
+            <circle
+              cx="100"
+              cy="100"
+              r={R}
+              fill="none"
+              stroke={on ? "var(--success)" : "var(--primary)"}
+              strokeWidth="10"
+              strokeLinecap="round"
+              strokeDasharray={C}
+              strokeDashoffset={C * (1 - progress)}
+              className="transition-[stroke-dashoffset] duration-1000 ease-linear"
+            />
+          </svg>
+          <div className="text-center">
+            {on ? (
+              <>
+                <p className="text-xs font-bold tracking-widest text-success uppercase">On the clock</p>
+                <p className="font-receipt text-4xl font-bold tabular-nums" suppressHydrationWarning>
+                  {timer}
+                </p>
+                <p className="mt-1 text-xs text-white/60">since {formatTime(data.open!.in)}</p>
+              </>
+            ) : (
+              <>
+                <p className="text-xs font-bold tracking-widest text-white/60 uppercase">Off the clock</p>
+                <p className="font-heading text-5xl font-bold tabular-nums" suppressHydrationWarning>
+                  {new Date(now).toLocaleTimeString("en-US", { timeZone: STORE_TIMEZONE, hour: "numeric", minute: "2-digit" }).replace(/ [AP]M$/, "")}
+                </p>
+                <p className="mt-1 text-xs text-white/60" suppressHydrationWarning>
+                  {new Date(now).toLocaleDateString("en-US", { timeZone: STORE_TIMEZONE, weekday: "long" })}</p>
+              </>
+            )}
+          </div>
+        </div>
+
+        {on && autoOut && (
+          <p className="flex items-center gap-1.5 text-sm text-white/70">
+            <AlarmClockOffIcon className="size-4" /> Clocks out on its own at {formatTime(autoOut)}
+          </p>
+        )}
+
         <button
           type="button"
           disabled={busy}
-          onClick={punch}
-          className={`flex h-20 items-center justify-center gap-3 rounded-2xl font-heading text-3xl font-bold tracking-wide text-white uppercase shadow-sm transition active:scale-[0.98] disabled:opacity-60 ${
-            data.open ? "bg-destructive" : "bg-success"
+          onClick={onPunch}
+          className={`flex h-16 w-full items-center justify-center gap-3 rounded-2xl font-heading text-2xl font-bold tracking-wide uppercase transition active:scale-[0.98] disabled:opacity-60 ${
+            on ? "bg-white text-neutral-950" : "bg-primary text-primary-foreground shadow-[0_10px_40px_-8px_var(--primary)]"
           }`}
         >
-          {busy ? <Loader2Icon className="size-7 animate-spin" /> : <TimerIcon className="size-7" />}
-          {data.open ? "Clock out" : "Clock in"}
+          {busy ? <Loader2Icon className="size-6 animate-spin" /> : <TimerIcon className="size-6" />}
+          {on ? "Clock out" : "Clock in"}
         </button>
+
         {note && (
           <div
             role="status"
-            className={`flex flex-wrap items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium ${note.tone === "error" ? "bg-destructive/10 text-destructive" : "bg-background"}`}
+            className={`flex w-full flex-wrap items-center gap-3 rounded-2xl px-4 py-3 text-sm font-medium ${
+              note.tone === "error" ? "bg-destructive/20 text-white" : note.tone === "auto" ? "bg-warning/25 text-white" : "bg-white/10"
+            }`}
           >
             <span className="flex-1">{note.text}</span>
             {note.undo && (
-              <button type="button" onClick={() => undo(note.undo!)} className="font-bold underline underline-offset-4">
+              <button type="button" onClick={() => onUndo(note.undo!)} className="font-bold underline underline-offset-4">
                 Undo
               </button>
             )}
           </div>
         )}
-      </section>
+      </div>
+    </section>
+  );
+}
 
-      {/* ---- Discount: show this at the window ---- */}
-      <section aria-labelledby="discount" className="overflow-hidden rounded-3xl bg-foreground text-background shadow-soft">
-        <div className="relative p-5">
-          {/* Moving stripes and a ticking clock: a screenshot won't look live. */}
-          <div aria-hidden className="pointer-events-none absolute inset-0 opacity-15 motion-safe:animate-[work-stripes_6s_linear_infinite]" style={stripes} />
-          <p id="discount" className="relative text-xs font-bold tracking-widest uppercase opacity-80">
-            Employee discount · show at the window
-          </p>
-          <p className="relative mt-1 font-heading text-6xl font-extrabold tracking-tight text-primary">{discount > 0 ? `${discount}% off` : "0%"}</p>
-          <p className="relative mt-1 text-lg font-semibold">{data.name}</p>
-          <p className="relative font-receipt text-sm opacity-80 tabular-nums">
-            {nowDate.toLocaleDateString("en-US", { timeZone: STORE_TIMEZONE, weekday: "short", month: "short", day: "numeric" })} ·{" "}
-            {nowDate.toLocaleTimeString("en-US", { timeZone: STORE_TIMEZONE, hour: "numeric", minute: "2-digit", second: "2-digit" })}
-          </p>
-          {discount === 0 && <p className="relative mt-2 text-sm opacity-90">Work an hour this week to get {rule.pct}% off.</p>}
+/** A live "pass" to show at the window. Moving stripes and a ticking clock: a screenshot won't look live. */
+function DiscountPass({ name, discount, pct, now }: { name: string; discount: number; pct: number; now: number }) {
+  const d = new Date(now);
+  return (
+    <section aria-labelledby="discount" className="relative isolate overflow-hidden rounded-[2rem] bg-primary p-5 text-primary-foreground shadow-soft">
+      <div aria-hidden className="pointer-events-none absolute inset-0 -z-10 opacity-15 motion-safe:animate-[work-stripes_6s_linear_infinite]" style={stripes} />
+      <div className="flex items-start justify-between gap-3">
+        <p id="discount" className="text-xs font-bold tracking-widest uppercase">
+          Employee discount
+        </p>
+        <span className="grid size-9 place-items-center rounded-full bg-black/10">
+          <PercentIcon className="size-4.5" />
+        </span>
+      </div>
+      <p className="font-heading text-7xl leading-none font-extrabold tracking-tight">{discount}%</p>
+      <p className="text-lg font-bold">off everything</p>
+      <div className="mt-4 flex items-end justify-between gap-3 border-t border-black/15 pt-3">
+        <div>
+          <p className="font-semibold">{name}</p>
+          <p className="text-xs font-medium opacity-80">Show this at the window</p>
         </div>
-      </section>
+        <p className="font-receipt text-sm font-bold tabular-nums" suppressHydrationWarning>
+          {d.toLocaleDateString("en-US", { timeZone: STORE_TIMEZONE, month: "short", day: "numeric" })} ·{" "}
+          {d.toLocaleTimeString("en-US", { timeZone: STORE_TIMEZONE, hour: "numeric", minute: "2-digit", second: "2-digit" })}
+        </p>
+      </div>
+      {discount === 0 && <p className="mt-2 text-sm font-medium">Work an hour this week to unlock {pct}% off.</p>}
+    </section>
+  );
+}
 
-      {/* ---- This week ---- */}
-      <section aria-labelledby="week" className="grid gap-3 rounded-3xl border bg-card p-5 shadow-soft">
-        <div className="flex items-baseline justify-between gap-3">
-          <h2 id="week" className="font-heading text-xl font-bold">
-            This week
-          </h2>
-          <p className="font-receipt text-lg font-bold tabular-nums">{formatMinutes(weekMinutes)}</p>
-        </div>
-        <ol className="grid grid-cols-5 gap-1.5" aria-label={`Discount hours: ${Math.min(Math.floor(weekMinutes / 60), rule.afterHours)} of ${rule.afterHours}`}>
-          {Array.from({ length: rule.afterHours }, (_, i) => {
-            const done = Math.floor(weekMinutes / 60) > i;
-            const current = Math.floor(weekMinutes / 60) === i;
-            return (
-              <li key={i} className="grid gap-1 text-center">
-                <span className="relative h-3 overflow-hidden rounded-full bg-muted">
-                  <span
-                    className={`absolute inset-y-0 left-0 rounded-full ${done ? "bg-primary" : "bg-primary/50"}`}
-                    style={{ width: done ? "100%" : current ? `${(intoHour / 60) * 100}%` : "0%" }}
-                  />
-                </span>
-                <span className={`text-xs font-semibold ${done ? "" : "text-muted-foreground"}`}>{(i + 1) * rule.pct}%</span>
-              </li>
-            );
-          })}
-        </ol>
-        <p className="text-sm">
-          {Math.floor(weekMinutes / 60) < rule.afterHours ? (
-            <>
-              <strong>{60 - intoHour} min</strong> more for {nextReward(weekMinutes, rule)}.
-            </>
-          ) : (
-            <>
-              Past {rule.afterHours} hours: <strong>{hoursPast}</strong> hour{hoursPast === 1 ? "" : "s"} toward credit this week ({shortMoney(hoursPast * rule.cents)}).{" "}
-              <strong>{60 - intoHour} min</strong> more for {nextReward(weekMinutes, rule)}.
-            </>
+function WeekCard({
+  weekMinutes,
+  rule,
+  hours,
+  hoursPast,
+  intoHour,
+}: {
+  weekMinutes: number;
+  rule: PortalData["rule"];
+  hours: number;
+  hoursPast: number;
+  intoHour: number;
+}) {
+  return (
+    <section aria-labelledby="week" className="grid gap-4 rounded-[2rem] border bg-card p-5 shadow-soft">
+      <div className="flex items-baseline justify-between gap-3">
+        <h2 id="week" className="font-heading text-xl font-bold">
+          This week
+        </h2>
+        <p className="font-receipt text-lg font-bold tabular-nums">{formatMinutes(weekMinutes)}</p>
+      </div>
+      <ol className="grid grid-cols-5 gap-2" aria-label={`Discount hours: ${Math.min(hours, rule.afterHours)} of ${rule.afterHours}`}>
+        {Array.from({ length: rule.afterHours }, (_, i) => {
+          const done = hours > i;
+          const current = hours === i;
+          return (
+            <li key={i} className="grid gap-1.5 text-center">
+              <span className="relative h-2.5 overflow-hidden rounded-full bg-muted">
+                <span
+                  className="absolute inset-y-0 left-0 rounded-full bg-primary transition-[width] duration-700"
+                  style={{ width: done ? "100%" : current ? `${(intoHour / 60) * 100}%` : "0%" }}
+                />
+              </span>
+              <span className={`text-xs font-bold ${done ? "text-ember-ink" : "text-muted-foreground"}`}>{(i + 1) * rule.pct}%</span>
+            </li>
+          );
+        })}
+      </ol>
+      <div className="flex items-center gap-3 rounded-2xl bg-muted/60 p-3 text-sm">
+        <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-background font-heading font-bold">{60 - intoHour}m</span>
+        <p>
+          more work for <strong>{nextReward(weekMinutes, rule)}</strong>
+          {hours >= rule.afterHours && (
+            <span className="block text-muted-foreground">
+              {hoursPast} hour{hoursPast === 1 ? "" : "s"} past {rule.afterHours} this week = {shortMoney(hoursPast * rule.cents)} credit
+            </span>
           )}
         </p>
-        <p className="text-xs text-muted-foreground">{creditRuleText(rule)}</p>
-      </section>
+      </div>
+      <p className="text-xs text-muted-foreground">{creditRuleText(rule)}</p>
+    </section>
+  );
+}
 
-      {/* ---- Store credit ---- */}
-      <section aria-labelledby="credit" className="grid gap-3 rounded-3xl border bg-card p-5 shadow-soft">
-        <div className="flex items-center justify-between gap-3">
-          <h2 id="credit" className="flex items-center gap-2 font-heading text-xl font-bold">
-            <WalletIcon className="size-5 text-ember-ink" /> Store credit
-          </h2>
-          <p className="font-heading text-3xl font-extrabold tabular-nums">{formatCents(data.creditCents)}</p>
-        </div>
-        <p className="text-sm text-muted-foreground">
-          Earned {formatCents(data.earnedCents)} so far. Credit is added when you clock out; tell the person at the window you&apos;re using it.
-        </p>
-        {data.credit.length > 0 && (
-          <ul className="divide-y text-sm">
-            {data.credit.map((c, i) => (
-              <li key={i} className="flex items-center gap-3 py-2">
-                <span className={`w-16 font-bold tabular-nums ${c.cents < 0 ? "text-destructive" : "text-success"}`}>
-                  {c.cents < 0 ? "−" : "+"}
-                  {formatCents(Math.abs(c.cents))}
-                </span>
-                <span className="min-w-0 flex-1 truncate">{c.note ?? (c.cents < 0 ? "Used" : "Added")}</span>
-                <span className="text-xs text-muted-foreground">{formatDay(storeToday(new Date(c.at)))}</span>
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
+/* ---------------------------------------------------------------- Schedule */
 
-      {/* ---- My schedule ---- */}
-      <section aria-labelledby="schedule" className="grid gap-3 rounded-3xl border bg-card p-5 shadow-soft">
-        <h2 id="schedule" className="flex items-center gap-2 font-heading text-xl font-bold">
-          <CalendarClockIcon className="size-5 text-ember-ink" /> My schedule
+function ScheduleTab({ data, now }: { data: PortalData; now: number }) {
+  const today = storeToday();
+  const byDay = new Map<string, PortalData["schedule"]>();
+  for (const s of data.schedule) byDay.set(s.date, [...(byDay.get(s.date) ?? []), s]);
+  return (
+    <>
+      <section aria-labelledby="schedule" className="grid gap-4 rounded-[2rem] border bg-card p-5 shadow-soft">
+        <h2 id="schedule" className="font-heading text-xl font-bold">
+          My schedule
         </h2>
-        {data.schedule.length === 0 ? (
-          <p className="text-sm text-muted-foreground">You&apos;re not on the schedule yet.</p>
+        {byDay.size === 0 ? (
+          <p className="rounded-2xl border border-dashed p-6 text-center text-sm text-muted-foreground">You&apos;re not on the schedule yet. Ask your manager.</p>
         ) : (
-          <ul className="grid gap-1.5">
-            {data.schedule.map((s) => (
-              <li key={`${s.date}-${s.label}`} className="flex items-baseline gap-3 rounded-xl bg-muted/60 px-3 py-2 text-sm">
-                <span className="w-24 shrink-0 font-semibold">{relativeDay(s.date)}</span>
-                <span className="flex-1">{s.label}</span>
-                <span className="font-receipt text-muted-foreground">{formatClock(s.startsAt)}</span>
-              </li>
+          <div className="grid gap-4">
+            {[...byDay.entries()].map(([date, list]) => (
+              <div key={date} className="flex gap-4">
+                <div className={`grid w-14 shrink-0 place-items-center content-center rounded-2xl py-2 text-center ${date === today ? "bg-primary text-primary-foreground" : "bg-muted"}`}>
+                  <span className="text-xs font-bold uppercase">{formatDay(date, { weekday: "short", month: undefined, day: undefined })}</span>
+                  <span className="font-heading text-2xl leading-none font-bold">{Number(date.slice(8))}</span>
+                </div>
+                <ul className="grid flex-1 content-center gap-1.5">
+                  {list.map((s) => (
+                    <li key={s.label} className="flex items-baseline justify-between gap-3 rounded-xl border px-3 py-2">
+                      <span className="font-semibold">{s.label}</span>
+                      <span className="font-receipt text-sm text-muted-foreground">{formatClock(s.startsAt)}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
             ))}
-          </ul>
+          </div>
         )}
       </section>
 
-      {/* ---- My shifts ---- */}
-      <section aria-labelledby="shifts" className="grid gap-3 rounded-3xl border bg-card p-5 shadow-soft">
-        <h2 id="shifts" className="flex items-center gap-2 font-heading text-xl font-bold">
-          <TimerIcon className="size-5 text-ember-ink" /> My shifts
+      <section aria-labelledby="shifts" className="grid gap-3 rounded-[2rem] border bg-card p-5 shadow-soft">
+        <h2 id="shifts" className="font-heading text-xl font-bold">
+          My shifts
         </h2>
         {data.shifts.length === 0 ? (
           <p className="text-sm text-muted-foreground">No shifts yet.</p>
         ) : (
           <ul className="divide-y text-sm">
             {data.shifts.map((s) => (
-              <li key={s.in} className="flex items-center gap-3 py-2">
+              <li key={s.in} className="flex items-center gap-3 py-2.5">
                 <span className="w-24 shrink-0 font-semibold">{formatDay(storeToday(new Date(s.in)))}</span>
                 <span className="flex-1 text-muted-foreground">
                   {formatTime(s.in)} – {s.out ? formatTime(s.out) : "now"}
@@ -263,10 +445,58 @@ export function Portal({ initial }: { initial: PortalData }) {
           </ul>
         )}
       </section>
-
-      <style>{`@keyframes work-stripes{from{background-position:0 0}to{background-position:56px 0}}`}</style>
-    </div>
+    </>
   );
+}
+
+/* ---------------------------------------------------------------- Money */
+
+function MoneyTab({ data }: { data: PortalData }) {
+  return (
+    <>
+      <section aria-labelledby="credit" className="relative isolate overflow-hidden rounded-[2rem] bg-neutral-950 p-6 text-white shadow-soft">
+        <div aria-hidden className="pointer-events-none absolute -right-16 -bottom-20 -z-10 size-64 rounded-full bg-teal/40 blur-3xl" />
+        <p id="credit" className="text-xs font-bold tracking-widest text-white/70 uppercase">
+          Store credit
+        </p>
+        <p className="mt-1 font-heading text-6xl font-extrabold tabular-nums">{formatCents(data.creditCents)}</p>
+        <p className="mt-2 text-sm text-white/70">
+          Earned {formatCents(data.earnedCents)} so far · {formatMinutes(data.workedMinutes)} worked in all
+        </p>
+        <p className="mt-4 rounded-2xl bg-white/10 p-3 text-sm">Using credit? Tell the person at the window; they take it off here.</p>
+      </section>
+
+      <section aria-labelledby="history" className="grid gap-3 rounded-[2rem] border bg-card p-5 shadow-soft">
+        <h2 id="history" className="font-heading text-xl font-bold">
+          Credit used and added
+        </h2>
+        {data.credit.length === 0 ? (
+          <p className="text-sm text-muted-foreground">Nothing yet.</p>
+        ) : (
+          <ul className="divide-y text-sm">
+            {data.credit.map((c, i) => (
+              <li key={i} className="flex items-center gap-3 py-2.5">
+                <span className={`w-16 font-bold tabular-nums ${c.cents < 0 ? "text-destructive" : "text-success"}`}>
+                  {c.cents < 0 ? "−" : "+"}
+                  {formatCents(Math.abs(c.cents))}
+                </span>
+                <span className="min-w-0 flex-1 truncate">{c.note ?? (c.cents < 0 ? "Used" : "Added")}</span>
+                <span className="text-xs text-muted-foreground">{formatDay(storeToday(new Date(c.at)))}</span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+      <p className="px-2 text-xs text-muted-foreground">{creditRuleText(data.rule)}</p>
+    </>
+  );
+}
+
+/* ---------------------------------------------------------------- bits */
+
+function greeting(now: number) {
+  const h = Number(new Date(now).toLocaleString("en-US", { timeZone: STORE_TIMEZONE, hour: "numeric", hour12: false }));
+  return h < 12 ? "Good morning" : h < 17 ? "Good afternoon" : "Good evening";
 }
 
 const stripes: React.CSSProperties = {

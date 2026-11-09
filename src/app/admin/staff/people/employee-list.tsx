@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import { CheckIcon, Loader2Icon, PencilIcon, RotateCcwIcon, Trash2Icon, UserPlusIcon, UsersIcon, XIcon } from "lucide-react";
 import { toast } from "sonner";
+import { Avatar } from "@/components/staff/avatar";
 import { EmptyState } from "@/components/staff/page-header";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -169,8 +170,13 @@ function ActiveRow({ person: p, busy, run }: { person: Person; busy: boolean; ru
   return (
     <tr className="border-b last:border-b-0">
       <td className="p-3">
-        <span className="font-semibold">{p.name}</span>
-        {p.onClock && <span className="ml-2 rounded-full bg-success/15 px-2 py-0.5 text-xs font-semibold text-success">On the clock</span>}
+        <span className="flex items-center gap-3">
+          <Avatar name={p.name} size={34} ring={p.onClock ? "on" : undefined} />
+          <span>
+            <span className="block font-semibold">{p.name}</span>
+            {p.onClock && <span className="text-xs font-semibold text-success">On the clock</span>}
+          </span>
+        </span>
       </td>
       <td className="p-3 font-receipt">{p.pin}</td>
       <td className="p-3 font-receipt text-muted-foreground">{p.badge ?? "—"}</td>
