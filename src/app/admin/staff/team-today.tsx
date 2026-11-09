@@ -3,6 +3,7 @@ import { ArrowRightIcon } from "lucide-react";
 import type { requireAdmin } from "@/lib/auth";
 import { formatClock, formatTime } from "@/lib/format";
 import { formatMinutes, minutesBetween } from "@/lib/staff";
+import { ClockOutButton } from "./clock-out-button";
 
 type Supabase = Awaited<ReturnType<typeof requireAdmin>>["supabase"];
 
@@ -10,8 +11,10 @@ export type TeamToday = {
   /** False until database update 15 has been run. */
   ready: boolean;
   pending: number;
-  onClock: { name: string; in: string }[];
+  onClock: { id: string; name: string; in: string }[];
   scheduled: { label: string; startsAt: string; names: string[] }[];
+  /** Names of people clocked in right now, to mark them on the schedule. */
+  onNames: string[];
   now: number;
 };
 
@@ -20,11 +23,11 @@ export async function loadTeamToday(supabase: Supabase, today: string): Promise<
   const now = new Date().getTime();
   const [staff, open, schedule, hours] = await Promise.all([
     supabase.from("staff").select("id, name, status"),
-    supabase.from("staff_shifts").select("staff_id, staff_name, clock_in").is("clock_out", null).order("clock_in"),
+    supabase.from("staff_shifts").select("id, staff_id, staff_name, clock_in").is("clock_out", null).order("clock_in"),
     supabase.from("staff_schedule").select("staff_id, window_id").eq("work_date", today),
     supabase.from("pickup_windows").select("id, label, starts_at").eq("kind", "class"),
   ]);
-  if (staff.error) return { ready: false, pending: 0, onClock: [], scheduled: [], now };
+  if (staff.error) return { ready: false, pending: 0, onClock: [], scheduled: [], onNames: [], now };
 
   const people = new Map((staff.data ?? []).map((s) => [s.id, s]));
   const byHour = new Map<number, { label: string; startsAt: string; names: string[] }>();
@@ -34,11 +37,13 @@ export async function loadTeamToday(supabase: Supabase, today: string): Promise<
     if (person?.status === "active") byHour.get(s.window_id)?.names.push(person.name);
   }
 
+  const onClock = (open.data ?? []).map((o) => ({ id: o.id, name: (o.staff_id && people.get(o.staff_id)?.name) || o.staff_name, in: o.clock_in }));
   return {
     ready: true,
+    onNames: onClock.map((o) => o.name),
     now,
     pending: (staff.data ?? []).filter((s) => s.status === "pending").length,
-    onClock: (open.data ?? []).map((o) => ({ name: (o.staff_id && people.get(o.staff_id)?.name) || o.staff_name, in: o.clock_in })),
+    onClock,
     scheduled: [...byHour.values()]
       .filter((h) => h.names.length > 0)
       .sort((a, b) => a.startsAt.localeCompare(b.startsAt))
@@ -66,19 +71,22 @@ export function TeamToday({ team }: { team: TeamToday }) {
           ) : (
             <ul className="grid gap-1.5">
               {team.onClock.map((p) => (
-                <li key={`${p.name}-${p.in}`} className="flex items-center gap-2 text-sm">
+                <li key={p.id} className="flex items-center gap-2 text-sm">
                   <span aria-hidden className="size-2 rounded-full bg-success" />
-                  <span className="flex-1 font-semibold">{p.name}</span>
+                  <span className="min-w-0 flex-1 truncate font-semibold">{p.name}</span>
                   <span className="text-muted-foreground">
                     since {formatTime(p.in)} · {formatMinutes(minutesBetween(p.in, null, team.now))}
                   </span>
+                  <ClockOutButton shiftId={p.id} name={p.name} />
                 </li>
               ))}
             </ul>
           )}
         </div>
         <div>
-          <p className="mb-2 text-xs font-bold tracking-wide text-muted-foreground uppercase">Scheduled today</p>
+          <p className="mb-2 text-xs font-bold tracking-wide text-muted-foreground uppercase">
+            Scheduled today <span className="font-medium normal-case">(green = clocked in)</span>
+          </p>
           {team.scheduled.length === 0 ? (
             <p className="text-sm text-muted-foreground">
               Nobody is scheduled today.{" "}
@@ -92,7 +100,16 @@ export function TeamToday({ team }: { team: TeamToday }) {
                 <li key={h.label} className="flex items-baseline gap-3 text-sm">
                   <span className="w-20 shrink-0 font-semibold">{h.label}</span>
                   <span className="w-16 shrink-0 font-receipt text-xs text-muted-foreground">{formatClock(h.startsAt)}</span>
-                  <span className="min-w-0 flex-1">{h.names.join(", ")}</span>
+                  <span className="min-w-0 flex-1">
+                    {h.names.map((n, i) => (
+                      <span key={n}>
+                        {i > 0 && ", "}
+                        <span className={team.onNames.includes(n) ? "font-semibold text-success" : undefined} title={team.onNames.includes(n) ? "On the clock now" : undefined}>
+                          {n}
+                        </span>
+                      </span>
+                    ))}
+                  </span>
                 </li>
               ))}
             </ul>
