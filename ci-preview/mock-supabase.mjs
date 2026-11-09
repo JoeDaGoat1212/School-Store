@@ -75,6 +75,7 @@ const routes = {
     { staff_id: "c", week_minutes: 95, balance_cents: 200, discount_pct: 10 },
   ],
   "/rest/v1/rpc/staff_auto_clock_out": 0,
+  "/rest/v1/rpc/kiosk_is_locked": true,
   "/rest/v1/rpc/staff_board": board,
   "/rest/v1/rpc/staff_portal": portal,
   "/rest/v1/rpc/staff_punch": punch,

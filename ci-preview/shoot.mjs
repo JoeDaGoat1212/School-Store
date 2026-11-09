@@ -34,6 +34,14 @@ await page("clock-confetti", "/clock", { width: 1280, height: 860 }, {
     await p.waitForTimeout(900);
   },
 });
+await page("clock-manager", "/clock", { width: 1280, height: 860 }, {
+  full: false,
+  act: async (p) => {
+    await p.getByRole("button", { name: "Manager" }).click();
+    for (const k of ["2", "5", "8"]) await p.getByRole("button", { name: k, exact: true }).click();
+    await p.waitForTimeout(300);
+  },
+});
 await page("work-signin", "/work", { width: 390, height: 844 });
 await page("work-today", "/work", { width: 390, height: 844 }, { cookie: true });
 await page("work-schedule", "/work", { width: 390, height: 844 }, {
