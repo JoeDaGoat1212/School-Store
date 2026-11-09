@@ -69,6 +69,11 @@ const punch = {
 };
 
 const routes = {
+  "/rest/v1/rpc/staff_credit_balances": [
+    { staff_id: "a", week_minutes: 220, balance_cents: 400, discount_pct: 30 },
+    { staff_id: "b", week_minutes: 165, balance_cents: 0, discount_pct: 20 },
+    { staff_id: "c", week_minutes: 95, balance_cents: 200, discount_pct: 10 },
+  ],
   "/rest/v1/rpc/staff_auto_clock_out": 0,
   "/rest/v1/rpc/staff_board": board,
   "/rest/v1/rpc/staff_portal": portal,
@@ -84,7 +89,9 @@ http
       if (!String(req.headers.accept).includes("pgrst.object")) body = [body];
     }
     if (body === undefined) body = path.startsWith("/auth/") ? {} : [];
-    res.writeHead(200, { "Content-Type": "application/json" });
+    const headers = { "Content-Type": "application/json" };
+    if (path === "/rest/v1/staff_schedule") headers["Content-Range"] = "0-5/6";
+    res.writeHead(200, headers);
     res.end(JSON.stringify(body));
   })
   .listen(54321, () => console.log("mock supabase on :54321"));

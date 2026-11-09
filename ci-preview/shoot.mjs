@@ -27,6 +27,13 @@ await page("clock-result", "/clock", { width: 1280, height: 860 }, {
     await p.waitForTimeout(1500);
   },
 });
+await page("clock-confetti", "/clock", { width: 1280, height: 860 }, {
+  full: false,
+  act: async (p) => {
+    for (const k of ["1", "2", "3", "4"]) await p.getByRole("button", { name: k, exact: true }).click();
+    await p.waitForTimeout(900);
+  },
+});
 await page("work-signin", "/work", { width: 390, height: 844 });
 await page("work-today", "/work", { width: 390, height: 844 }, { cookie: true });
 await page("work-schedule", "/work", { width: 390, height: 844 }, {
