@@ -1,0 +1,58 @@
+# TEMPORARY: checks this throwaway branch (typecheck, lint, tests, build) and
+# photographs the time clock and employee app with sample data. Never on main.
+name: Check branch
+on:
+  push:
+    branches: [ci/auto-clock-out-check]
+    paths-ignore: ["ci-preview/shots/**"]
+permissions:
+  contents: write
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    env:
+      NEXT_PUBLIC_SUPABASE_URL: http://localhost:54321
+      NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: sb_publishable_ci
+      SUPABASE_SECRET_KEY: sb_secret_ci
+      IP_HASH_SALT: ci
+      NEXT_TELEMETRY_DISABLED: "1"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - name: typegen
+        if: always()
+        run: npx next typegen
+      - name: typecheck
+        if: always()
+        run: npm run typecheck
+      - name: lint
+        if: always()
+        run: npx eslint src/app/work src/app/clock src/app/admin/staff src/app/admin/layout.tsx src/components/staff src/lib/staff.ts
+      - name: test
+        if: always()
+        run: npm test
+      - name: build
+        if: always()
+        run: npm run build
+      - name: screenshots
+        run: |
+          npm i --no-save --no-audit --no-fund playwright@1.49.1
+          npx playwright install --with-deps chromium
+          node ci-preview/mock-supabase.mjs &
+          npm run start -- -p 3000 > server.log 2>&1 &
+          npx wait-on -t 60000 http://localhost:3000/clock || (cat server.log; exit 1)
+          mkdir -p ci-preview/shots
+          node ci-preview/shoot.mjs
+          tail -40 server.log
+      - name: save screenshots to this branch
+        if: always()
+        run: |
+          git config user.name "github-actions"
+          git config user.email "github-actions@users.noreply.github.com"
+          git add -f ci-preview/shots || true
+          git commit -m "Screenshots [skip ci]" || exit 0
+          git push
