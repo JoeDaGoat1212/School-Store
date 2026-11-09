@@ -1,0 +1,37 @@
+# TEMPORARY: checks the employee app changes before they go to main
+# (typecheck, lint, tests, build). Lives only on this throwaway branch.
+name: Check branch
+on:
+  push:
+    branches: [ci/employee-app-check]
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    env:
+      NEXT_PUBLIC_SUPABASE_URL: https://example.supabase.co
+      NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: sb_publishable_ci
+      SUPABASE_SECRET_KEY: sb_secret_ci
+      IP_HASH_SALT: ci
+      NEXT_TELEMETRY_DISABLED: "1"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - name: typegen
+        if: always()
+        run: npx next typegen
+      - name: typecheck
+        if: always()
+        run: npm run typecheck
+      - name: lint
+        if: always()
+        run: npx eslint src/app/work src/app/pwa-icon src/app/admin/staff src/app/admin/page.tsx src/app/admin/dashboard-numbers.tsx src/app/admin/layout.tsx src/app/clock src/lib/staff.ts src/components/staff
+      - name: test
+        if: always()
+        run: npm test
+      - name: build
+        if: always()
+        run: npm run build
