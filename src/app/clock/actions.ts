@@ -3,10 +3,12 @@
 import { createHash } from "node:crypto";
 import { headers } from "next/headers";
 import { revalidatePath } from "next/cache";
+import { adminEmail } from "@/lib/admin-email";
+import { kioskHash, kioskToken } from "@/lib/kiosk";
 import { ipHashSalt } from "@/lib/env";
 import { storeToday } from "@/lib/format";
 import { type ClockBoard, emptyBoard, type PunchResult } from "@/lib/staff";
-import { createSecretClient } from "@/lib/supabase/server";
+import { createClient, createSecretClient } from "@/lib/supabase/server";
 
 /*
  * The time clock at /clock. Nobody logs in to use it: employees type their PIN.
@@ -87,4 +89,39 @@ function missingUpdate(message: string) {
   return /staff_|function .* does not exist|schema cache/i.test(message)
     ? "The time clock isn't set up yet: run database update 15 (20261106000015_staff_time_clock.sql) in Supabase."
     : null;
+}
+
+/** Is this device the locked store tablet? */
+export async function isLockedTablet() {
+  const token = await kioskToken();
+  if (!token) return false;
+  const { data } = await createSecretClient().rpc("kiosk_is_locked", { p_token_hash: kioskHash(token) });
+  return data === true;
+}
+
+/**
+ * The manager code on the locked store tablet: checks it (5 wrong tries lock
+ * the tablet out for 15 minutes), then signs the manager in on this tablet.
+ * The page then opens the dashboard.
+ */
+export async function unlockTablet(code: string): Promise<{ ok?: true; error?: string }> {
+  const token = await kioskToken();
+  if (!token) return { error: "This device isn't the locked store tablet. Use the admin password." };
+  const secret = createSecretClient();
+  const { data, error } = await secret.rpc("kiosk_unlock", { p_token_hash: kioskHash(token), p_pin: String(code ?? "").slice(0, 8) });
+  if (error) return { error: OFFLINE };
+  const r = data as unknown as { ok?: boolean; error?: string };
+  if (!r.ok) return { error: r.error ?? "That isn't the manager code." };
+
+  // Sign the manager in here without the password: a one-time sign-in link,
+  // made and used on the server (nothing is emailed).
+  const email = await adminEmail();
+  if (!email) return { error: "No admin account is set up yet." };
+  const { data: link, error: linkError } = await secret.auth.admin.generateLink({ type: "magiclink", email });
+  const tokenHash = link?.properties?.hashed_token;
+  if (linkError || !tokenHash) return { error: "Couldn't sign you in. Use the admin password instead." };
+  const supabase = await createClient();
+  const { error: verifyError } = await supabase.auth.verifyOtp({ type: "email", token_hash: tokenHash });
+  if (verifyError) return { error: "Couldn't sign you in. Use the admin password instead." };
+  return { ok: true };
 }

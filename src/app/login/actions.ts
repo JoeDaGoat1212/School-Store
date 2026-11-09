@@ -1,28 +1,10 @@
 "use server";
 
 import { redirect } from "next/navigation";
-import { createClient, createSecretClient } from "@/lib/supabase/server";
+import { adminEmail } from "@/lib/admin-email";
+import { createClient } from "@/lib/supabase/server";
 
 export type LoginState = { error?: string };
-
-/**
- * Finds the email of the store's admin account, so the login screen only has
- * to ask for the password.
- *
- * Uses ADMIN_EMAIL if it's set (Vercel → Settings → Environment Variables);
- * otherwise looks up the one account in the `admins` table.
- */
-async function adminEmail(): Promise<string | null> {
-  const fromEnv = process.env.ADMIN_EMAIL?.trim();
-  if (fromEnv) return fromEnv;
-
-  const secret = createSecretClient();
-  const { data: admin } = await secret.from("admins").select("user_id").limit(1).maybeSingle();
-  if (!admin) return null;
-
-  const { data } = await secret.auth.admin.getUserById(admin.user_id);
-  return data.user?.email ?? null;
-}
 
 /** Logs the admin in with just the admin password. Called by the form on /login. */
 export async function login(_prev: LoginState, formData: FormData): Promise<LoginState> {

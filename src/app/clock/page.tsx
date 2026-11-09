@@ -1,6 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { connection } from "next/server";
-import { loadBoard } from "./actions";
+import { isLockedTablet, loadBoard } from "./actions";
 import { TimeClock } from "./time-clock";
 
 export const metadata: Metadata = {
@@ -22,6 +22,6 @@ export const viewport: Viewport = {
  */
 export default async function ClockPage() {
   await connection(); // always fresh, never built ahead of time
-  const { board, maxShiftMinutes, stats, error } = await loadBoard();
-  return <TimeClock initialBoard={board} maxShiftMinutes={maxShiftMinutes} initialStats={stats} initialError={error} />;
+  const [{ board, maxShiftMinutes, stats, error }, locked] = await Promise.all([loadBoard(), isLockedTablet()]);
+  return <TimeClock initialBoard={board} maxShiftMinutes={maxShiftMinutes} initialStats={stats} locked={locked} initialError={error} />;
 }

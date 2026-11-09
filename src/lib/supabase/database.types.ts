@@ -586,6 +586,8 @@ export type Database = {
           staff_credit_after_hours: number;
           staff_credit_cents_per_hour: number;
           staff_max_shift_minutes: number;
+          kiosk_pin_salt: string | null;
+          kiosk_pin_hash: string | null;
         };
         ComputedFields: never;
         Insert: {
@@ -617,6 +619,8 @@ export type Database = {
           staff_credit_after_hours?: number;
           staff_credit_cents_per_hour?: number;
           staff_max_shift_minutes?: number;
+          kiosk_pin_salt?: string | null;
+          kiosk_pin_hash?: string | null;
         };
         Update: {
           banner_text?: string | null;
@@ -647,6 +651,8 @@ export type Database = {
           staff_credit_after_hours?: number;
           staff_credit_cents_per_hour?: number;
           staff_max_shift_minutes?: number;
+          kiosk_pin_salt?: string | null;
+          kiosk_pin_hash?: string | null;
         };
         Relationships: [];
       };
@@ -1306,6 +1312,10 @@ export type Database = {
       staff_portal_punch: { Args: { p_token_hash: string }; Returns: Json };
       staff_portal_logout: { Args: { p_token_hash: string }; Returns: undefined };
       staff_auto_clock_out: { Args: Record<PropertyKey, never>; Returns: number };
+      kiosk_set_pin: { Args: { p_pin: string }; Returns: undefined };
+      kiosk_register: { Args: { p_token_hash: string }; Returns: undefined };
+      kiosk_is_locked: { Args: { p_token_hash: string }; Returns: boolean };
+      kiosk_unlock: { Args: { p_token_hash: string; p_pin: string }; Returns: Json };
       staff_credit_add: { Args: { p_staff_id: string; p_amount_cents: number; p_note: string | null }; Returns: number };
       staff_credit_balances: {
         Args: Record<PropertyKey, never>;

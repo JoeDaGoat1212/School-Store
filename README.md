@@ -314,6 +314,10 @@ Two ways to clock in and out, and they share everything:
   their student ID with a USB barcode scanner, if you saved the number under the barcode as their badge code). A big
   green or red card confirms it, with their hours this week, their discount, store credit and next shift. **Undo** works
   for 2 minutes. 8 wrong PINs in 15 minutes locks that device for 15 minutes.
+- **The store tablet**: on the dashboard, tap **Lock tablet on time clock** on the tablet. The first time, it asks you to
+  pick a **manager code** (4–6 numbers). It signs you out on that tablet and pins it to the time clock. To get back, tap
+  **Manager** on the time clock, type your code and Enter: the dashboard opens. The code only works on a tablet you locked
+  (5 wrong tries lock it for 15 minutes); everywhere else you still use the admin password (database update 18).
 - **The employee app at /work**: each employee's own portal on their phone. They open the site's **/work** page and tap
   **Install app** (Android, computers) or **Share → Add to Home Screen** (iPhone). They sign in with their name and their
   time clock PIN and stay signed in. From there they clock in and out (Timecards marks these **Phone**), watch their
@@ -343,13 +347,15 @@ Managing it, in the **Team** menu of the staff dashboard:
   The 10%, 5 hours and $1 are settings on that page. Credit is worked out from the timecards, so fixing a shift fixes
   it. When someone spends credit at the window, record it with **They used it** (a balance can't go below $0).
 
-The dashboard's **Team today** card shows who's on the clock (with a **Clock out** button) and who's scheduled, and
-updates live. Students can't read any of this: the time clock and the app talk to the database only through the
+The dashboard ties the time clock to the store's numbers: **Hours worked** and **Sales per staff hour** follow the
+Today / Week / Month / Year switch next to Sales and Profit, the chart shows staff hours for each day, and the **Team
+today** card shows hours today, team hours this week, unspent store credit and who has a discount, plus who's on the clock
+(with a **Clock out** button) and who's scheduled. It all updates live. Students can't read any of this: the time clock and the app talk to the database only through the
 website's server.
 
 Code: `src/app/clock/` (time clock), `src/app/work/` (employee app), `src/app/admin/staff/` (Team pages),
-`src/lib/staff.ts`, and database updates 15, 16 and 17 (`supabase/migrations/20261106000015_staff_time_clock.sql`,
-`supabase/migrations/20261109000016_employee_app.sql`, `supabase/migrations/20261109000017_auto_clock_out.sql`).
+`src/lib/staff.ts`, and database updates 15–18 (`supabase/migrations/20261106000015_staff_time_clock.sql`,
+`supabase/migrations/20261109000016_employee_app.sql`, `supabase/migrations/20261109000017_auto_clock_out.sql`, `supabase/migrations/20261109000018_kiosk_lock.sql`).
 
 ### The staff dashboard look
 
