@@ -64,7 +64,7 @@ await page("work-schedule", "/work", { width: 390, height: 844 }, {
 await page("work-money", "/work", { width: 390, height: 844 }, {
   cookie: true,
   act: async (p) => {
-    await p.getByRole("button", { name: "Money" }).click();
+    await p.getByRole("button", { name: "Credit" }).click();
     await p.waitForTimeout(400);
   },
 });
