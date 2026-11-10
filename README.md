@@ -379,6 +379,15 @@ Run `supabase/sql-editor/20261110000020_team_tools.sql` once in Supabase → SQL
   absences, skipped restocks and messages. The Android app schedules its clock-in reminders on the phone and checks
   for new messages in the background (about every 15 minutes, as Android allows) and every 30 seconds while open.
   If the website moves to a new address, update `site_url` in the `app_secrets` table.
+- **Instant notifications on the Android app (Firebase):** messages arrive the moment they're sent, with the
+  sender and the text, like a text. One-time setup in the free Firebase console (console.firebase.google.com):
+  1. Add project (any name, Google Analytics off).
+  2. Add app → Android, package name `com.firebirdsnest.staff` → download `google-services.json` and put it in
+     `mobile/` (it identifies the app; it isn't a password). The next app build includes it.
+  3. Project settings → Service accounts → Generate new private key. Paste the whole downloaded file into
+     **Team → Messages → Instant notifications on the Android app → Check and save**. It's checked with Google and
+     kept in the database, never in the code. Don't share that file anywhere else.
+  Phones connect the next time the updated app opens.
 
 Code: `src/lib/team.ts` (the logic), `src/lib/push.ts` (notifications), `src/app/admin/staff/{messages,tasks,restock}`,
 `src/app/work/team.tsx`, `src/components/staff/{messages-view,restock-walkthrough,notifications-toggle}.tsx`.
