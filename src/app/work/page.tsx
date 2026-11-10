@@ -35,12 +35,12 @@ export default async function WorkPage() {
   const [{ data: portal, error }, admin] = await Promise.all([loadPortal(), isAdmin()]);
 
   return (
-    <div className="min-h-svh bg-muted/40 pt-[env(safe-area-inset-top)] pb-[max(1.5rem,env(safe-area-inset-bottom))]">
-      <header className="sticky top-0 z-30 border-b bg-background/95 backdrop-blur">
+    <div className="min-h-svh bg-[#f1f2ee] dark:bg-background pt-[env(safe-area-inset-top)] pb-[max(1.5rem,env(safe-area-inset-bottom))]">
+      <header className="sticky top-0 z-30 border-b bg-[#f1f2ee] dark:bg-background">
         <div className="mx-auto flex max-w-xl items-center gap-3 px-4 py-3">
           <BrandMark size={34} />
           <div className="min-w-0 flex-1 leading-tight">
-            <p className="font-heading text-xl font-bold tracking-wide uppercase">{brand.name}</p>
+            <p className="text-base font-semibold">{brand.name}</p>
             <p className="text-xs text-muted-foreground">{admin ? "Manager" : "Employee app"}</p>
           </div>
           <InstallButton />
@@ -77,7 +77,7 @@ function ManagerTools() {
     <section aria-labelledby="tools" className="grid gap-4">
       <Link
         href="/admin"
-        className="flex items-center gap-3 rounded-2xl bg-foreground p-4 text-background shadow-soft focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
+        className="flex items-center gap-3 rounded-xl bg-foreground p-4 text-background focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
       >
         <LayoutDashboardIcon className="size-6" />
         <span className="flex-1">
@@ -90,7 +90,7 @@ function ManagerTools() {
       </Link>
       {staffNavGroups.map((g) => (
         <div key={g.label}>
-          <h2 className="mb-2 text-xs font-bold tracking-wide text-muted-foreground uppercase">{g.label}</h2>
+          <h2 className="mb-2 text-sm font-medium text-muted-foreground">{g.label}</h2>
           <ul className="grid grid-cols-2 gap-2">
             {g.items
               .filter((i) => i.href !== "/admin" && i.href !== "/work")
@@ -98,7 +98,7 @@ function ManagerTools() {
                 <li key={i.href}>
                   <Link
                     href={i.href}
-                    className="flex h-full items-start gap-2.5 rounded-xl border bg-card p-3 shadow-soft active:scale-[0.98] focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
+                    className="flex h-full items-start gap-2.5 rounded-lg border bg-card p-3 active:bg-accent focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
                   >
                     <i.icon className="mt-0.5 size-5 shrink-0 text-ember-ink" />
                     <span className="min-w-0">

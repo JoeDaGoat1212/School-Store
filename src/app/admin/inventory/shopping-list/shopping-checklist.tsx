@@ -76,7 +76,7 @@ export function ShoppingChecklist({ groups, today, totalCents }: { groups: Shopp
             </p>
           </div>
           <div className="text-right">
-            <p className="text-xs text-muted-foreground">{done > 0 ? `${formatCents(inCart)} of` : "Trip budget"}</p>
+            <p className="text-xs text-muted-foreground">{done > 0 ? `${formatCents(inCart)} of` : "This list"}</p>
             <p className="score mt-1 text-4xl">{formatCents(totalCents)}</p>
           </div>
         </div>

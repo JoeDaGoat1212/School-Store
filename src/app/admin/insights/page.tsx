@@ -81,7 +81,7 @@ export default async function InsightsPage(props: PageProps<"/admin/insights">) 
       ) : (
         <div className="grid gap-6">
           {/* ---- Headline numbers ---- */}
-          <dl className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+          <dl className="score-strip grid grid-cols-2 lg:grid-cols-4">
             <Kpi label="Sales" value={formatCents(t.revenue_cents)} change={percentChange(t.revenue_cents, p.revenue_cents)} vs={prevLabel} />
             <Kpi label="Spending" value={formatCents(t.spending_cents)} change={percentChange(t.spending_cents, p.spending_cents)} vs={prevLabel} />
             <Kpi
@@ -159,9 +159,9 @@ export default async function InsightsPage(props: PageProps<"/admin/insights">) 
 function Kpi({ label, value, change, vs, note }: { label: string; value: string; change?: number | null; vs?: string; note?: string }) {
   const Icon = change == null ? null : change > 0 ? ArrowUpRightIcon : change < 0 ? ArrowDownRightIcon : MinusIcon;
   return (
-    <div className="rounded-2xl border bg-card p-4 shadow-soft">
+    <div className="p-4 sm:p-5">
       <dt className="text-sm text-muted-foreground">{label}</dt>
-      <dd className="mt-1 font-heading text-3xl font-bold tabular-nums">{value}</dd>
+      <dd className="score mt-2.5 text-4xl sm:text-5xl">{value}</dd>
       {/* Change is plain text with an arrow (no red/green): whether "up" is good depends on the number. */}
       <dd className="mt-1 flex items-center gap-1 text-xs text-muted-foreground">
         {Icon && <Icon className="size-3.5" aria-hidden />}

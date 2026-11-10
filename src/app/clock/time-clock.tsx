@@ -244,22 +244,13 @@ export function TimeClock({
   return (
     <div className="grid min-h-svh lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
       {/* ================= Keypad side ================= */}
-      <section aria-label="Clock in or out" className="relative isolate flex flex-col overflow-hidden bg-neutral-950 px-5 pt-5 pb-8 text-white sm:px-8">
-        <div aria-hidden className="pointer-events-none absolute -top-40 left-1/2 -z-10 size-[42rem] -translate-x-1/2 rounded-full bg-primary/25 blur-3xl motion-safe:animate-[aurora-a_14s_ease-in-out_infinite]" />
-        <div aria-hidden className="pointer-events-none absolute -bottom-48 -left-24 -z-10 size-[30rem] rounded-full bg-teal/25 blur-3xl motion-safe:animate-[aurora-b_18s_ease-in-out_infinite]" />
-        <div aria-hidden className="pointer-events-none absolute top-1/3 -right-40 -z-10 size-[24rem] rounded-full bg-fuchsia-500/10 blur-3xl motion-safe:animate-[aurora-a_22s_ease-in-out_infinite_reverse]" />
-        {/* faint grid, like a register screen */}
-        <div
-          aria-hidden
-          className="pointer-events-none absolute inset-0 -z-10 opacity-[0.07] [mask-image:radial-gradient(ellipse_at_center,black,transparent_75%)]"
-          style={{ backgroundImage: "linear-gradient(#fff 1px, transparent 1px), linear-gradient(90deg, #fff 1px, transparent 1px)", backgroundSize: "44px 44px" }}
-        />
+      <section aria-label="Clock in or out" className="relative flex flex-col bg-[#17191c] px-5 pt-5 pb-8 text-white sm:px-8">
 
         <header className="flex items-center gap-3">
           <BrandMark size={40} />
           <div className="min-w-0 flex-1 leading-tight">
-            <p className="font-heading text-2xl font-bold tracking-wide uppercase">{brand.name}</p>
-            <p className="text-sm text-white/60">Employee time clock</p>
+            <p className="text-base font-semibold">{brand.name}</p>
+            <p className="text-sm text-white/55">Time clock</p>
           </div>
           {locked ? (
             <button
@@ -269,8 +260,8 @@ export function TimeClock({
                 setCode("");
               }}
               aria-pressed={manager}
-              className={`inline-flex h-10 items-center gap-2 rounded-full border px-4 text-sm font-semibold backdrop-blur transition focus-visible:ring-3 focus-visible:ring-primary/60 focus-visible:outline-none ${
-                manager ? "border-primary bg-primary text-primary-foreground" : "border-white/15 bg-white/5 text-white/90 hover:bg-white/10"
+              className={`inline-flex h-10 items-center gap-2 rounded-md border px-4 text-sm font-medium transition focus-visible:ring-3 focus-visible:ring-primary/60 focus-visible:outline-none ${
+                manager ? "border-primary bg-primary text-primary-foreground" : "border-white/15 text-white/85 hover:bg-white/10"
               }`}
             >
               <LockIcon className="size-4" /> {manager ? "Cancel" : "Manager"}
@@ -278,40 +269,40 @@ export function TimeClock({
           ) : (
             <Link
               href="/login?next=/admin"
-              className="inline-flex h-10 items-center gap-2 rounded-full border border-white/15 bg-white/5 px-4 text-sm font-semibold text-white/90 backdrop-blur transition hover:bg-white/10 focus-visible:ring-3 focus-visible:ring-primary/60 focus-visible:outline-none"
+              className="inline-flex h-10 items-center gap-2 rounded-md border border-white/15 px-4 text-sm font-medium text-white/85 transition hover:bg-white/10 focus-visible:ring-3 focus-visible:ring-primary/60 focus-visible:outline-none"
             >
               <LockIcon className="size-4" /> Manager
             </Link>
           )}
         </header>
 
-        <div className="mt-5 flex flex-wrap justify-center gap-2 text-sm">
+        <dl className="mx-auto mt-6 grid w-full max-w-sm grid-cols-3 divide-x divide-white/10 border-y border-white/10 py-3 text-center">
           {[
-            { dot: "bg-success", text: `${board.onClock.length} on the clock` },
-            { dot: "bg-primary", text: `${stats.scheduledToday} scheduled today` },
-            { dot: "bg-teal", text: `${formatMinutes(stats.weekMinutes)} team hours this week` },
+            { label: "On the clock", value: String(board.onClock.length) },
+            { label: "Scheduled today", value: String(stats.scheduledToday) },
+            { label: "Team this week", value: formatMinutes(stats.weekMinutes) },
           ].map((s) => (
-            <span key={s.text} className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1 text-white/80 backdrop-blur">
-              <span aria-hidden className={`size-2 rounded-full ${s.dot} ${s.dot === "bg-success" && board.onClock.length ? "animate-pulse" : ""}`} />
-              {s.text}
-            </span>
+            <div key={s.label}>
+              <dd className="font-heading text-3xl leading-none font-bold tabular-nums">{s.value}</dd>
+              <dt className="mt-1 text-xs text-white/55">{s.label}</dt>
+            </div>
           ))}
-        </div>
+        </dl>
 
         <div className="mt-5 flex flex-1 flex-col items-center gap-5 lg:gap-4">
           <div className="text-center">
             <p className="flex items-start justify-center font-heading leading-none font-bold tabular-nums" suppressHydrationWarning>
-              <span className="bg-gradient-to-b from-white to-white/70 bg-clip-text text-8xl text-transparent drop-shadow-[0_0_30px_rgb(255_90_31/0.35)] lg:text-7xl 2xl:text-9xl">
+              <span className="text-9xl text-white lg:text-8xl 2xl:text-[10rem]">
                 {hh}
-                <span className="text-white/90 motion-safe:animate-[clock-blink_1s_steps(1)_infinite]">:</span>
+                <span className="text-white/80 motion-safe:animate-[clock-blink_1s_steps(1)_infinite]">:</span>
                 {mm}
               </span>
               <span className="mt-2 ml-3 grid gap-1 text-left">
-                <span className="w-10 text-3xl text-primary">{ss}</span>
-                <span className="text-xl text-white/60">{mounted ? ampm : ""}</span>
+                <span className="w-10 text-4xl text-primary">{ss}</span>
+                <span className="text-2xl text-white/55">{mounted ? ampm : ""}</span>
               </span>
             </p>
-            <p className="mt-2 text-lg font-medium text-white/70" suppressHydrationWarning>
+            <p className="mt-3 text-base text-white/60" suppressHydrationWarning>
               {mounted ? now.toLocaleDateString("en-US", { timeZone: STORE_TIMEZONE, weekday: "long", month: "long", day: "numeric" }) : "\u00a0"}
             </p>
           </div>
@@ -327,7 +318,7 @@ export function TimeClock({
                   <span
                     key={i}
                     className={`size-4 rounded-full transition-all duration-150 ${
-                      i < code.length ? "scale-110 bg-primary shadow-[0_0_16px_var(--primary)]" : "border-2 border-white/30"
+                      i < code.length ? "bg-primary" : "border-2 border-white/25"
                     }`}
                   />
                 ))
@@ -344,7 +335,7 @@ export function TimeClock({
                 disabled={busy}
                 onClick={() => press(k)}
                 aria-label={k === "clear" ? "Clear" : k === "back" ? "Delete one digit" : k}
-                className={`grid h-16 touch-manipulation lg:h-14 2xl:h-[4.5rem] place-items-center rounded-2xl border border-white/10 bg-white/[0.06] text-3xl font-semibold tabular-nums shadow-[inset_0_1px_0_rgb(255_255_255/0.08)] transition select-none hover:border-white/20 hover:bg-white/10 active:scale-95 active:border-primary/60 active:bg-primary/25 active:shadow-[0_0_28px_-4px_var(--primary)] focus-visible:ring-3 focus-visible:ring-primary/60 focus-visible:outline-none disabled:opacity-50 ${
+                className={`grid h-16 touch-manipulation place-items-center rounded-lg bg-white/[0.07] text-3xl font-medium tabular-nums transition-colors select-none hover:bg-white/[0.11] active:bg-white/20 focus-visible:ring-3 focus-visible:ring-primary/60 focus-visible:outline-none disabled:opacity-50 lg:h-14 2xl:h-[4.5rem] ${
                   k === "clear" ? "text-base text-white/70" : ""
                 }`}
               >
@@ -356,12 +347,12 @@ export function TimeClock({
             type="button"
             disabled={busy || code.length === 0}
             onClick={() => press("enter")}
-            className="flex h-16 w-full max-w-sm items-center justify-center gap-2 rounded-2xl bg-primary font-heading text-3xl font-bold tracking-wide text-primary-foreground uppercase shadow-[0_10px_40px_-8px_var(--primary)] transition hover:brightness-110 active:scale-[0.98] focus-visible:ring-3 focus-visible:ring-white/60 focus-visible:outline-none disabled:bg-white/10 disabled:text-white/40 disabled:shadow-none"
+            className="flex h-16 w-full max-w-sm items-center justify-center gap-2 rounded-lg bg-primary text-xl font-semibold text-primary-foreground transition hover:brightness-105 active:translate-y-px focus-visible:ring-3 focus-visible:ring-white/60 focus-visible:outline-none disabled:bg-white/[0.07] disabled:text-white/35"
           >
             {busy ? <Loader2Icon className="size-7 animate-spin" /> : "Enter"}
           </button>
 
-          <p className="max-w-xs text-center text-sm text-white/60">
+          <p className="max-w-xs text-center text-sm text-white/55">
             The same PIN clocks you in and out.
             {limit > 0 && ` Shifts end on their own after ${formatMinutes(limit)}.`}
           </p>
@@ -370,7 +361,7 @@ export function TimeClock({
             <button
               type="button"
               onClick={() => setSignupOpen(true)}
-              className="flex items-center justify-center gap-2 rounded-2xl border border-dashed border-white/25 px-4 py-3 font-semibold text-white/90 transition hover:border-primary hover:text-white focus-visible:ring-3 focus-visible:ring-primary/60 focus-visible:outline-none"
+              className="flex items-center justify-center gap-2 rounded-lg border border-white/15 px-4 py-3 font-medium text-white/85 transition hover:bg-white/[0.06] focus-visible:ring-3 focus-visible:ring-primary/60 focus-visible:outline-none"
             >
               <UserPlusIcon className="size-5" /> New here? Create account
             </button>
@@ -382,9 +373,9 @@ export function TimeClock({
       </section>
 
       {/* ================= Who's working ================= */}
-      <div className="grid content-start gap-5 bg-muted/50 p-5 sm:p-8">
+      <div className="grid content-start gap-4 bg-[#f1f2ee] p-5 sm:p-8 dark:bg-background">
         {boardError && (
-          <p role="alert" className="flex items-start gap-2 rounded-2xl border border-destructive/30 bg-destructive/5 p-4 text-sm font-semibold text-destructive">
+          <p role="alert" className="flex items-start gap-2 rounded-lg border border-destructive/30 bg-destructive/5 p-4 text-sm font-semibold text-destructive">
             <CircleAlertIcon className="mt-0.5 size-4 shrink-0" /> {boardError}
           </p>
         )}
@@ -409,9 +400,6 @@ export function TimeClock({
       <style>{`
         @keyframes clock-shake{25%{transform:translateX(-8px)}50%{transform:translateX(8px)}75%{transform:translateX(-4px)}}
         @keyframes clock-blink{50%{opacity:.25}}
-        @keyframes aurora-a{0%,100%{transform:translate(-50%,0) scale(1)}50%{transform:translate(-40%,40px) scale(1.15)}}
-        @keyframes aurora-b{0%,100%{transform:translate(0,0) scale(1)}50%{transform:translate(60px,-50px) scale(1.2)}}
-        @keyframes result-glow{0%,100%{box-shadow:0 0 0 0 var(--glow),0 25px 50px -12px rgb(0 0 0/.5)}50%{box-shadow:0 0 60px 4px var(--glow),0 25px 50px -12px rgb(0 0 0/.5)}}
       `}</style>
     </div>
   );
@@ -421,17 +409,15 @@ export function TimeClock({
 
 function Panel({ title, icon: Icon, aside, children }: { title: string; icon: LucideIcon; aside?: React.ReactNode; children: React.ReactNode }) {
   return (
-    <section className="rounded-3xl border bg-card p-5 shadow-soft">
-      <div className="mb-4 flex items-center justify-between gap-3">
-        <h2 className="flex items-center gap-2.5 font-heading text-xl font-bold tracking-wide uppercase">
-          <span className="grid size-8 place-items-center rounded-xl bg-primary/10 text-ember-ink">
-            <Icon className="size-4.5" />
-          </span>
+    <section className="overflow-hidden rounded-xl border bg-card">
+      <div className="flex items-center justify-between gap-3 border-b px-5 py-3">
+        <h2 className="flex items-center gap-2 text-base font-semibold">
+          <Icon aria-hidden className="size-4 text-muted-foreground" />
           {title}
         </h2>
         {aside}
       </div>
-      {children}
+      <div className="px-5 py-3">{children}</div>
     </section>
   );
 }
@@ -443,32 +429,32 @@ function OnClock({ board, now, limit }: { board: ClockBoard; now: Date; limit: n
       title="On the clock"
       icon={TimerIcon}
       aside={
-        <span className={`rounded-full px-3 py-1 text-sm font-bold ${people.length ? "bg-success/15 text-success" : "bg-muted text-muted-foreground"}`}>
+        <span className={`text-sm font-medium tabular-nums ${people.length ? "text-success" : "text-muted-foreground"}`}>
           {people.length} {people.length === 1 ? "person" : "people"}
         </span>
       }
     >
       {people.length === 0 ? (
-        <p className="rounded-2xl border border-dashed p-6 text-center text-muted-foreground">Nobody is clocked in right now.</p>
+        <p className="py-4 text-center text-sm text-muted-foreground">Nobody is clocked in right now.</p>
       ) : (
-        <ul className="grid gap-2">
+        <ul className="-my-1 divide-y">
           {people.map((p) => {
             const mins = minutesBetween(p.in, null, now.getTime());
             const out = autoOutAt(p.in, limit);
             const pct = limit > 0 ? Math.min(100, (mins / limit) * 100) : 0;
             return (
-              <li key={`${p.name}-${p.in}`} className="flex items-center gap-3 rounded-2xl bg-muted/50 p-3">
+              <li key={`${p.name}-${p.in}`} className="flex items-center gap-3 py-3">
                 <Avatar name={p.name} size={40} ring="on" />
                 <div className="min-w-0 flex-1">
                   <div className="flex items-baseline justify-between gap-2">
                     <span className="truncate font-semibold">{p.name}</span>
-                    <span className="font-receipt font-bold tabular-nums">{formatMinutes(mins)}</span>
+                    <span className="font-semibold tabular-nums">{formatMinutes(mins)}</span>
                   </div>
                   <div className="mt-1.5 flex items-center gap-2 text-xs text-muted-foreground">
                     <span className="shrink-0">in {formatTime(p.in)}</span>
                     {out && (
                       <>
-                        <span aria-hidden className="h-1.5 flex-1 overflow-hidden rounded-full bg-background">
+                        <span aria-hidden className="h-1 flex-1 overflow-hidden rounded-full bg-muted">
                           <span className={`block h-full rounded-full ${pct > 85 ? "bg-warning" : "bg-success"}`} style={{ width: `${Math.max(4, pct)}%` }} />
                         </span>
                         <span className="shrink-0">out {formatTime(out)}</span>
@@ -504,24 +490,23 @@ function Upcoming({ board }: { board: ClockBoard }) {
   return (
     <Panel title="Up next" icon={CalendarClockIcon}>
       {shown.length === 0 ? (
-        <p className="rounded-2xl border border-dashed p-6 text-center text-muted-foreground">Nothing on the schedule yet.</p>
+        <p className="py-4 text-center text-sm text-muted-foreground">Nothing on the schedule yet.</p>
       ) : (
-        <div className="grid gap-5">
+        <div className="grid gap-4 py-1">
           {shown.map(([date, hours]) => (
             <div key={date}>
-              <p className={`mb-2 text-xs font-bold tracking-widest uppercase ${date === today ? "text-ember-ink" : "text-muted-foreground"}`}>{relativeDay(date, today)}</p>
-              <ol className="relative grid gap-2 border-l-2 border-dashed border-border pl-4">
+              <p className="mb-1 text-sm font-semibold">{relativeDay(date, today)}</p>
+              <ol className="divide-y">
                 {[...hours.values()].map((h) => (
-                  <li key={h.label} className="relative">
-                    <span aria-hidden className="absolute top-3 -left-[1.4rem] size-2.5 rounded-full border-2 border-background bg-primary" />
-                    <div className="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-2xl bg-muted/50 px-3 py-2.5">
-                      <span className="w-16 shrink-0">
-                        <span className="block text-sm font-bold">{h.label}</span>
-                        <span className="block font-receipt text-xs text-muted-foreground">{formatClock(h.startsAt)}</span>
+                  <li key={h.label}>
+                    <div className="flex flex-wrap items-center gap-x-4 gap-y-2 py-2.5">
+                      <span className="w-20 shrink-0">
+                        <span className="block text-sm font-medium">{h.label}</span>
+                        <span className="block text-xs text-muted-foreground tabular-nums">{formatClock(h.startsAt)}</span>
                       </span>
                       <span className="flex min-w-0 flex-1 flex-wrap gap-1.5">
                         {h.names.map((n) => (
-                          <span key={n} className="inline-flex items-center gap-1.5 rounded-full border bg-background py-0.5 pr-2.5 pl-0.5 text-sm font-medium">
+                          <span key={n} className="inline-flex items-center gap-1.5 py-0.5 pr-2 text-sm">
                             <Avatar name={n} size={22} />
                             {n}
                             {date === today && onNow.has(n) && <CheckIcon className="size-3.5 text-success" aria-label="clocked in" />}
@@ -544,16 +529,16 @@ function TodayDone({ board }: { board: ClockBoard }) {
   if (board.today.length === 0) return null;
   const total = board.today.reduce((t, s) => t + minutesBetween(s.in, s.out), 0);
   return (
-    <Panel title="Done today" icon={CheckIcon} aside={<span className="font-receipt text-sm text-muted-foreground">{formatMinutes(total)} worked</span>}>
-      <ul className="divide-y divide-dashed">
+    <Panel title="Done today" icon={CheckIcon} aside={<span className="text-sm text-muted-foreground tabular-nums">{formatMinutes(total)} worked</span>}>
+      <ul className="-my-1 divide-y">
         {board.today.slice(0, 8).map((s) => (
           <li key={`${s.name}-${s.in}`} className="flex items-center gap-3 py-2 text-sm">
             <Avatar name={s.name} size={28} />
-            <span className="min-w-0 flex-1 truncate font-semibold">{s.name}</span>
+            <span className="min-w-0 flex-1 truncate font-medium">{s.name}</span>
             <span className="text-muted-foreground">
               {formatTime(s.in)} – {formatTime(s.out)}
             </span>
-            <span className="w-16 text-right font-receipt font-bold tabular-nums">{formatMinutes(minutesBetween(s.in, s.out))}</span>
+            <span className="w-16 text-right font-semibold tabular-nums">{formatMinutes(minutesBetween(s.in, s.out))}</span>
           </li>
         ))}
       </ul>
@@ -565,7 +550,7 @@ function TodayDone({ board }: { board: ClockBoard }) {
 
 const TONES: Record<Result["tone"], { card: string; icon: LucideIcon; badge: string }> = {
   in: { card: "bg-success text-white", icon: LogInIcon, badge: "bg-white/20" },
-  out: { card: "bg-neutral-900 text-white", icon: LogOutIcon, badge: "bg-primary text-primary-foreground" },
+  out: { card: "bg-[#17191c] text-white", icon: LogOutIcon, badge: "bg-primary text-primary-foreground" },
   auto: { card: "bg-card text-foreground border-2 border-warning", icon: AlarmClockOffIcon, badge: "bg-warning/15 text-warning" },
   note: { card: "bg-card text-foreground border-2 border-success", icon: SparklesIcon, badge: "bg-success/15 text-success" },
   error: { card: "bg-card text-foreground border-2 border-destructive", icon: CircleAlertIcon, badge: "bg-destructive/10 text-destructive" },
@@ -575,39 +560,36 @@ function ResultCard({ result, onClose, onUndo }: { result: Result; onClose: () =
   const t = TONES[result.tone];
   const Icon = t.icon;
   const light = result.tone === "in" || result.tone === "out";
-  const glow =
-    result.tone === "in" ? "var(--success)" : result.tone === "out" ? "var(--primary)" : result.tone === "error" ? "var(--destructive)" : "var(--warning)";
   return (
-    <div className="fixed inset-0 z-50 grid place-items-center bg-neutral-950/60 p-6 backdrop-blur-sm" onClick={onClose}>
+    <div className="fixed inset-0 z-50 grid place-items-center bg-black/60 p-6" onClick={onClose}>
       <div
         role="status"
         onClick={(e) => e.stopPropagation()}
-        style={{ "--glow": glow } as React.CSSProperties}
-        className={`grid w-full max-w-lg justify-items-center gap-3 rounded-[2rem] p-8 text-center shadow-2xl motion-safe:animate-[result-glow_2.4s_ease-in-out_infinite] ${t.card}`}
+        className={`grid w-full max-w-lg justify-items-center gap-3 rounded-xl p-8 text-center shadow-2xl ${t.card}`}
       >
-        <span className={`grid size-16 place-items-center rounded-full ${t.badge}`}>
-          <Icon className="size-8" />
+        <span className={`grid size-12 place-items-center rounded-full ${t.badge}`}>
+          <Icon className="size-6" />
         </span>
-        <p className="font-heading text-5xl leading-none font-bold tracking-wide uppercase sm:text-6xl">{result.title}</p>
-        {result.name && <p className="text-2xl font-bold">{result.name}</p>}
+        <p className="font-heading text-6xl leading-none font-bold sm:text-7xl">{result.title}</p>
+        {result.name && <p className="text-2xl font-semibold">{result.name}</p>}
         {result.lines.map((l, i) => (
           <p key={i} className={i === 0 ? "text-lg" : "text-base opacity-85"}>
             {l}
           </p>
         ))}
         {result.stats && (
-          <dl className="mt-2 grid w-full grid-cols-3 gap-2">
+          <dl className={`mt-3 grid w-full grid-cols-3 divide-x border-y py-3 ${light ? "divide-white/20 border-white/20" : ""}`}>
             {result.stats.map((s) => (
-              <div key={s.label} className={`rounded-2xl px-2 py-3 ${light ? "bg-white/10" : "bg-muted"}`}>
-                <dt className="text-xs font-semibold tracking-wide uppercase opacity-75">{s.label}</dt>
-                <dd className="mt-0.5 font-heading text-xl font-bold tabular-nums">{s.value}</dd>
+              <div key={s.label} className="flex flex-col-reverse px-2">
+                <dt className="mt-1 text-xs opacity-75">{s.label}</dt>
+                <dd className="font-heading text-3xl leading-none font-bold tabular-nums">{s.value}</dd>
               </div>
             ))}
           </dl>
         )}
         <div className="mt-3 flex flex-wrap justify-center gap-3">
           {result.undo && (
-            <button type="button" onClick={() => onUndo(result.undo!)} className="rounded-full border-2 border-current px-6 py-2.5 font-bold opacity-90 hover:opacity-100">
+            <button type="button" onClick={() => onUndo(result.undo!)} className="h-12 rounded-lg border border-current px-6 font-semibold opacity-90 hover:opacity-100">
               Undo
             </button>
           )}
@@ -615,7 +597,7 @@ function ResultCard({ result, onClose, onUndo }: { result: Result; onClose: () =
             type="button"
             autoFocus
             onClick={onClose}
-            className={`rounded-full px-6 py-2.5 font-bold ${light ? "bg-white text-neutral-950" : "bg-foreground text-background"}`}
+            className={`h-12 rounded-lg px-8 font-semibold ${light ? "bg-white text-neutral-950" : "bg-foreground text-background"}`}
           >
             Done
           </button>
@@ -668,20 +650,17 @@ function SignUp({ approval, onClose, onDone }: { approval: boolean; onClose: () 
   const field = "h-12 w-full rounded-xl border bg-background px-3 text-lg outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50";
 
   return (
-    <div className="fixed inset-0 z-50 grid place-items-center overflow-y-auto bg-neutral-950/60 p-4 backdrop-blur-sm" onClick={onClose}>
+    <div className="fixed inset-0 z-50 grid place-items-center overflow-y-auto bg-black/60 p-4" onClick={onClose}>
       <form
         onSubmit={submit}
         onClick={(e) => e.stopPropagation()}
         onKeyDown={(e) => e.key === "Escape" && onClose()}
-        className="grid w-full max-w-md gap-4 rounded-[2rem] border bg-card p-6 shadow-2xl sm:p-8"
+        className="grid w-full max-w-md gap-4 rounded-xl border bg-card p-6 shadow-2xl sm:p-8"
         aria-labelledby="signup-title"
       >
         <div className="flex items-start gap-3">
-          <span className="grid size-12 shrink-0 place-items-center rounded-2xl bg-primary/15 text-ember-ink">
-            <UserPlusIcon className="size-6" />
-          </span>
           <div>
-            <h2 id="signup-title" className="font-heading text-3xl font-bold tracking-wide uppercase">
+            <h2 id="signup-title" className="text-2xl font-semibold">
               Create your account
             </h2>
             <p className="mt-1 text-sm text-muted-foreground">

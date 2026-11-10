@@ -514,6 +514,7 @@ body:has(.backroom) {
 .backroom {
   --font-display: var(--font-body);
   --font-hand: var(--font-body);
+  letter-spacing: -0.006em;
 }
 .backroom [data-slot="sidebar-inset"] { background-color: var(--manila); }
 .backroom .font-heading { letter-spacing: -0.02em; }
@@ -521,12 +522,22 @@ body:has(.backroom) {
 
 /* The scoreboard numerals: money and counts that matter. */
 .score {
-  font-family: var(--font-score), "Arial Narrow", sans-serif;
+  font-family: var(--font-score, var(--font-display)), "Arial Narrow", sans-serif;
   font-weight: 800;
   font-variant-numeric: tabular-nums;
   line-height: 0.9;
   letter-spacing: 0.005em;
 }
+
+/* A row of numbers on one sheet, with hairline rules between them (cells wrap cleanly on phones). */
+.backroom .score-strip {
+  gap: 1px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xl);
+  background: var(--border);
+}
+.backroom .score-strip > * { border: 0; border-radius: 0; box-shadow: none; background: var(--card); }
 
 /* Sidebar: same board as the page, the page you're on is a white tab. */
 .backroom [data-sidebar="sidebar"] { border-right: 1px solid var(--rule); }
