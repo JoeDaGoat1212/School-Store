@@ -98,9 +98,7 @@ jobs:
             adb shell input text "Maya%sR"
             adb shell input keyevent 66
             adb shell input text "1234"
-            adb shell input keyevent 4
-            sleep 1
-            sh mobile/test-tap.sh "Sign in"
+            adb shell input keyevent 66
             sleep 6
             adb exec-out screencap -p > shot-2-today.png
             sh mobile/test-tap.sh "Clock in"

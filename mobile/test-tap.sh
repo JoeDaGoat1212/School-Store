@@ -13,4 +13,5 @@ for m in re.finditer(r'<node [^>]*>', x):
 PY
 )
 echo "tap '$1' at $b"
-[ -n "$b" ] && adb shell input tap $b
+if [ -n "$b" ]; then adb shell input tap $b; fi
+exit 0
