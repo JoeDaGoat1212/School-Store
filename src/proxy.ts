@@ -21,12 +21,6 @@ const OPEN_TO_DASHBOARD = true;
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  if (OPEN_TO_DASHBOARD && pathname === "/") {
-    const url = request.nextUrl.clone();
-    url.pathname = "/admin";
-    url.search = "";
-    return NextResponse.redirect(url);
-  }
   if (OPEN_TO_DASHBOARD && pathname === "/home") {
     const url = request.nextUrl.clone();
     url.pathname = "/";
@@ -55,6 +49,17 @@ export async function proxy(request: NextRequest) {
   // Checks the login (and refreshes it if needed).
   const { data } = await supabase.auth.getClaims();
   const isLoggedIn = Boolean(data?.claims?.sub);
+
+  // Front page: the manager goes to the dashboard; everyone else (employees
+  // opening the site or its home-screen icon) goes to the employee sign-in.
+  if (OPEN_TO_DASHBOARD && pathname === "/") {
+    const url = request.nextUrl.clone();
+    url.pathname = isLoggedIn ? "/admin" : "/work";
+    url.search = "";
+    const redirect = NextResponse.redirect(url);
+    response.cookies.getAll().forEach((c) => redirect.cookies.set(c));
+    return redirect;
+  }
 
   if (!isLoggedIn && pathname.startsWith("/admin")) {
     const url = request.nextUrl.clone();
