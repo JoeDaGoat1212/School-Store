@@ -38,8 +38,6 @@ jobs:
         run: |
           if grep -q '"expo"' package.json; then
             npm install --no-audit --no-fund
-            # Native modules, at the versions that go with this Expo (no change when already right).
-            npx expo install expo-notifications expo-image-picker expo-background-task expo-task-manager
           else
             # First build: pick the newest Expo and the versions that go with it.
             npm install --no-audit --no-fund expo@latest

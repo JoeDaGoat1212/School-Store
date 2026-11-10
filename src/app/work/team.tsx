@@ -107,7 +107,7 @@ export function WorkTasks() {
                   {t.details && <span className="block text-sm text-muted-foreground">{t.details}</span>}
                   <span className="block text-xs text-muted-foreground">
                     {t.forEveryone ? "Whoever's working" : "Just you"}
-                    {t.repeats ? `, ${t.repeats.toLowerCase()}` : ""}
+                    {t.repeats ? `, ${t.repeats.charAt(0).toLowerCase()}${t.repeats.slice(1)}` : ""}
                   </span>
                 </span>
               </button>

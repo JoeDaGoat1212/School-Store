@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { type ComponentRef, useCallback, useEffect, useRef, useState } from "react";
 import { ActivityIndicator, Alert, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import * as Haptics from "expo-haptics";
 import {
@@ -80,7 +80,7 @@ export function TasksTab({ c }: { c: Colors }) {
               {t.details && <Text style={{ color: c.muted, fontSize: 14, marginTop: 2 }}>{t.details}</Text>}
               <Text style={{ color: c.muted, fontSize: 12, marginTop: 2 }}>
                 {t.forEveryone ? "Whoever's working" : "Just you"}
-                {t.repeats ? `, ${t.repeats.toLowerCase()}` : ""}
+                {t.repeats ? `, ${t.repeats.charAt(0).toLowerCase()}${t.repeats.slice(1)}` : ""}
               </Text>
             </View>
           </Pressable>
@@ -363,7 +363,7 @@ function Conversation({ id, c, onBack }: { id: string; c: Colors; onBack: () => 
   const [text, setText] = useState("");
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const scroll = useRef<ScrollView>(null);
+  const scroll = useRef<ComponentRef<typeof ScrollView>>(null);
 
   const load = useCallback(async () => {
     try {
@@ -470,5 +470,6 @@ const s = StyleSheet.create({
   field: { height: 46, borderWidth: 1, borderRadius: radius.control, paddingHorizontal: 12, fontSize: 16 },
   button: { height: 46, borderRadius: radius.control, alignItems: "center", justifyContent: "center" },
   avatar: { width: 40, height: 40, borderRadius: 20, alignItems: "center", justifyContent: "center" },
+  bubble: { maxWidth: "82%", borderRadius: 18, paddingHorizontal: 14, paddingVertical: 8 },
   badge: { minWidth: 20, height: 20, borderRadius: 10, paddingHorizontal: 6, alignItems: "center", justifyContent: "center" },
 });

@@ -1,6 +1,6 @@
 {
   "name": "firebirds-nest-staff",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "private": true,
   "main": "index.ts",
   "scripts": {
@@ -11,11 +11,15 @@
   },
   "dependencies": {
     "expo": "~58.0.23",
+    "expo-background-task": "~58.0.12",
     "expo-constants": "~58.0.15",
     "expo-haptics": "~58.0.7",
+    "expo-image-picker": "~58.0.10",
+    "expo-notifications": "~58.1.8",
     "expo-secure-store": "~58.0.2",
     "expo-status-bar": "~58.0.4",
     "expo-system-ui": "~58.0.7",
+    "expo-task-manager": "~58.0.13",
     "react": "19.3.0",
     "react-native": "0.88.1",
     "react-native-safe-area-context": "~5.11.1"
