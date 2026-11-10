@@ -18,6 +18,9 @@ permissions:
 jobs:
   android:
     runs-on: ubuntu-latest
+    env:
+      # Test-branch builds talk to the fake store in the emulator test (mobile/test-server.js); main builds use the real website.
+      APP_TEST_API: ${{ github.ref != 'refs/heads/main' && 'http://10.0.2.2:8787' || '' }}
     defaults:
       run:
         working-directory: mobile
@@ -66,9 +69,14 @@ jobs:
     needs: android
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: mobile
       - uses: actions/download-artifact@v4
         with:
           name: apk
+      - name: Start the fake store
+        run: nohup node mobile/test-server.js > server.log 2>&1 &
       - name: Let the emulator use hardware speed-up
         run: |
           echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
@@ -79,16 +87,37 @@ jobs:
           api-level: 34
           arch: x86_64
           target: google_apis
+          profile: pixel_6
           disable-animations: true
           script: |
             adb install -r firebirds-nest-staff.apk
             adb shell monkey -p com.firebirdsnest.staff -c android.intent.category.LAUNCHER 1
             sleep 25
-            adb exec-out screencap -p > shot-1-open.png
-            adb shell input tap 540 1000 || true
+            adb exec-out screencap -p > shot-1-sign-in.png
+            sh mobile/test-tap.sh "First name"
+            adb shell input text "Maya%sR"
+            adb shell input keyevent 66
+            adb shell input text "1234"
+            adb shell input keyevent 4
+            sleep 1
+            sh mobile/test-tap.sh "Sign in"
+            sleep 6
+            adb exec-out screencap -p > shot-2-today.png
+            sh mobile/test-tap.sh "Clock in"
+            sleep 5
+            adb exec-out screencap -p > shot-3-clocked-in.png
+            sh mobile/test-tap.sh "Schedule"
             sleep 3
-            adb exec-out screencap -p > shot-2-typing.png
-            adb shell pidof com.firebirdsnest.staff && echo "APP IS RUNNING" || (echo "APP CRASHED"; adb logcat -d -s ReactNativeJS:V AndroidRuntime:E | tail -80; exit 1)
+            adb exec-out screencap -p > shot-4-schedule.png
+            sh mobile/test-tap.sh "Credit"
+            sleep 3
+            adb exec-out screencap -p > shot-5-credit.png
+            if [ "$(adb shell getprop ro.build.version.sdk)" != "" ]; then adb shell cmd uimode night yes; fi
+            sleep 3
+            adb exec-out screencap -p > shot-6-credit-dark.png
+            adb logcat -d -s ReactNativeJS:V AndroidRuntime:E | tail -40
+            cat server.log
+            adb shell pidof com.firebirdsnest.staff && echo "APP IS RUNNING" || (echo "APP CRASHED"; exit 1)
       - name: Save the screenshots on the test branch
         if: always() && github.ref != 'refs/heads/main'
         run: |
