@@ -1,0 +1,33 @@
+{
+  "expo": {
+    "name": "Firebirds Nest",
+    "slug": "firebirds-nest-staff",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "automatic",
+    "scheme": "firebirdsnest",
+    "splash": {
+      "image": "./assets/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#17191c"
+    },
+    "ios": {
+      "bundleIdentifier": "com.firebirdsnest.staff",
+      "supportsTablet": false,
+      "infoPlist": { "ITSAppUsesNonExemptEncryption": false }
+    },
+    "android": {
+      "package": "com.firebirdsnest.staff",
+      "versionCode": 1,
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#000000"
+      },
+      "edgeToEdgeEnabled": true
+    },
+    "extra": {
+      "apiUrl": "https://school-store-steel.vercel.app"
+    }
+  }
+}

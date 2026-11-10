@@ -182,7 +182,7 @@ function StatCell({
         ) : (
           <span className={`inline-flex items-center gap-0.5 ${diff === 0 ? "text-muted-foreground" : good ? "text-success" : "text-destructive"}`}>
             <Arrow className="size-3.5" />
-            {formatCents(Math.abs(diff))} <span className="text-muted-foreground">{vs}</span>
+            {formatCents(Math.abs(diff))} <span className="hidden text-muted-foreground sm:inline">{vs}</span>
           </span>
         )}
       </span>
