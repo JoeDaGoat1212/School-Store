@@ -68,10 +68,13 @@ await page("work-money", "/work", { width: 390, height: 844 }, {
     await p.waitForTimeout(400);
   },
 });
-for (const [name, url] of [["admin-dashboard", "/admin"], ["admin-shopping", "/admin/inventory/shopping-list"], ["admin-inventory", "/admin/inventory"], ["admin-expenses", "/admin/expenses"], ["admin-insights", "/admin/insights"]]) {
-  await page(name, url, { width: 1440, height: 900 }, { admin: true });
+for (const [name, url] of [["admin-dashboard", "/admin"], ["admin-shopping", "/admin/inventory/shopping-list"], ["admin-inventory", "/admin/inventory"], ["admin-expenses", "/admin/expenses"], ["admin-insights", "/admin/insights"], ["admin-tasks", "/admin/staff/tasks"], ["admin-restock", "/admin/staff/restock"], ["admin-messages", "/admin/staff/messages?chat=11111111-1111-1111-1111-111111111111"], ["admin-schedule", "/admin/staff"]]) {
+  await page(name, url, { width: 1440, height: 900 }, { admin: true, act: (p) => p.waitForTimeout(1500) });
 }
 await page("admin-dashboard-phone", "/admin", { width: 390, height: 844 }, { admin: true });
 await page("admin-shopping-phone", "/admin/inventory/shopping-list", { width: 390, height: 844 }, { admin: true });
+const settle = { act: (p) => p.waitForTimeout(2000) };
+await page("work-tasks", "/work?tab=tasks", { width: 390, height: 844 }, { cookie: true, ...settle });
+await page("work-chat", "/work?tab=messages&chat=11111111-1111-1111-1111-111111111111", { width: 390, height: 844 }, { cookie: true, ...settle });
 await browser.close();
 console.log("screenshots done");

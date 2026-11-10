@@ -31,7 +31,7 @@ jobs:
         run: npm run typecheck
       - name: lint
         if: always()
-        run: npx eslint src/app/work src/app/clock src/app/admin/staff src/app/admin/layout.tsx src/components/staff src/lib/staff.ts
+        run: npx eslint src/app/work src/app/clock src/app/admin/staff src/app/admin/layout.tsx src/app/admin/page.tsx src/app/admin/todo-list.tsx src/app/api src/components/staff src/lib/staff.ts src/lib/team.ts src/lib/push.ts src/lib/work-session.ts
       - name: test
         if: always()
         run: npm test

@@ -144,6 +144,37 @@ const tables = {
   ],
   staff_schedule: [{ staff_id: "a", window_id: 5 }, { staff_id: "b", window_id: 5 }, { staff_id: "c", window_id: 6 }],
   suppliers: [{ name: "Costco" }, { name: "Sam's Club" }, { name: "Walmart" }],
+  chat_threads: [
+    { id: "11111111-1111-1111-1111-111111111111", kind: "everyone", name: "Everyone", created_at: ago(9999), last_message_at: ago(12) },
+    { id: "22222222-2222-2222-2222-222222222222", kind: "direct", name: null, created_at: ago(9999), last_message_at: ago(200) },
+  ],
+  chat_members: [
+    { thread_id: "22222222-2222-2222-2222-222222222222", member: "admin", last_read_at: ago(5) },
+    { thread_id: "22222222-2222-2222-2222-222222222222", member: "b", last_read_at: ago(5) },
+    { thread_id: "11111111-1111-1111-1111-111111111111", member: "admin", last_read_at: ago(60) },
+  ],
+  chat_messages: [
+    { thread_id: "11111111-1111-1111-1111-111111111111", id: "m3", sender: "c", sender_name: "Ava T", body: "I can", created_at: ago(10) },
+    { thread_id: "11111111-1111-1111-1111-111111111111", id: "m2", sender: "admin", sender_name: "Manager", body: "Who can cover 6th hour Friday?", created_at: ago(12) },
+    { thread_id: "11111111-1111-1111-1111-111111111111", id: "m1", sender: "a", sender_name: "Maya R", body: "New Takis are on the top shelf", created_at: ago(90) },
+    { thread_id: "22222222-2222-2222-2222-222222222222", id: "m4", sender: "b", sender_name: "Ben K", body: "On my way", created_at: ago(200) },
+  ],
+  staff_tasks: [
+    { id: "k1", title: "Wipe down the counter", details: "Spray and paper towel, under the register too", task_date: null, weekday: null, staff_id: null, sort: 0, created_at: ago(9999) },
+    { id: "k2", title: "Count the cash box", details: null, task_date: today, weekday: null, staff_id: "a", sort: 0, created_at: ago(999) },
+    { id: "k3", title: "Break down boxes", details: "Recycling bin by the gym", task_date: null, weekday: 2, staff_id: null, sort: 0, created_at: ago(9999) },
+  ],
+  staff_task_done: [{ task_id: "k1", staff_id: "a", work_date: today }],
+  staff_absences: [{ id: "ab1", staff_id: "c", work_date: today, window_id: 6, reason: "Dentist", seen: false }],
+  restock_checks: [
+    { id: "rc1", staff_name: "Maya R", areas: ["Fridge", "Snacks", "Ramen", "Chips"], skipped_note: null, completed_at: ago(30), reviewed: false, created_at: ago(35) },
+    { id: "rc2", staff_name: "Ben K", areas: ["Fridge", "Snacks", "Ramen", "Chips"], skipped_note: "Out of ramen, nothing to restock with", completed_at: null, reviewed: false, created_at: ago(300) },
+  ],
+  restock_photos: [
+    { check_id: "rc1", area: "Fridge", path: "p/1.webp" }, { check_id: "rc1", area: "Snacks", path: "p/2.webp" },
+    { check_id: "rc1", area: "Ramen", path: "p/3.webp" }, { check_id: "rc1", area: "Chips", path: "p/4.webp" },
+    { check_id: "rc2", area: "Fridge", path: "p/5.webp" }, { check_id: "rc2", area: "Snacks", path: "p/6.webp" },
+  ],
   receipt_inbox: [
     { id: "r1", path: "inbox/2026/11/a.webp", store: "Costco", total_cents: 18417, shopper: "Mr. Lopez", note: null, shopped_on: today },
     { id: "r2", path: "inbox/2026/11/b.webp", store: "Walmart", total_cents: null, shopper: "Mr. Lopez", note: "Cup noodles + pickles", shopped_on: add(today, -2) },
@@ -160,6 +191,7 @@ const routes = {
   "/rest/v1/rpc/kiosk_is_locked": true,
   "/rest/v1/rpc/staff_board": board,
   "/rest/v1/rpc/staff_portal": portal,
+  "/rest/v1/rpc/staff_portal_staff": { id: "a0000000-0000-0000-0000-00000000000a", name: "Maya R", status: "active" },
   "/rest/v1/rpc/staff_punch": punch,
 };
 
@@ -179,8 +211,13 @@ http
       else if (path === "/rest/v1/rpc/dashboard_summary") body = summary();
       else if (path === "/rest/v1/rpc/inventory_snapshot")
         body = { today, window_days: 28, reorder_buffer_days: 3, shopping_interval_days: 7, next_shopping_date: add(today, 3), products };
+      if (path.startsWith("/storage/v1/object/sign/")) {
+        const colors = ["#2f6f8f", "#c2410c", "#18794e", "#7c3aed", "#a15c07", "#0f766e"];
+        const paths = Array.isArray(params.paths) ? params.paths : [];
+        body = paths.map((p, i) => ({ path: p, signedURL: null, signedUrl: `data:image/svg+xml,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="400" height="300"><rect width="400" height="300" fill="${colors[i % 6]}"/><text x="200" y="160" font-size="28" text-anchor="middle" fill="white" font-family="sans-serif">sample photo</text></svg>`)}`, error: null }));
+      }
       if (body === undefined && path === "/rest/v1/settings") {
-        body = { staff_max_shift_minutes: 75, kiosk_pin_hash: "x" };
+        body = { staff_max_shift_minutes: 75, kiosk_pin_hash: "x", restock_areas: ["Fridge", "Snacks", "Ramen", "Chips"] };
         if (!one) body = [body];
       }
       const table = path.startsWith("/rest/v1/") && !path.includes("/rpc/") ? path.slice(9) : null;
