@@ -357,11 +357,38 @@ Code: `src/app/clock/` (time clock), `src/app/work/` (employee app), `src/app/ad
 `src/lib/staff.ts`, and database updates 15–18 (`supabase/migrations/20261106000015_staff_time_clock.sql`,
 `supabase/migrations/20261109000016_employee_app.sql`, `supabase/migrations/20261109000017_auto_clock_out.sql`, `supabase/migrations/20261109000018_kiosk_lock.sql`).
 
+### Team tools: messages, restock photos, absences, tasks, notifications (update 20)
+
+Run `supabase/sql-editor/20261110000020_team_tools.sql` once in Supabase → SQL Editor.
+
+- **Messages** (Team → Messages, and the Chat tab in the employee app): an **Everyone** chat for the whole team,
+  one-on-one chats, and group chats anyone can make (**New → New group**). The manager shows up as "Manager".
+- **Restock photos:** after every clock-out (store tablet, web app or Android app) the employee is walked through
+  the areas one at a time and photographs each one fully stocked. Photos go to private storage only the admin can
+  see. Check them on **Team → Restock checks** and mark them checked; the dashboard shows ones waiting and any
+  missing photos. Change the areas (default Fridge, Snacks, Ramen, Chips) at the bottom of that page. If someone
+  can't finish, they say why and the manager is notified.
+- **Can't make it:** on the Schedule tab employees mark a shift they'll miss, with a reason. The manager gets a
+  notification, it's on the dashboard to-do list, and the Schedule page shows them as **Out**.
+- **Tasks** (Team → Tasks): pick a day and add tasks for that day only, every week on that weekday, or every day,
+  for whoever's working or one person. Employees see today's list on the Tasks tab and check things off; the
+  page shows who did each one.
+- **Notifications:** the web app and dashboard have **Turn on notifications** (web push, sent straight from this
+  website; on iPhone it works from the Home Screen app). Employees get "time to clock in" reminders a few minutes
+  before a shift (the database calls `/api/cron/remind` every 5 minutes) and new-message alerts; the manager gets
+  absences, skipped restocks and messages. The Android app schedules its clock-in reminders on the phone and checks
+  for new messages in the background (about every 15 minutes, as Android allows) and every 30 seconds while open.
+  If the website moves to a new address, update `site_url` in the `app_secrets` table.
+
+Code: `src/lib/team.ts` (the logic), `src/lib/push.ts` (notifications), `src/app/admin/staff/{messages,tasks,restock}`,
+`src/app/work/team.tsx`, `src/components/staff/{messages-view,restock-walkthrough,notifications-toggle}.tsx`.
+
 ### The staff phone app (Android)
 
 A real Android app (Expo / React Native, in `mobile/`), not a web page: employees sign in once with their name and
-time clock PIN, then clock in and out, show their live discount pass at the window, and see their store credit,
-schedule and shifts. It talks to this website through `src/app/api/app/[action]/route.ts`, which uses the same
+time clock PIN, then clock in and out (with the restock photo walkthrough after clocking out), show their live
+discount pass at the window, check off today's tasks, chat, mark shifts they can't make, and see their store
+credit, schedule and shifts. It talks to this website through `src/app/api/app/[action]/route.ts`, which uses the same
 employee sessions as the web app (`src/lib/work-session.ts`, database update 16).
 
 **Getting it:** on an Android phone, open
