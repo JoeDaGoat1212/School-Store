@@ -318,8 +318,6 @@ export function SalesChart({ days: all, months, today }: { days: Day[]; months: 
                   {formatCents(active.sales - active.spending)}
                 </strong>
               </span>
-                </span>
-              )}
             </div>
           )}
 
