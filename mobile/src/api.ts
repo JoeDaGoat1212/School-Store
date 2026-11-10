@@ -77,3 +77,39 @@ export async function signOut() {
 export const loadPortal = async () => (await call<{ data: Portal }>("me")).data;
 export const punch = () => call<Punch>("punch");
 export const undo = (id: string, token: string) => call<{ ok?: boolean; error?: string }>("undo", { id, undo: token });
+
+/* ---------------------------------------------------------------- team tools */
+
+export type Contact = { member: string; name: string };
+export type Thread = {
+  id: string;
+  kind: "everyone" | "direct" | "group";
+  title: string;
+  members: Contact[];
+  last: { body: string; sender: string; senderName: string; at: string } | null;
+  unread: number;
+};
+export type ChatMessage = { id: string; sender: string; senderName: string; body: string; at: string; mine: boolean };
+export type Task = { id: string; title: string; details: string | null; forEveryone: boolean; repeats: string | null; done: boolean };
+export type Absence = { id: string; date: string; windowId: number | null; label: string; reason: string | null };
+export type Restock = { checkId: string; token: string; name: string; areas: string[]; done: string[] };
+
+export const loadThreads = () => call<{ threads: Thread[]; contacts: Contact[] }>("threads");
+export const loadThread = (id: string) => call<{ thread?: Thread; messages: ChatMessage[] }>("thread", { id });
+export const sendMessage = (id: string, body: string) => call<{ ok: true }>("send", { id, body });
+export const openDirect = (member: string) => call<{ id: string }>("direct", { member });
+export const makeGroup = (name: string, members: string[]) => call<{ id: string }>("group", { name, members });
+export const leaveGroup = (id: string) => call<{ ok: true }>("leave", { id });
+export const unread = async () => (await call<{ unread: number }>("unread")).unread;
+
+export const loadTasks = async () => (await call<{ tasks: Task[] }>("tasks")).tasks;
+export const setTask = (id: string, done: boolean) => call<{ ok: true }>("task", { id, done });
+
+export const loadAbsences = async () => (await call<{ absences: Absence[] }>("absences")).absences;
+export const markAbsent = (date: string, shift: string, reason: string) => call<{ ok: true }>("absent", { date, shift, reason });
+export const cancelAbsent = (id: string) => call<{ ok: true }>("present", { id });
+
+export const startRestock = (shift: string, undo: string) => call<Restock>("restock-start", { shift, undo });
+export const restockPhoto = (r: Restock, area: string, base64: string, type = "image/jpeg") =>
+  call<{ ok: true; complete: boolean }>("restock-photo", { check: r.checkId, token: r.token, area, type, data: base64 });
+export const skipRestock = (r: Restock, note: string) => call<{ ok: true }>("restock-skip", { check: r.checkId, token: r.token, note });

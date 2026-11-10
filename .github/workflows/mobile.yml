@@ -38,6 +38,8 @@ jobs:
         run: |
           if grep -q '"expo"' package.json; then
             npm install --no-audit --no-fund
+            # Native modules, at the versions that go with this Expo (no change when already right).
+            npx expo install expo-notifications expo-image-picker expo-background-task expo-task-manager
           else
             # First build: pick the newest Expo and the versions that go with it.
             npm install --no-audit --no-fund expo@latest
@@ -91,6 +93,7 @@ jobs:
           disable-animations: true
           script: |
             adb install -r firebirds-nest-staff.apk
+            adb shell pm grant com.firebirdsnest.staff android.permission.POST_NOTIFICATIONS || true
             adb shell monkey -p com.firebirdsnest.staff -c android.intent.category.LAUNCHER 1
             sleep 25
             adb exec-out screencap -p > shot-1-sign-in.png
@@ -101,18 +104,35 @@ jobs:
             adb shell input keyevent 66
             sleep 6
             adb exec-out screencap -p > shot-2-today.png
+            adb shell input tap 324 2275
+            sleep 4
+            adb exec-out screencap -p > shot-3-tasks.png
+            adb shell input tap 540 2275
+            sleep 4
+            adb exec-out screencap -p > shot-4-chat.png
+            adb shell input tap 540 430
+            sleep 4
+            adb exec-out screencap -p > shot-5-conversation.png
+            adb shell input tap 756 2275
+            sleep 4
+            adb exec-out screencap -p > shot-6-schedule.png
+            adb shell input swipe 540 1800 540 600 300
+            sleep 2
+            adb exec-out screencap -p > shot-7-absences.png
+            adb shell input tap 108 2275
+            sleep 3
             adb shell input tap 540 840
             sleep 5
-            adb exec-out screencap -p > shot-3-clocked-in.png
-            adb shell input tap 540 2275
+            adb exec-out screencap -p > shot-8-clocked-in.png
+            adb shell input tap 540 880
+            sleep 6
+            adb exec-out screencap -p > shot-9-restock.png
+            adb shell input tap 972 2275
             sleep 3
-            adb exec-out screencap -p > shot-4-schedule.png
-            adb shell input tap 900 2275
-            sleep 3
-            adb exec-out screencap -p > shot-5-credit.png
+            adb exec-out screencap -p > shot-10-credit.png
             if [ "$(adb shell getprop ro.build.version.sdk)" != "" ]; then adb shell cmd uimode night yes; fi
             sleep 3
-            adb exec-out screencap -p > shot-6-credit-dark.png
+            adb exec-out screencap -p > shot-11-credit-dark.png
             adb logcat -d -s ReactNativeJS:V AndroidRuntime:E | tail -40
             cat server.log
             adb shell pidof com.firebirdsnest.staff && echo "APP IS RUNNING" || (echo "APP CRASHED"; exit 1)

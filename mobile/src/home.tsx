@@ -2,7 +2,10 @@ import { useEffect, useRef, useState } from "react";
 import { ActivityIndicator, Alert, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from "react-native";
 import * as Haptics from "expo-haptics";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { type Portal, punch, signOut, SignedOut, undo } from "./api";
+import { type Absence, loadAbsences, type Portal, punch, type Restock, signOut, SignedOut, startRestock, undo } from "./api";
+import { checkMessages, planShiftReminders } from "./notify";
+import { RestockFlow } from "./restock";
+import { AbsencesCard, ChatTab, TasksTab } from "./team";
 import {
   dayOfMonth,
   formatCents,
@@ -20,7 +23,7 @@ import {
 } from "./format";
 import { type Colors, radius, score, useColors } from "./theme";
 
-type Tab = "today" | "schedule" | "money";
+type Tab = "today" | "tasks" | "chat" | "schedule" | "money";
 type Note = { tone: "in" | "out" | "auto" | "error"; text: string; undo?: { id: string; token: string } } | null;
 
 export function Home({
@@ -39,6 +42,28 @@ export function Home({
   const [tab, setTab] = useState<Tab>("today");
   const [pulling, setPulling] = useState(false);
   const [now, setNow] = useState(Date.now());
+  const [openChat, setOpenChat] = useState<string | null>(null);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [restock, setRestock] = useState<Restock | null>(null);
+  const [absences, setAbsences] = useState<Absence[] | null>(null);
+
+  useEffect(() => {
+    loadAbsences().then(setAbsences, () => setAbsences([]));
+  }, []);
+
+  // "Time to clock in" reminders follow the schedule (and skip shifts you'll miss).
+  useEffect(() => {
+    if (data && absences) void planShiftReminders(data, absences);
+  }, [data, absences]);
+
+  // New messages while the app is open but you're not on Chat.
+  useEffect(() => {
+    if (tab === "chat") return;
+    const check = () => void checkMessages(true).then(setUnreadCount, () => undefined);
+    check();
+    const t = setInterval(check, 30000);
+    return () => clearInterval(t);
+  }, [tab]);
 
   // One tick a second for the timers and the live discount pass.
   useEffect(() => {
@@ -100,19 +125,30 @@ export function Home({
         {!data ? (
           <ActivityIndicator style={{ marginTop: 48 }} color={c.muted} />
         ) : tab === "today" ? (
-          <Today data={data} now={now} c={c} onRefresh={onRefresh} onSignedOut={onSignedOut} openSchedule={() => setTab("schedule")} />
+          <Today data={data} now={now} c={c} onRefresh={onRefresh} onSignedOut={onSignedOut} openSchedule={() => setTab("schedule")} onRestock={setRestock} />
+        ) : tab === "tasks" ? (
+          <TasksTab c={c} />
+        ) : tab === "chat" ? (
+          <ChatTab c={c} openChat={openChat} onOpenChat={setOpenChat} onUnread={setUnreadCount} />
         ) : tab === "schedule" ? (
-          <Schedule data={data} now={now} c={c} />
+          <>
+            <Schedule data={data} now={now} c={c} />
+            <AbsencesCard data={data} c={c} onChanged={setAbsences} />
+          </>
         ) : (
           <Money data={data} c={c} />
         )}
       </ScrollView>
+
+      {restock && <RestockFlow session={restock} c={c} onClose={() => setRestock(null)} />}
 
       {/* Tab bar */}
       <View style={[styles.tabs, { paddingBottom: insets.bottom + 6, backgroundColor: c.paper, borderTopColor: c.rule }]}>
         {(
           [
             ["today", "Today"],
+            ["tasks", "Tasks"],
+            ["chat", "Chat"],
             ["schedule", "Schedule"],
             ["money", "Credit"],
           ] as const
@@ -130,7 +166,10 @@ export function Home({
               accessibilityState={{ selected: on }}
             >
               <View style={[styles.tabMark, { backgroundColor: on ? c.orange : "transparent" }]} />
-              <Text style={[styles.tabText, { color: on ? c.ink : c.muted, fontWeight: on ? "700" : "500" }]}>{label}</Text>
+              <Text style={[styles.tabText, { color: on ? c.ink : c.muted, fontWeight: on ? "700" : "500" }]}>
+                {label}
+                {key === "chat" && unreadCount > 0 ? ` (${unreadCount > 9 ? "9+" : unreadCount})` : ""}
+              </Text>
             </Pressable>
           );
         })}
@@ -148,6 +187,7 @@ function Today({
   onRefresh,
   onSignedOut,
   openSchedule,
+  onRestock,
 }: {
   data: Portal;
   now: number;
@@ -155,6 +195,7 @@ function Today({
   onRefresh: () => Promise<void>;
   onSignedOut: () => void;
   openSchedule: () => void;
+  onRestock: (r: Restock) => void;
 }) {
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState<Note>(null);
@@ -196,6 +237,8 @@ function Today({
               : `Clocked out. You worked ${formatMinutes(minutesBetween(r.in, r.out))}.`,
           undo: { id: r.id, token: r.undo },
         });
+        // After every shift: the restock photos.
+        if (r.status === "out") startRestock(r.id, r.undo).then(onRestock, () => undefined);
       }
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => undefined);
       await onRefresh();
@@ -447,6 +490,6 @@ const styles = StyleSheet.create({
   listRow: { flexDirection: "row", alignItems: "center", gap: 10, paddingHorizontal: 20, paddingVertical: 12 },
   tabs: { position: "absolute", left: 0, right: 0, bottom: 0, flexDirection: "row", borderTopWidth: StyleSheet.hairlineWidth, paddingTop: 0 },
   tab: { flex: 1, alignItems: "center", paddingTop: 0, paddingBottom: 8, gap: 8 },
-  tabMark: { height: 2, alignSelf: "stretch", marginHorizontal: 28 },
-  tabText: { fontSize: 14 },
+  tabMark: { height: 2, alignSelf: "stretch", marginHorizontal: 14 },
+  tabText: { fontSize: 13 },
 });
