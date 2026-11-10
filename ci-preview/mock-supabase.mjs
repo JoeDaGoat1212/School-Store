@@ -223,6 +223,10 @@ http
       const table = path.startsWith("/rest/v1/") && !path.includes("/rpc/") ? path.slice(9) : null;
       if (body === undefined && table && tables[table]) {
         let rows = tables[table];
+        // Simple "column=eq.value" filters, so single-row lookups work like the real database.
+        for (const [k, v] of query.entries()) {
+          if (v.startsWith("eq.") && !["select", "order", "limit"].includes(k)) rows = rows.filter((r) => String(r[k]) === v.slice(3));
+        }
         if (table === "staff_shifts" && !query.get("clock_out")) rows = [];
         body = one ? rows[0] ?? null : rows;
       }
