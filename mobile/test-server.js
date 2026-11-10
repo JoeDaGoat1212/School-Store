@@ -23,5 +23,30 @@ http.createServer((req, res) => {
     if (!open) { open = { id: "s1", in: new Date().toISOString(), source: "phone" }; return send({ status: "in", name: "Maya R", in: open.in, out: null, id: "s1", undo: "u", autoOutAt: new Date(Date.now() + 75 * 60000).toISOString() }); }
     const r = { status: "out", name: "Maya R", in: open.in, out: new Date().toISOString(), id: "s1", undo: "u" }; open = null; return send(r);
   }
+  if (a === "threads") return send({
+    contacts: [{ member: "admin", name: "Manager" }, { member: "b", name: "Ben K" }, { member: "c", name: "Ava T" }],
+    threads: [
+      { id: "t-everyone", kind: "everyone", title: "Everyone", members: [], unread: 2, last: { body: "Who can cover 6th hour Friday?", sender: "admin", senderName: "Manager", at: iso(12) } },
+      { id: "t-ben", kind: "direct", title: "Ben K", members: [{ member: "b", name: "Ben K" }], unread: 0, last: { body: "On my way", sender: "b", senderName: "Ben K", at: iso(200) } },
+      { id: "t-group", kind: "group", title: "Friday crew", members: [{ member: "b", name: "Ben K" }, { member: "c", name: "Ava T" }], unread: 0, last: null },
+    ],
+  });
+  if (a === "thread") return send({
+    thread: { id: "t-everyone", kind: "everyone", title: "Everyone", members: [], unread: 0, last: null },
+    messages: [
+      { id: "m1", sender: "admin", senderName: "Manager", body: "New Takis came in. Put them on the top shelf please.", at: iso(90), mine: false },
+      { id: "m2", sender: "x", senderName: "Maya R", body: "Got it!", at: iso(80), mine: true },
+      { id: "m3", sender: "admin", senderName: "Manager", body: "Who can cover 6th hour Friday?", at: iso(12), mine: false },
+      { id: "m4", sender: "c", senderName: "Ava T", body: "I can", at: iso(10), mine: false },
+    ],
+  });
+  if (a === "unread") return send({ unread: 2 });
+  if (a === "tasks") return send({ tasks: [
+    { id: "k1", title: "Wipe down the counter", details: "Spray and paper towel, under the register too", forEveryone: true, repeats: "Every day", done: true },
+    { id: "k2", title: "Count the cash box", details: null, forEveryone: false, repeats: null, done: false },
+    { id: "k3", title: "Break down boxes", details: "Recycling bin by the gym", forEveryone: true, repeats: "Every Tuesday", done: false },
+  ] });
+  if (a === "absences") return send({ absences: [{ id: "ab1", date: day(3), windowId: 6, label: "6th hour", reason: "Dentist" }] });
+  if (a === "restock-start") return send({ checkId: "chk1", token: "tok", name: "Maya R", areas: ["Fridge", "Snacks", "Ramen", "Chips"], done: [] });
   return send({ ok: true });
 }).listen(8787, () => console.log("fake store on :8787"));

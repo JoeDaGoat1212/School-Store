@@ -4,6 +4,7 @@ import { StatusBar } from "expo-status-bar";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { getToken, loadPortal, type Portal, SignedOut } from "./src/api";
 import { Home } from "./src/home";
+import { setUpNotifications } from "./src/notify";
 import { SignIn } from "./src/sign-in";
 import { useColors } from "./src/theme";
 
@@ -39,6 +40,11 @@ export default function App() {
   useEffect(() => {
     getToken().then((t) => (t ? refresh() : setPhase("out")));
   }, [refresh]);
+
+  // Signed in: ask for notifications (clock-in reminders, new messages).
+  useEffect(() => {
+    if (phase === "in") void setUpNotifications();
+  }, [phase]);
 
   // Keep it current: every 30 seconds while open, and whenever the app comes back.
   useEffect(() => {
