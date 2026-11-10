@@ -4,8 +4,14 @@ import { createCipheriv, createECDH, createHmac, createPrivateKey, createSign, g
 import { createSecretClient } from "@/lib/supabase/server";
 
 /*
- * Web push notifications (the browser, and the home-screen web app on iPhone
- * and Android), sent straight from this server: no outside service or account.
+ * Notifications, two kinds:
+ *  - Web push (the browser, and the home-screen web app on iPhone and
+ *    Android), sent straight from this server: no outside service or account.
+ *  - The Android app: Firebase Cloud Messaging (Google's free push service),
+ *    so a message shows up the moment it's sent. Turned on by pasting the
+ *    Firebase key on Team → Messages (kept in app_secrets, never in the code).
+ *    Phones are saved in push_subscriptions with endpoint "fcm:<token>".
+ *
  * Standard Web Push (RFC 8291 "aes128gcm" encryption + RFC 8292 VAPID keys).
  * The keys are made the first time they're needed and kept in app_secrets
  * (database update 20), so they're never in the code.
@@ -13,7 +19,16 @@ import { createSecretClient } from "@/lib/supabase/server";
  * Members: an employee's staff id, or "admin" for the manager.
  */
 
-export type PushMessage = { title: string; body: string; url?: string; tag?: string };
+export type PushMessage = {
+  title: string;
+  body: string;
+  url?: string;
+  tag?: string;
+  /** For a chat message: which chat to open when it's tapped (Android app). */
+  chat?: string;
+  /** Which app tab to open when it's tapped (Android app). */
+  tab?: string;
+};
 
 const b64url = (b: Buffer) => b.toString("base64url");
 const unb64url = (s: string) => Buffer.from(s, "base64url");
@@ -77,8 +92,87 @@ function vapidHeader(endpoint: string, keys: Vapid) {
   return `vapid t=${header}.${claims}.${b64url(signature)}, k=${keys.publicKey}`;
 }
 
+/* ---------------------------------------------------------------- Firebase (Android app) */
+
+type ServiceAccount = { project_id: string; client_email: string; private_key: string };
+let fcmToken: { token: string; until: number; email: string } | null = null;
+
+export async function fcmAccount(): Promise<ServiceAccount | null> {
+  const { data } = await createSecretClient().from("app_secrets").select("value").eq("key", "fcm_service_account").maybeSingle();
+  if (!data?.value) return null;
+  try {
+    const a = JSON.parse(data.value) as ServiceAccount;
+    return a.project_id && a.client_email && a.private_key ? a : null;
+  } catch {
+    return null;
+  }
+}
+
+/** A short-lived Google access token for sending (made from the service account key). */
+async function fcmAccess(a: ServiceAccount) {
+  if (fcmToken && fcmToken.email === a.client_email && fcmToken.until > Date.now() + 60000) return fcmToken.token;
+  const now = Math.floor(Date.now() / 1000);
+  const header = b64url(Buffer.from(JSON.stringify({ alg: "RS256", typ: "JWT" })));
+  const claims = b64url(
+    Buffer.from(
+      JSON.stringify({ iss: a.client_email, scope: "https://www.googleapis.com/auth/firebase.messaging", aud: "https://oauth2.googleapis.com/token", iat: now, exp: now + 3600 }),
+    ),
+  );
+  const sig = createSign("RSA-SHA256").update(`${header}.${claims}`).sign(a.private_key);
+  const res = await fetch("https://oauth2.googleapis.com/token", {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams({ grant_type: "urn:ietf:params:oauth:grant-type:jwt-bearer", assertion: `${header}.${claims}.${b64url(sig)}` }),
+  });
+  const json = (await res.json().catch(() => ({}))) as { access_token?: string; expires_in?: number; error_description?: string };
+  if (!json.access_token) throw new Error(json.error_description ?? "Google didn't accept the Firebase key.");
+  fcmToken = { token: json.access_token, until: Date.now() + (json.expires_in ?? 3600) * 1000, email: a.client_email };
+  return json.access_token;
+}
+
+/** Sends to one Android phone. Returns "gone" when that phone's token is no longer valid. */
+async function sendFcm(a: ServiceAccount, token: string, m: PushMessage): Promise<"ok" | "gone" | "error"> {
+  const access = await fcmAccess(a);
+  const res = await fetch(`https://fcm.googleapis.com/v1/projects/${a.project_id}/messages:send`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${access}`, "Content-Type": "application/json" },
+    body: JSON.stringify({
+      message: {
+        token,
+        notification: { title: m.title, body: m.body },
+        data: { url: m.url ?? "", ...(m.chat ? { chat: m.chat } : {}), ...(m.tab ? { tab: m.tab } : {}) },
+        android: {
+          priority: "HIGH",
+          notification: { channel_id: m.chat ? "messages" : "default", ...(m.tag ? { tag: m.tag } : {}), default_sound: true, notification_priority: "PRIORITY_HIGH" },
+        },
+      },
+    }),
+  });
+  if (res.ok) return "ok";
+  const text = await res.text().catch(() => "");
+  return res.status === 404 || /UNREGISTERED|registration-token-not-registered|INVALID_ARGUMENT.*token/i.test(text) ? "gone" : "error";
+}
+
+/** Checks a pasted Firebase key by asking Google for an access token with it. */
+export async function testFcmAccount(json: string): Promise<{ account?: ServiceAccount; error?: string }> {
+  let a: ServiceAccount;
+  try {
+    a = JSON.parse(json) as ServiceAccount;
+  } catch {
+    return { error: "That isn't the whole key file. Open the downloaded .json file and copy everything in it." };
+  }
+  if (!a.project_id || !a.client_email || !a.private_key) return { error: "That file is missing parts. It should be the service account key from Firebase." };
+  try {
+    fcmToken = null;
+    await fcmAccess(a);
+    return { account: a };
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : "Google didn't accept that key." };
+  }
+}
+
 /** Sends a notification to everyone listed (staff ids and/or "admin"). Never throws. */
-export async function notify(members: string[], message: PushMessage) {
+export async function notify(members: string[], message: PushMessage, options: { skipApp?: boolean } = {}) {
   try {
     if (members.length === 0) return;
     const keys = await vapidKeys();
@@ -88,9 +182,15 @@ export async function notify(members: string[], message: PushMessage) {
     if (!subs?.length) return;
     const payload = Buffer.from(JSON.stringify(message));
     const gone: string[] = [];
+    const firebase = subs.some((s) => s.endpoint.startsWith("fcm:")) ? await fcmAccount() : null;
     await Promise.all(
       subs.map(async (s) => {
         try {
+          if (s.endpoint.startsWith("fcm:")) {
+            if (options.skipApp) return;
+            if (firebase && (await sendFcm(firebase, s.endpoint.slice(4), message)) === "gone") gone.push(s.id);
+            return;
+          }
           const res = await fetch(s.endpoint, {
             method: "POST",
             headers: {
@@ -128,4 +228,13 @@ export async function savePushSubscription(member: string, sub: { endpoint?: str
 
 export async function removePushSubscription(endpoint: string) {
   await createSecretClient().from("push_subscriptions").delete().eq("endpoint", endpoint);
+}
+
+/** Saves an Android phone's Firebase token for a member. */
+export async function saveFcmToken(member: string, token: string) {
+  if (!/^[\w:.-]{20,400}$/.test(token)) return { error: "That isn't a phone token." };
+  const { error } = await createSecretClient()
+    .from("push_subscriptions")
+    .upsert({ member, endpoint: `fcm:${token}`, p256dh: "fcm", auth: "fcm" }, { onConflict: "endpoint" });
+  return error ? { error: "Notifications need database update 20." } : { ok: true as const };
 }

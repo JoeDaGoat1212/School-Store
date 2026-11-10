@@ -33,8 +33,16 @@ const withTestServer = (config, url) =>
     return m;
   });
 
+// Instant notifications: Firebase's settings file for this app, when it's been
+// added (mobile/google-services.json, from the Firebase console). Without it
+// the app still works and checks for messages itself.
+const withFirebase = (config) => {
+  const file = path.join(__dirname, "google-services.json");
+  return fs.existsSync(file) ? { ...config, android: { ...config.android, googleServicesFile: "./google-services.json" } } : config;
+};
+
 module.exports = ({ config }) => {
-  const withRules = withKeepRules(config);
+  const withRules = withKeepRules(withFirebase(config));
   const test = process.env.APP_TEST_API;
   return test ? withTestServer(withRules, test) : withRules;
 };

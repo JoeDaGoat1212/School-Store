@@ -3,31 +3,50 @@ import * as BackgroundTask from "expo-background-task";
 import * as Notifications from "expo-notifications";
 import * as SecureStore from "expo-secure-store";
 import * as TaskManager from "expo-task-manager";
-import { type Absence, getToken, type Portal, unread } from "./api";
+import { type Absence, getToken, type Portal, savePushToken, unread } from "./api";
 import { formatClock } from "./format";
 
 /*
- * Notifications in the Android app, without any outside push service:
- *   - "Time to clock in": scheduled on the phone itself for each upcoming shift
- *     (5 minutes before it starts), from the schedule the app already has. They
- *     go off even if the app is closed. Shifts you said you'll miss are skipped.
- *   - New messages: a check every 15 minutes or so in the background (Android
- *     decides exactly when), and every 30 seconds while the app is open.
+ * Notifications in the Android app.
+ *
+ * Instant (when the manager has connected Firebase on Team → Messages): the
+ * phone registers with Google's push service and the store's server sends each
+ * message the moment it's written, with who sent it and what they said, like a
+ * text. Works even when the app is closed.
+ *
+ * Without Firebase, the app still:
+ *   - schedules "time to clock in" on the phone itself, 5 minutes before each
+ *     shift (shifts you said you'll miss are skipped);
+ *   - checks for new messages every 10 seconds while open, and in the
+ *     background about every 15 minutes (Android decides exactly when), and
+ *     shows them with the sender and the text.
  */
 
 const TASK = "firebirds-check-messages";
 const SEEN = "firebirds-unread-seen";
+const INSTANT = "firebirds-instant-push";
 
 Notifications.setNotificationHandler({
   handleNotification: async () => ({ shouldShowBanner: true, shouldShowList: true, shouldPlaySound: true, shouldSetBadge: false }),
 });
 
-/** Asks for permission (Android 13+) and sets up the notification channel. */
+/** Is this phone getting messages instantly from the server? */
+export async function hasInstantPush() {
+  return (await SecureStore.getItemAsync(INSTANT)) === "1";
+}
+
+/** Asks for permission (Android 13+), sets up the channels, and connects for instant notifications if possible. */
 export async function setUpNotifications() {
   try {
     if (Platform.OS === "android") {
+      await Notifications.setNotificationChannelAsync("messages", {
+        name: "Messages",
+        importance: Notifications.AndroidImportance.MAX,
+        vibrationPattern: [0, 180, 100, 180],
+        lockscreenVisibility: Notifications.AndroidNotificationVisibility.PRIVATE,
+      });
       await Notifications.setNotificationChannelAsync("default", {
-        name: "Shifts and messages",
+        name: "Shifts and alerts",
         importance: Notifications.AndroidImportance.HIGH,
         vibrationPattern: [0, 200, 120, 200],
       });
@@ -38,6 +57,16 @@ export async function setUpNotifications() {
     if (!registered) await BackgroundTask.registerTaskAsync(TASK, { minimumInterval: 15 });
   } catch {
     // notifications are a bonus; the app works without them
+  }
+  // Instant notifications: only when this build includes Firebase.
+  try {
+    const token = await Notifications.getDevicePushTokenAsync();
+    if (typeof token.data === "string" && token.data.length > 20) {
+      await savePushToken(token.data);
+      await SecureStore.setItemAsync(INSTANT, "1");
+    }
+  } catch {
+    await SecureStore.deleteItemAsync(INSTANT).catch(() => undefined);
   }
 }
 
@@ -60,7 +89,7 @@ export async function planShiftReminders(data: Portal, absences: Absence[]) {
       if (at <= now + 30000) continue;
       await Notifications.scheduleNotificationAsync({
         identifier: `shift-${s.date}-${s.label}`.replace(/\s+/g, "-"),
-        content: { title: `${s.label} starts at ${formatClock(s.startsAt)}`, body: "Remember to clock in when you get to the store." },
+        content: { title: `${s.label} starts at ${formatClock(s.startsAt)}`, body: "Remember to clock in when you get to the store.", data: { tab: "today" } },
         trigger: { type: Notifications.SchedulableTriggerInputTypes.DATE, date: new Date(at), channelId: "default" },
       });
     }
@@ -69,18 +98,25 @@ export async function planShiftReminders(data: Portal, absences: Absence[]) {
   }
 }
 
-/** Shows "New message" when the unread count went up since the last check. */
+/**
+ * Looks for new messages. When there are more unread than last time (and the
+ * server isn't already sending them instantly), shows each new chat's latest
+ * message: "Ben K" / "On my way". Returns the unread count.
+ */
 export async function checkMessages(showNotice = true) {
-  const n = await unread();
+  const r = await unread();
   const seen = Number((await SecureStore.getItemAsync(SEEN)) ?? "0");
-  if (showNotice && n > seen) {
-    await Notifications.scheduleNotificationAsync({
-      content: { title: n === 1 ? "New message" : `${n} new messages`, body: "Open the app to read them.", data: { tab: "messages" } },
-      trigger: null,
-    });
+  if (showNotice && r.unread > seen && !(await hasInstantPush())) {
+    for (const m of r.latest) {
+      await Notifications.scheduleNotificationAsync({
+        identifier: `chat-${m.chat}`,
+        content: { title: m.title, body: m.unread > 1 ? `${m.body}  (+${m.unread - 1} more)` : m.body, data: { chat: m.chat, tab: "messages" } },
+        trigger: Platform.OS === "android" ? { channelId: "messages" } : null,
+      });
+    }
   }
-  await SecureStore.setItemAsync(SEEN, String(n));
-  return n;
+  await SecureStore.setItemAsync(SEEN, String(r.unread));
+  return r.unread;
 }
 
 /** After reading messages: don't notify about ones already seen. */
