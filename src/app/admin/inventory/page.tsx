@@ -41,7 +41,7 @@ export default async function InventoryPage() {
         }
       />
 
-      <dl className="mb-6 grid grid-cols-2 gap-3 lg:grid-cols-4">
+      <dl className="score-strip mb-6 grid grid-cols-2 lg:grid-cols-4">
         <Stat label="Out of stock" value={out} tone={out ? "danger" : undefined} />
         <Stat label="Running low" value={low} tone={low ? "warning" : undefined} />
         <Stat label="Expired or expiring soon" value={expiring} tone={expiring ? "warning" : undefined} />
@@ -55,10 +55,10 @@ export default async function InventoryPage() {
 
 function Stat({ label, value, tone }: { label: string; value: string | number; tone?: "danger" | "warning" }) {
   return (
-    <div className="rounded-2xl border bg-card p-4 shadow-soft">
+    <div className="p-4 sm:p-5">
       <dt className="text-sm text-muted-foreground">{label}</dt>
       <dd
-        className={`mt-1 font-heading text-3xl font-bold tabular-nums ${tone === "danger" ? "text-destructive" : tone === "warning" ? "text-warning" : ""}`}
+        className={`score mt-2.5 text-4xl sm:text-5xl ${tone === "danger" ? "text-destructive" : tone === "warning" ? "text-warning" : ""}`}
       >
         {value}
       </dd>

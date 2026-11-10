@@ -394,7 +394,7 @@ export function ImportWizard({ products, aliases }: { products: Product[]; alias
 
         {step === "review" && review && stats && (
           <div className="grid gap-6">
-            <dl className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+            <dl className="score-strip grid grid-cols-2 lg:grid-cols-4">
               <Stat label="New sales lines" value={stats.fresh.length.toLocaleString()} />
               <Stat label="Dates" value={!stats.from ? "—" : stats.from === stats.to ? formatDay(stats.from) : `${formatDay(stats.from)} – ${formatDay(stats.to!)}`} small />
               <Stat label="Revenue" value={formatCents(stats.revenue)} />
@@ -644,9 +644,9 @@ function PasteBox({ busy, onPaste }: { busy: boolean; onPaste: (text: string) =>
 
 function Stat({ label, value, small }: { label: string; value: string; small?: boolean }) {
   return (
-    <div className="rounded-xl bg-muted/60 p-3">
+    <div className="p-4">
       <dt className="text-xs text-muted-foreground">{label}</dt>
-      <dd className={cn("mt-0.5 font-heading font-bold tabular-nums", small ? "text-base" : "text-2xl")}>{value}</dd>
+      <dd className={cn("mt-2", small ? "text-[0.9375rem] font-semibold tabular-nums" : "score text-4xl")}>{value}</dd>
     </div>
   );
 }

@@ -88,8 +88,8 @@ export function SnapReceipt({ stores }: { stores: string[] }) {
       <input ref={library} type="file" accept="image/*,application/pdf" className="hidden" onChange={(e) => pick(e.target.files?.[0])} />
 
       {!file ? (
-        <div className="flex flex-wrap items-center gap-4">
-          <div className="min-w-0 flex-1">
+        <div className="flex flex-wrap items-center gap-x-6 gap-y-4">
+          <div className="min-w-0 flex-1 basis-64">
             <h2 id="snap-title" className="font-heading text-base font-semibold">
               Receipt photo
             </h2>
@@ -105,11 +105,11 @@ export function SnapReceipt({ stores }: { stores: string[] }) {
               )}
             </p>
           </div>
-          <div className="flex flex-wrap gap-2">
-            <Button onClick={() => camera.current?.click()} className="h-11 px-5 text-[0.9375rem]">
+          <div className="flex w-full gap-2 sm:w-auto">
+            <Button onClick={() => camera.current?.click()} className="h-11 flex-1 px-5 text-[0.9375rem] sm:flex-none">
               <CameraIcon /> Snap receipt
             </Button>
-            <Button variant="outline" onClick={() => library.current?.click()} className="h-11 px-4">
+            <Button variant="outline" onClick={() => library.current?.click()} className="h-11 flex-1 px-4 sm:flex-none">
               <ImageIcon /> From photos
             </Button>
           </div>

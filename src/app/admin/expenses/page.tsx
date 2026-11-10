@@ -89,7 +89,7 @@ export default async function ExpensesPage(props: PageProps<"/admin/expenses">) 
       {inbox.length > 0 && <ReceiptInbox receipts={inbox} />}
 
       <div className="mb-4 flex flex-wrap items-center gap-3">
-        <div className="inline-flex items-center rounded-lg border bg-card">
+        <div className="inline-flex items-center rounded-md border bg-card">
           <Button variant="ghost" size="icon" asChild>
             <Link href={`/admin/expenses?month=${range.prev}`} aria-label="Previous month">
               <ChevronLeftIcon />

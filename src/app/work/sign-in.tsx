@@ -3,7 +3,7 @@
 import { useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { CalendarClockIcon, Loader2Icon, LockIcon, PercentIcon, TimerIcon, WalletIcon } from "lucide-react";
+import { Loader2Icon, LockIcon } from "lucide-react";
 import { signIn } from "./actions";
 
 /** Name + 4-digit time clock PIN. */
@@ -29,34 +29,20 @@ export function SignIn({ manager }: { manager: boolean }) {
   };
 
   const field =
-    "h-14 w-full rounded-2xl border bg-background px-4 text-lg outline-none transition focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50";
+    "h-14 w-full rounded-lg border bg-background px-4 text-lg outline-none transition focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50";
 
   return (
     <div className="grid gap-5">
       {!manager && (
-        <section className="relative isolate overflow-hidden rounded-[2rem] bg-neutral-950 p-6 text-white shadow-soft">
-          <div aria-hidden className="pointer-events-none absolute -top-24 -right-16 -z-10 size-72 rounded-full bg-primary/40 blur-3xl" />
-          <div aria-hidden className="pointer-events-none absolute -bottom-24 -left-16 -z-10 size-64 rounded-full bg-teal/30 blur-3xl" />
-          <p className="text-xs font-bold tracking-widest text-white/60 uppercase">For employees</p>
-          <h1 className="mt-1 font-heading text-4xl leading-none font-bold tracking-wide uppercase">Your shift, in your pocket</h1>
-          <ul className="mt-5 grid grid-cols-2 gap-2 text-sm">
-            {[
-              { icon: TimerIcon, text: "Clock in and out" },
-              { icon: PercentIcon, text: "Your discount" },
-              { icon: WalletIcon, text: "Store credit" },
-              { icon: CalendarClockIcon, text: "Your schedule" },
-            ].map((f) => (
-              <li key={f.text} className="flex items-center gap-2 rounded-xl bg-white/10 px-3 py-2.5 font-medium">
-                <f.icon className="size-4 text-primary" /> {f.text}
-              </li>
-            ))}
-          </ul>
-        </section>
+        <div className="px-1 pt-2">
+          <h1 className="text-[1.75rem] leading-tight font-bold">Your shift, on your phone</h1>
+          <p className="mt-1.5 text-[0.9375rem] text-muted-foreground">Clock in and out, see your discount, store credit and schedule.</p>
+        </div>
       )}
 
-      <form onSubmit={submit} className="grid gap-4 rounded-[2rem] border bg-card p-6 shadow-soft">
+      <form onSubmit={submit} className="grid gap-4 rounded-xl border bg-card p-5">
         <div>
-          <h2 className="font-heading text-2xl font-bold">{manager ? "Also work a shift?" : "Sign in"}</h2>
+          <h2 className="text-lg font-semibold">{manager ? "Also work a shift?" : "Sign in"}</h2>
           <p className="mt-1 text-sm text-muted-foreground">Use your name and the PIN you clock in with. You stay signed in on this phone.</p>
         </div>
         <label className="grid gap-1.5 text-sm font-semibold">
@@ -84,7 +70,7 @@ export function SignIn({ manager }: { manager: boolean }) {
         <button
           type="submit"
           disabled={pending}
-          className="flex h-14 items-center justify-center gap-2 rounded-2xl bg-primary font-heading text-2xl font-bold tracking-wide text-primary-foreground uppercase shadow-[0_10px_40px_-12px_var(--primary)] transition active:scale-[0.98] disabled:opacity-60"
+          className="flex h-14 items-center justify-center gap-2 rounded-lg bg-primary text-lg font-semibold text-primary-foreground transition active:translate-y-px disabled:opacity-60"
         >
           {pending && <Loader2Icon className="size-5 animate-spin" />} Sign in
         </button>

@@ -172,7 +172,7 @@ export default async function DashboardPage() {
 
       <DashboardNumbers days={days} year={year} today={today} lowStock={s.low_stock.length} outOfStock={outOfStock} lastSaleDate={s.last_sale_date} />
 
-      <div className="mt-4 grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,360px)]">
+      <div className="mt-4 grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,360px)]">
         <SalesChart days={days} months={year.months} today={today} />
         <TodoList todos={todos} today={today} />
       </div>

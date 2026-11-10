@@ -252,7 +252,7 @@ export function SalesChart({ days: all, months, today }: { days: Day[]; months: 
   const innerH = H - pad.top - pad.bottom;
   const slot = innerW / Math.max(1, days.length);
   const both = showSales && showSpending;
-  const barW = Math.min(18, slot * (both ? 0.32 : 0.55));
+  const barW = Math.min(12, slot * (both ? 0.24 : 0.4));
   const y = (v: number) => pad.top + (1 - v / max) * innerH;
   const ticks = [0, 0.5, 1].map((f) => Math.round(max * f));
   const labelEvery = byMonth ? 1 : days.length > 20 ? 5 : days.length > 10 ? 2 : 1;
