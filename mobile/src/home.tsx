@@ -140,6 +140,9 @@ export function Home({
         )}
       </ScrollView>
 
+      {/* Keeps the phone's status bar readable over scrolled content. */}
+      <View pointerEvents="none" style={{ position: "absolute", top: 0, left: 0, right: 0, height: insets.top, backgroundColor: c.board }} />
+
       {restock && <RestockFlow session={restock} c={c} onClose={() => setRestock(null)} />}
 
       {/* Tab bar */}

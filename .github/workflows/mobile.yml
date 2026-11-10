@@ -109,7 +109,7 @@ jobs:
             adb shell input tap 540 2275
             sleep 4
             adb exec-out screencap -p > shot-4-chat.png
-            adb shell input tap 540 430
+            adb shell input tap 540 560
             sleep 4
             adb exec-out screencap -p > shot-5-conversation.png
             adb shell input tap 756 2275
@@ -119,7 +119,9 @@ jobs:
             sleep 2
             adb exec-out screencap -p > shot-7-absences.png
             adb shell input tap 108 2275
-            sleep 3
+            sleep 2
+            adb shell input swipe 540 700 540 2000 300
+            sleep 2
             adb shell input tap 540 840
             sleep 5
             adb exec-out screencap -p > shot-8-clocked-in.png
