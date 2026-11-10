@@ -103,6 +103,11 @@ jobs:
             adb shell input keyevent 66
             sleep 6
             adb exec-out screencap -p > shot-2-today.png
+            adb shell cmd statusbar expand-notifications
+            sleep 3
+            adb exec-out screencap -p > shot-2b-notification.png
+            adb shell cmd statusbar collapse
+            sleep 2
             adb shell input tap 324 2275
             sleep 4
             adb exec-out screencap -p > shot-3-tasks.png
