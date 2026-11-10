@@ -95,7 +95,8 @@ jobs:
             adb shell monkey -p com.firebirdsnest.staff -c android.intent.category.LAUNCHER 1
             sleep 25
             adb exec-out screencap -p > shot-1-sign-in.png
-            sh mobile/test-tap.sh "First name"
+            adb shell input tap 540 949
+            sleep 1
             adb shell input text "Maya%sR"
             adb shell input keyevent 66
             adb shell input text "1234"
