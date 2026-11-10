@@ -6,6 +6,7 @@ import { staffNavGroups } from "@/components/staff/nav-items";
 import { brand } from "@/config/brand";
 import { createClient } from "@/lib/supabase/server";
 import { loadPortal } from "./actions";
+import { AndroidApp } from "./android-app";
 import { InstallButton } from "./install-button";
 import { Portal } from "./portal";
 import { SignIn } from "./sign-in";
@@ -55,6 +56,8 @@ export default async function WorkPage() {
         )}
 
         {admin && <ManagerTools />}
+
+        <AndroidApp />
 
         {portal ? <Portal initial={portal} /> : !admin || !error ? <SignIn manager={admin} /> : null}
       </main>

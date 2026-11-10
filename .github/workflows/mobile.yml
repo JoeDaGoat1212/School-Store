@@ -33,20 +33,15 @@ jobs:
 
       - name: Install
         run: |
-          if [ -f package-lock.json ]; then
-            npm ci --no-audit --no-fund
+          if grep -q '"expo"' package.json; then
+            npm install --no-audit --no-fund
           else
             # First build: pick the newest Expo and the versions that go with it.
             npm install --no-audit --no-fund expo@latest
             npx expo install react react-native expo-constants expo-secure-store expo-haptics expo-status-bar expo-system-ui react-native-safe-area-context
             npx expo install typescript @types/react -- --save-dev
           fi
-      - uses: actions/upload-artifact@v4
-        with:
-          name: package-files
-          path: |
-            mobile/package.json
-            mobile/package-lock.json
+          echo "----- package.json -----"; cat package.json
 
       - name: Typecheck
         run: npx tsc --noEmit
@@ -94,11 +89,17 @@ jobs:
             sleep 3
             adb exec-out screencap -p > shot-2-typing.png
             adb shell pidof com.firebirdsnest.staff && echo "APP IS RUNNING" || (echo "APP CRASHED"; adb logcat -d -s ReactNativeJS:V AndroidRuntime:E | tail -80; exit 1)
-      - uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: emulator-shots
-          path: "*.png"
+      - name: Save the screenshots on the test branch
+        if: always() && github.ref != 'refs/heads/main'
+        run: |
+          mkdir -p shots && mv *.png shots/ 2>/dev/null || true
+          git init -q repo && cd repo
+          git remote add origin "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git"
+          git fetch -q --depth 1 origin "${{ github.ref_name }}" && git checkout -q FETCH_HEAD
+          mkdir -p ci-preview/app-shots && cp ../shots/*.png ci-preview/app-shots/ 2>/dev/null || exit 0
+          git config user.name "github-actions"; git config user.email "github-actions@users.noreply.github.com"
+          git add -f ci-preview/app-shots && git commit -qm "App screenshots [skip ci]" || exit 0
+          git push -q origin HEAD:"${{ github.ref_name }}" || (git pull -q --rebase origin "${{ github.ref_name }}" && git push -q origin HEAD:"${{ github.ref_name }}")
 
   release:
     needs: [android, try-it]
