@@ -8,6 +8,14 @@ const browser = await chromium.launch();
 async function page(name, url, viewport, setup) {
   const ctx = await browser.newContext({ viewport, deviceScaleFactor: 1 });
   if (setup?.cookie) await ctx.addCookies([{ name: "fn_work", value: "preview", url: base }]);
+  if (setup?.admin) {
+    const b64 = (o) => Buffer.from(JSON.stringify(o)).toString("base64url");
+    const exp = Math.floor(Date.now() / 1000) + 3600;
+    const user = { id: "00000000-0000-0000-0000-00000000a0a0", aud: "authenticated", role: "authenticated", email: "manager@example.com" };
+    const jwt = `${b64({ alg: "HS256", typ: "JWT" })}.${b64({ sub: user.id, email: user.email, role: "authenticated", aud: "authenticated", exp, iat: exp - 3600, session_id: "s" })}.c2ln`;
+    const session = { access_token: jwt, refresh_token: "r", token_type: "bearer", expires_in: 3600, expires_at: exp, user };
+    await ctx.addCookies([{ name: "sb-localhost-auth-token", value: `base64-${Buffer.from(JSON.stringify(session)).toString("base64url")}`, url: base }]);
+  }
   if (setup?.kiosk) await ctx.addCookies([{ name: "fn_kiosk", value: "preview", url: base }]);
   const p = await ctx.newPage();
   p.on("pageerror", (e) => console.log(`[${name}] page error:`, e.message));
@@ -60,5 +68,10 @@ await page("work-money", "/work", { width: 390, height: 844 }, {
     await p.waitForTimeout(400);
   },
 });
+for (const [name, url] of [["admin-dashboard", "/admin"], ["admin-shopping", "/admin/inventory/shopping-list"], ["admin-inventory", "/admin/inventory"], ["admin-expenses", "/admin/expenses"]]) {
+  await page(name, url, { width: 1440, height: 900 }, { admin: true });
+}
+await page("admin-dashboard-phone", "/admin", { width: 390, height: 844 }, { admin: true });
+await page("admin-shopping-phone", "/admin/inventory/shopping-list", { width: 390, height: 844 }, { admin: true });
 await browser.close();
 console.log("screenshots done");
