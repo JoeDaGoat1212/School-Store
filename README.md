@@ -376,9 +376,12 @@ The person shopping has to be signed in with the admin login on their phone. Cod
 
 ### The staff dashboard look
 
-The staff pages use a "back room" look: a dark sidebar with an orange glow, a page title with the tool's icon and
-section, soft cards that lift when they're links, and receipt-style order cards. The colors and fonts are at the end of `src/app/globals.css` (search for
-"The back room") and in `src/app/admin/fonts.ts`; the dashboard is `src/app/admin/page.tsx`.
+The staff pages, the time clock and the employee app share one look: "scoreboard and clipboard". Money and counts
+are set in the store's jersey typeface (Big Shoulders, the `.score` class); everything else is quiet Archivo on a
+few white sheets with ruled lines inside. Color only means something: dark buttons are what to press, Firebirds
+orange marks where you are and sales, green is money up, red is a problem. The colors and fonts are at the end of
+`src/app/globals.css` (search for "The back room") and in `src/app/admin/fonts.ts`; the dashboard is
+`src/app/admin/page.tsx`.
 
 ### The 3D store
 
