@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { type ComponentRef, useRef, useState } from "react";
 import { ActivityIndicator, Image, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { signIn } from "./api";
@@ -11,7 +11,7 @@ export function SignIn({ onSignedIn }: { onSignedIn: () => Promise<void> }) {
   const [pin, setPin] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const pinRef = useRef<TextInput>(null);
+  const pinRef = useRef<ComponentRef<typeof TextInput>>(null);
 
   const ready = name.trim().length > 0 && pin.length === 4 && !busy;
 
