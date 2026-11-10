@@ -588,6 +588,7 @@ export type Database = {
           staff_max_shift_minutes: number;
           kiosk_pin_salt: string | null;
           kiosk_pin_hash: string | null;
+          restock_areas: string[];
         };
         ComputedFields: never;
         Insert: {
@@ -621,6 +622,7 @@ export type Database = {
           staff_max_shift_minutes?: number;
           kiosk_pin_salt?: string | null;
           kiosk_pin_hash?: string | null;
+          restock_areas?: string[];
         };
         Update: {
           banner_text?: string | null;
@@ -653,6 +655,7 @@ export type Database = {
           staff_max_shift_minutes?: number;
           kiosk_pin_salt?: string | null;
           kiosk_pin_hash?: string | null;
+          restock_areas?: string[];
         };
         Relationships: [];
       };
@@ -1213,6 +1216,83 @@ export type Database = {
         Update: { expense_id?: string | null; dismissed?: boolean; store?: string | null; total_cents?: number | null; note?: string | null };
         Relationships: [];
       };
+      chat_threads: {
+        Row: { id: string; kind: string; name: string | null; direct_key: string | null; created_by: string | null; created_at: string; last_message_at: string };
+        ComputedFields: never;
+        Insert: { id?: string; kind: string; name?: string | null; direct_key?: string | null; created_by?: string | null; last_message_at?: string };
+        Update: { name?: string | null; last_message_at?: string };
+        Relationships: [];
+      };
+      chat_members: {
+        Row: { thread_id: string; member: string; last_read_at: string };
+        ComputedFields: never;
+        Insert: { thread_id: string; member: string; last_read_at?: string };
+        Update: { last_read_at?: string };
+        Relationships: [];
+      };
+      chat_messages: {
+        Row: { id: string; thread_id: string; sender: string; sender_name: string; body: string; created_at: string };
+        ComputedFields: never;
+        Insert: { id?: string; thread_id: string; sender: string; sender_name: string; body: string };
+        Update: { body?: string };
+        Relationships: [];
+      };
+      restock_checks: {
+        Row: { id: string; staff_id: string | null; staff_name: string; shift_id: string | null; token_hash: string | null; areas: string[]; skipped_note: string | null; completed_at: string | null; reviewed: boolean; created_at: string };
+        ComputedFields: never;
+        Insert: { id?: string; staff_id?: string | null; staff_name: string; shift_id?: string | null; token_hash?: string | null; areas: string[]; skipped_note?: string | null; completed_at?: string | null };
+        Update: { token_hash?: string | null; skipped_note?: string | null; completed_at?: string | null; reviewed?: boolean };
+        Relationships: [];
+      };
+      restock_photos: {
+        Row: { id: string; check_id: string; area: string; path: string; created_at: string };
+        ComputedFields: never;
+        Insert: { id?: string; check_id: string; area: string; path: string };
+        Update: { path?: string };
+        Relationships: [];
+      };
+      staff_absences: {
+        Row: { id: string; staff_id: string; work_date: string; window_id: number | null; reason: string | null; seen: boolean; created_at: string };
+        ComputedFields: never;
+        Insert: { id?: string; staff_id: string; work_date: string; window_id?: number | null; reason?: string | null };
+        Update: { seen?: boolean; reason?: string | null };
+        Relationships: [];
+      };
+      staff_tasks: {
+        Row: { id: string; title: string; details: string | null; task_date: string | null; weekday: number | null; staff_id: string | null; sort: number; created_at: string };
+        ComputedFields: never;
+        Insert: { id?: string; title: string; details?: string | null; task_date?: string | null; weekday?: number | null; staff_id?: string | null; sort?: number };
+        Update: { title?: string; details?: string | null; task_date?: string | null; weekday?: number | null; staff_id?: string | null; sort?: number };
+        Relationships: [];
+      };
+      staff_task_done: {
+        Row: { task_id: string; work_date: string; staff_id: string; done_at: string };
+        ComputedFields: never;
+        Insert: { task_id: string; work_date: string; staff_id: string };
+        Update: { done_at?: string };
+        Relationships: [];
+      };
+      push_subscriptions: {
+        Row: { id: string; member: string; endpoint: string; p256dh: string; auth: string; created_at: string };
+        ComputedFields: never;
+        Insert: { id?: string; member: string; endpoint: string; p256dh: string; auth: string };
+        Update: { member?: string; p256dh?: string; auth?: string };
+        Relationships: [];
+      };
+      staff_reminders_sent: {
+        Row: { staff_id: string; work_date: string; window_id: number; sent_at: string };
+        ComputedFields: never;
+        Insert: { staff_id: string; work_date: string; window_id: number };
+        Update: { sent_at?: string };
+        Relationships: [];
+      };
+      app_secrets: {
+        Row: { key: string; value: string };
+        ComputedFields: never;
+        Insert: { key: string; value: string };
+        Update: { value?: string };
+        Relationships: [];
+      };
       staff_sessions: {
         Row: { token_hash: string; staff_id: string; user_agent: string | null; created_at: string; last_seen: string };
         ComputedFields: never;
@@ -1327,6 +1407,7 @@ export type Database = {
       staff_board: { Args: Record<PropertyKey, never>; Returns: Json };
       staff_portal_login: { Args: { p_name: string; p_pin: string; p_token_hash: string; p_ip_hash: string | null; p_user_agent: string | null }; Returns: Json };
       staff_portal: { Args: { p_token_hash: string }; Returns: Json };
+      staff_portal_staff: { Args: { p_token_hash: string }; Returns: Database["public"]["Tables"]["staff"]["Row"] };
       staff_portal_punch: { Args: { p_token_hash: string }; Returns: Json };
       staff_portal_logout: { Args: { p_token_hash: string }; Returns: undefined };
       staff_auto_clock_out: { Args: Record<PropertyKey, never>; Returns: number };
