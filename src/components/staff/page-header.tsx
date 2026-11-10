@@ -1,4 +1,5 @@
 import type { LucideIcon } from "lucide-react";
+import { PageTitle } from "./page-title";
 
 /** Title row at the top of every staff page, with optional buttons on the right. */
 export function PageHeader({
@@ -11,11 +12,8 @@ export function PageHeader({
   actions?: React.ReactNode;
 }) {
   return (
-    <div className="mb-8 flex flex-wrap items-end justify-between gap-4">
-      <div className="min-w-0">
-        <h1 className="font-heading text-3xl leading-tight font-extrabold tracking-tight sm:text-4xl">{title}</h1>
-        {description && <p className="mt-1.5 max-w-prose text-muted-foreground">{description}</p>}
-      </div>
+    <div className="page-header relative mb-8 flex flex-wrap items-end justify-between gap-4 pb-6">
+      <PageTitle title={title} description={description} />
       {actions && <div className="flex flex-wrap gap-2">{actions}</div>}
     </div>
   );

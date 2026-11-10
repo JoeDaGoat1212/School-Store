@@ -357,10 +357,27 @@ Code: `src/app/clock/` (time clock), `src/app/work/` (employee app), `src/app/ad
 `src/lib/staff.ts`, and database updates 15–18 (`supabase/migrations/20261106000015_staff_time_clock.sql`,
 `supabase/migrations/20261109000016_employee_app.sql`, `supabase/migrations/20261109000017_auto_clock_out.sql`, `supabase/migrations/20261109000018_kiosk_lock.sql`).
 
+### Receipt photos from the store (update 19)
+
+On the **Shopping list**, the dark **At the store?** card has a **Snap receipt** button. On a phone it opens the
+camera: take a picture of the receipt after paying, add the store, total and who shopped if you like, and tap
+**Save receipt**. The photo is shrunk and saved in the private receipts storage (only the admin login can see it).
+
+Saved photos show on the dashboard to-do list and under **Expenses → Receipts to enter**. Tap **Make expense** to
+open the shopping-trip form with the photo, date, store and shopper already filled in; saving the trip files the
+receipt. **Already entered** hides one you logged another way, and **Delete** removes a photo taken by mistake.
+
+The shopping list also checks off: tap an item in the aisle and it's crossed out, with a progress bar at the top.
+Checks are kept on that phone for the day.
+
+The person shopping has to be signed in with the admin login on their phone. Code:
+`src/app/admin/inventory/shopping-list/`, `src/app/admin/expenses/receipt-*.ts(x)` and
+`supabase/migrations/20261110000019_receipt_inbox.sql`.
+
 ### The staff dashboard look
 
-The staff pages use a "back room" look: manila ledger paper, receipt-style order cards, rubber-stamp statuses and a
-hand-drawn sales sketch on the dashboard. The colors and fonts are at the end of `src/app/globals.css` (search for
+The staff pages use a "back room" look: a dark sidebar with an orange glow, a page title with the tool's icon and
+section, soft cards that lift when they're links, and receipt-style order cards. The colors and fonts are at the end of `src/app/globals.css` (search for
 "The back room") and in `src/app/admin/fonts.ts`; the dashboard is `src/app/admin/page.tsx`.
 
 ### The 3D store

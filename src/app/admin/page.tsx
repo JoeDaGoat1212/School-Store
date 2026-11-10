@@ -47,7 +47,7 @@ export default async function DashboardPage() {
   const lastYearStart = `${Number(today.slice(0, 4)) - 1}-01-01`;
   const lastYearSameDay = `${Number(today.slice(0, 4)) - 1}${today.slice(4) === "-02-29" ? "-02-28" : today.slice(4)}`;
 
-  const [summary, trend, teachers, requests, jobs, unmatchedLines, team, thisYear, lastYear, shifts, kiosk] = await Promise.all([
+  const [summary, trend, teachers, requests, jobs, unmatchedLines, team, thisYear, lastYear, shifts, kiosk, receipts] = await Promise.all([
     supabase.rpc("dashboard_summary"),
     supabase.rpc("insights", { p_from: from, p_to: today, p_bucket: "day" }),
     supabase.from("teachers").select("id", { count: "exact", head: true }).eq("status", "pending"),
@@ -66,12 +66,13 @@ export default async function DashboardPage() {
       .limit(20000),
     // Whether a manager code for the store tablet is set (errors until database update 18).
     supabase.from("settings").select("kiosk_pin_hash").eq("id", 1).maybeSingle(),
+    // Receipt photos snapped at the store that aren't a shopping trip yet (errors until database update 19).
+    supabase.from("receipt_inbox").select("id", { count: "exact", head: true }).is("expense_id", null).eq("dismissed", false),
   ]);
   if (summary.error) throw new Error(summary.error.message);
   const s = summary.data as unknown as Summary;
 
   // Minutes worked per Arizona day, from the time clock (a shift still going counts up to now).
-  const teamReady = !shifts.error;
   const staffByDay = new Map<string, number>();
   for (const sh of shifts.data ?? []) {
     const day = storeToday(new Date(sh.clock_in));
@@ -134,6 +135,9 @@ export default async function DashboardPage() {
     todos.push({ id: "jobs", icon: "briefcase", text: `${pendingJobs} job application${plural(pendingJobs)} to answer`, href: "/admin/jobs", action: "Review", tone: "normal" });
   if (team.pending > 0)
     todos.push({ id: "employees", icon: "people", text: `${team.pending} new employee${plural(team.pending)} waiting for approval`, href: "/admin/staff/people", action: "Review", tone: "normal" });
+  const receiptsToEnter = receipts.error ? 0 : (receipts.count ?? 0);
+  if (receiptsToEnter > 0)
+    todos.push({ id: "receipts", icon: "receipt", text: `${receiptsToEnter} receipt photo${plural(receiptsToEnter)} to enter`, href: "/admin/expenses#receipts", action: "Enter", tone: "normal" });
   if (newRequests > 0)
     todos.push({ id: "requests", icon: "request", text: `${newRequests} item request${plural(newRequests)} this week`, href: "/admin/requests", action: "See", tone: "normal" });
 
@@ -170,7 +174,7 @@ export default async function DashboardPage() {
         </div>
       </div>
 
-      <DashboardNumbers days={days} year={year} today={today} lowStock={s.low_stock.length} outOfStock={outOfStock} lastSaleDate={s.last_sale_date} team={teamReady} />
+      <DashboardNumbers days={days} year={year} today={today} lowStock={s.low_stock.length} outOfStock={outOfStock} lastSaleDate={s.last_sale_date} />
 
       <div className="mt-6 grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,360px)]">
         <SalesChart days={days} months={year.months} today={today} />

@@ -2,9 +2,8 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { ArrowDownRightIcon, ArrowRightIcon, ArrowUpRightIcon, BoxesIcon, DollarSignIcon, GaugeIcon, type LucideIcon, PiggyBankIcon, TimerIcon, WalletIcon } from "lucide-react";
+import { ArrowDownRightIcon, ArrowRightIcon, ArrowUpRightIcon, BoxesIcon, DollarSignIcon, type LucideIcon, PiggyBankIcon, WalletIcon } from "lucide-react";
 import { addDays, formatCents, formatDay } from "@/lib/format";
-import { formatMinutes } from "@/lib/staff";
 
 /*
  * The top of the dashboard: sales, spending and profit for today, this week or
@@ -50,7 +49,6 @@ export function DashboardNumbers({
   lowStock,
   outOfStock,
   lastSaleDate,
-  team,
 }: {
   /** Daily totals, oldest first, ending today. */
   days: Day[];
@@ -59,8 +57,6 @@ export function DashboardNumbers({
   lowStock: number;
   outOfStock: number;
   lastSaleDate: string | null;
-  /** True once the time clock is set up: shows the hours-worked cards. */
-  team: boolean;
 }) {
   const [period, setPeriod] = useState<Period>("week");
   const byDate = new Map(days.map((d) => [d.date, d]));
@@ -85,8 +81,6 @@ export function DashboardNumbers({
     period === "year"
       ? { sales: year.lastSales, spending: year.lastSpending, profit: year.lastSales - year.lastSpending, staff: year.lastStaffMinutes }
       : sum(prevFrom, prevTo);
-  // Sales per hour employees worked: the time clock and the register, together.
-  const perHour = (t: { sales: number; staff: number }) => (t.staff > 0 ? Math.round(t.sales / (t.staff / 60)) : 0);
   const vs = PERIODS[period].vs;
 
   return (
@@ -107,31 +101,10 @@ export function DashboardNumbers({
             {lastSaleDate && lastSaleDate < to && ` · sales imported through ${formatDay(lastSaleDate)}`}
           </p>
         </div>
-        <div className={`grid grid-cols-2 gap-3 lg:gap-4 ${team ? "md:grid-cols-3" : "lg:grid-cols-4"}`}>
+        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4 lg:gap-4">
           <StatCard icon={DollarSignIcon} label="Sales" value={now.sales} last={before.sales} vs={vs} href="/admin/insights" />
           <StatCard icon={WalletIcon} label="Spent" value={now.spending} last={before.spending} vs={vs} upIsBad href="/admin/expenses" />
           <StatCard icon={PiggyBankIcon} label="Profit" value={now.profit} last={before.profit} vs={vs} tone href="/admin/insights" />
-          {team && (
-            <>
-              <StatCard
-                icon={TimerIcon}
-                label="Hours worked"
-                value={now.staff}
-                last={before.staff}
-                vs={vs}
-                format={formatMinutes}
-                href="/admin/staff/hours"
-              />
-              <StatCard
-                icon={GaugeIcon}
-                label="Sales per staff hour"
-                value={perHour(now)}
-                last={perHour(before)}
-                vs={vs}
-                href="/admin/staff"
-              />
-            </>
-          )}
           <Link
             href="/admin/inventory/shopping-list"
             className="group rounded-2xl border bg-card p-4 shadow-soft transition hover:-translate-y-0.5 hover:border-primary/50 focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none sm:p-5"
@@ -345,12 +318,6 @@ export function SalesChart({ days: all, months, today }: { days: Day[]; months: 
                   {formatCents(active.sales - active.spending)}
                 </strong>
               </span>
-              {(active.staff ?? 0) > 0 && (
-                <span>
-                  Staff <strong className="tabular-nums">{formatMinutes(active.staff ?? 0)}</strong>
-                  {active.sales > 0 && (
-                    <span className="text-muted-foreground"> ({formatCents(Math.round(active.sales / ((active.staff ?? 0) / 60)))}/hr)</span>
-                  )}
                 </span>
               )}
             </div>
