@@ -92,10 +92,10 @@ export function TodoList({ todos, today }: { todos: Todo[]; today: string }) {
   const unhideAll = () => save({});
 
   return (
-    <section aria-labelledby="todo-title" className="rounded-2xl border bg-card p-5 shadow-soft sm:p-6">
-      <div className="mb-3 flex items-baseline justify-between gap-3">
-        <h2 id="todo-title" className="font-heading text-lg font-bold">
-          To do
+    <section aria-labelledby="todo-title" className="rounded-xl border bg-card">
+      <div className="flex items-baseline justify-between gap-3 border-b px-4 py-3 sm:px-5">
+        <h2 id="todo-title" className="font-heading text-base font-semibold">
+          To do {shown.length > 0 && <span className="ml-1 font-normal text-muted-foreground tabular-nums">{shown.length}</span>}
         </h2>
         {hidden.length > 0 && (
           <button type="button" onClick={unhideAll} className="inline-flex items-center gap-1 text-xs font-semibold text-muted-foreground hover:text-foreground">
@@ -104,28 +104,24 @@ export function TodoList({ todos, today }: { todos: Todo[]; today: string }) {
         )}
       </div>
       {shown.length === 0 ? (
-        <div className="grid place-items-center gap-2 py-10 text-center">
-          <CheckCircle2Icon className="size-10 text-success" />
-          <p className="font-semibold">All caught up</p>
+        <div className="grid place-items-center gap-1.5 px-5 py-12 text-center">
+          <CheckCircle2Icon className="mb-1 size-6 text-success" />
+          <p className="font-medium">All caught up</p>
           <p className="text-sm text-muted-foreground">{hidden.length > 0 ? "The rest is hidden until tomorrow." : "Nothing needs you right now."}</p>
         </div>
       ) : (
-        <ul className="grid gap-2">
+        <ul className="divide-y">
           {shown.map((t) => {
             const Icon = ICONS[t.icon];
             return (
-              <li key={t.id} className="group relative flex items-center rounded-xl border bg-background/60 transition-colors hover:border-primary/50 hover:bg-primary/5">
+              <li key={t.id} className="group relative flex items-center transition-colors hover:bg-accent/60">
                 <Link
                   href={t.href}
-                  className="flex min-w-0 flex-1 items-center gap-3 rounded-xl p-3 focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
+                  className="flex min-w-0 flex-1 items-center gap-3 py-3 pr-2 pl-4 focus-visible:bg-accent focus-visible:outline-none sm:pl-5"
                 >
-                  <span
-                    className={`grid size-9 shrink-0 place-items-center rounded-lg ${t.tone === "urgent" ? "bg-destructive/10 text-destructive" : "bg-primary/10 text-ember-ink"}`}
-                  >
-                    <Icon className="size-4.5" />
-                  </span>
-                  <span className="min-w-0 flex-1 text-sm font-medium">{t.text}</span>
-                  <span className="flex shrink-0 items-center gap-1 text-xs font-semibold text-muted-foreground group-hover:text-ember-ink">
+                  <Icon aria-hidden className={`size-4 shrink-0 ${t.tone === "urgent" ? "text-destructive" : "text-muted-foreground"}`} />
+                  <span className={`min-w-0 flex-1 text-sm ${t.tone === "urgent" ? "font-semibold" : ""}`}>{t.text}</span>
+                  <span className="flex shrink-0 items-center gap-1 text-xs font-medium text-muted-foreground group-hover:text-foreground">
                     {t.action} <ArrowRightIcon className="size-3.5" />
                   </span>
                 </Link>
@@ -135,7 +131,7 @@ export function TodoList({ todos, today }: { todos: Todo[]; today: string }) {
                     onClick={() => snooze(t.id)}
                     title="Hide until tomorrow"
                     aria-label={`Hide "${t.text}" until tomorrow`}
-                    className="mr-2 grid size-7 shrink-0 place-items-center rounded-md text-muted-foreground opacity-60 hover:bg-muted hover:text-foreground hover:opacity-100 focus-visible:opacity-100 focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
+                    className="mr-2 grid size-7 shrink-0 sm:mr-3 place-items-center rounded-md text-muted-foreground opacity-60 hover:bg-muted hover:text-foreground hover:opacity-100 focus-visible:opacity-100 focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
                   >
                     <XIcon className="size-3.5" />
                   </button>

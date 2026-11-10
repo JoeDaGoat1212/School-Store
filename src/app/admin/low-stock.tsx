@@ -19,9 +19,9 @@ export function LowStock({ items }: { items: Item[] }) {
   const shown = expanded ? list : list.slice(0, 9);
 
   return (
-    <section aria-labelledby="low-title" className="rounded-2xl border bg-card p-5 shadow-soft sm:p-6">
-      <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
-        <h2 id="low-title" className="font-heading text-lg font-bold">
+    <section aria-labelledby="low-title" className="rounded-xl border bg-card">
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b px-4 py-2.5 sm:px-5">
+        <h2 id="low-title" className="font-heading text-base font-semibold">
           Running low
         </h2>
         <div className="flex flex-wrap items-center gap-3">
@@ -40,12 +40,12 @@ export function LowStock({ items }: { items: Item[] }) {
               }}
             />
           )}
-          <Link href="/admin/inventory/shopping-list" className="inline-flex items-center gap-1 text-sm font-semibold text-ember-ink underline-offset-4 hover:underline">
+          <Link href="/admin/inventory/shopping-list" className="inline-flex items-center gap-1 text-sm font-medium text-muted-foreground hover:text-foreground">
             Shopping list <ArrowRightIcon className="size-3.5" />
           </Link>
         </div>
       </div>
-      <ul className="grid gap-x-8 sm:grid-cols-2 xl:grid-cols-3">
+      <ul className="grid gap-x-8 px-4 sm:grid-cols-2 sm:px-5 xl:grid-cols-3">
         {shown.map((p) => {
           const available = left(p);
           const pct = Math.max(0, Math.min(100, (available / Math.max(1, p.reorder_point)) * 100));
@@ -53,16 +53,18 @@ export function LowStock({ items }: { items: Item[] }) {
             <li key={p.id} className="border-b last:border-b-0">
               <Link
                 href="/admin/inventory/shopping-list"
-                className="flex items-center gap-3 rounded-lg py-2.5 hover:bg-muted/50 focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
+                className="flex items-center gap-3 py-3 hover:bg-accent/40 focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
                 title={`${available <= 0 ? "Sold out" : `${available} left`} · reorder at ${p.reorder_point}${p.reserved > 0 ? ` · ${p.reserved} held for orders` : ""}`}
               >
-                <span aria-hidden className="grid size-9 shrink-0 place-items-center rounded-lg bg-muted text-lg">
-                  {p.emoji ?? "📦"}
-                </span>
+                {p.emoji && (
+                  <span aria-hidden className="w-6 shrink-0 text-center text-lg">
+                    {p.emoji}
+                  </span>
+                )}
                 <span className="min-w-0 flex-1">
                   <span className="block truncate text-sm font-medium">{p.name}</span>
-                  <span aria-hidden className="mt-1 block h-1.5 overflow-hidden rounded-full bg-muted">
-                    <span className={`block h-full rounded-full ${available <= 0 ? "bg-destructive" : "bg-primary"}`} style={{ width: `${Math.max(pct, 4)}%` }} />
+                  <span aria-hidden className="mt-1.5 block h-1 overflow-hidden rounded-full bg-muted">
+                    <span className={`block h-full rounded-full ${available <= 0 ? "bg-destructive" : "bg-[var(--brand)]"}`} style={{ width: `${Math.max(pct, 4)}%` }} />
                   </span>
                 </span>
                 <span className={`shrink-0 text-sm font-semibold tabular-nums ${available <= 0 ? "text-destructive" : ""}`}>{available <= 0 ? "Out" : `${available} left`}</span>
@@ -72,7 +74,7 @@ export function LowStock({ items }: { items: Item[] }) {
         })}
       </ul>
       {list.length > 9 && (
-        <button type="button" onClick={() => setExpanded(!expanded)} className="mt-3 text-sm font-semibold text-ember-ink underline-offset-4 hover:underline">
+        <button type="button" onClick={() => setExpanded(!expanded)} className="mx-4 mb-3 text-sm font-medium underline underline-offset-4 sm:mx-5">
           {expanded ? "Show fewer" : `Show all ${list.length}`}
         </button>
       )}

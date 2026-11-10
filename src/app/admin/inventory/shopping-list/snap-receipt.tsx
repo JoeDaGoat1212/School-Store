@@ -82,9 +82,7 @@ export function SnapReceipt({ stores }: { stores: string[] }) {
   };
 
   return (
-    <section aria-labelledby="snap-title" className="no-print relative isolate mt-6 overflow-hidden rounded-3xl bg-neutral-950 p-5 text-white shadow-soft sm:p-6">
-      <div aria-hidden className="pointer-events-none absolute -top-24 -right-16 -z-10 size-72 rounded-full bg-primary/35 blur-3xl" />
-      <div aria-hidden className="pointer-events-none absolute -bottom-24 -left-16 -z-10 size-64 rounded-full bg-teal/25 blur-3xl" />
+    <section aria-labelledby="snap-title" className="no-print rounded-xl border bg-card p-4 sm:p-5">
 
       <input ref={camera} type="file" accept="image/*" capture="environment" className="hidden" onChange={(e) => pick(e.target.files?.[0])} />
       <input ref={library} type="file" accept="image/*,application/pdf" className="hidden" onChange={(e) => pick(e.target.files?.[0])} />
@@ -92,13 +90,13 @@ export function SnapReceipt({ stores }: { stores: string[] }) {
       {!file ? (
         <div className="flex flex-wrap items-center gap-4">
           <div className="min-w-0 flex-1">
-            <h2 id="snap-title" className="font-heading text-2xl font-bold tracking-wide uppercase">
-              At the store?
+            <h2 id="snap-title" className="font-heading text-base font-semibold">
+              Receipt photo
             </h2>
-            <p className="mt-1 text-sm text-white/70">
-              After you pay, take a picture of the receipt. It&apos;s saved for the manager to enter.
+            <p className="mt-0.5 text-sm text-muted-foreground">
+              After you pay, take a picture of the receipt. It waits under Expenses until someone enters it.
               {saved > 0 && (
-                <span className="mt-1 flex items-center gap-1.5 font-semibold text-success">
+                <span className="mt-1 flex items-center gap-1.5 font-medium text-success">
                   <CheckCircle2Icon className="size-4" /> {saved} receipt{saved === 1 ? "" : "s"} saved.{" "}
                   <Link href="/admin/expenses#receipts" className="underline underline-offset-4">
                     See them
@@ -108,25 +106,17 @@ export function SnapReceipt({ stores }: { stores: string[] }) {
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
-            <button
-              type="button"
-              onClick={() => camera.current?.click()}
-              className="inline-flex h-14 items-center gap-2.5 rounded-2xl bg-primary px-6 font-heading text-xl font-bold tracking-wide text-primary-foreground uppercase shadow-[0_10px_40px_-10px_var(--primary)] transition active:scale-[0.98]"
-            >
-              <CameraIcon className="size-6" /> Snap receipt
-            </button>
-            <button
-              type="button"
-              onClick={() => library.current?.click()}
-              className="inline-flex h-14 items-center gap-2 rounded-2xl border border-white/20 bg-white/5 px-4 text-sm font-semibold text-white/90 transition hover:bg-white/10"
-            >
-              <ImageIcon className="size-5" /> From photos
-            </button>
+            <Button onClick={() => camera.current?.click()} className="h-11 px-5 text-[0.9375rem]">
+              <CameraIcon /> Snap receipt
+            </Button>
+            <Button variant="outline" onClick={() => library.current?.click()} className="h-11 px-4">
+              <ImageIcon /> From photos
+            </Button>
           </div>
         </div>
       ) : (
-        <div className="grid gap-4 sm:grid-cols-[minmax(0,200px)_1fr]">
-          <div className="relative overflow-hidden rounded-2xl bg-white/10">
+        <div className="grid gap-4 sm:grid-cols-[minmax(0,180px)_1fr]">
+          <div className="relative overflow-hidden rounded-lg border bg-muted">
             {preview && file.type !== "application/pdf" ? (
               // eslint-disable-next-line @next/next/no-img-element -- a local photo that isn't uploaded yet
               <img src={preview} alt="The receipt you just took" className="max-h-80 w-full object-contain" />
@@ -136,17 +126,17 @@ export function SnapReceipt({ stores }: { stores: string[] }) {
             <button
               type="button"
               onClick={() => camera.current?.click()}
-              className="absolute right-2 bottom-2 inline-flex items-center gap-1 rounded-full bg-black/60 px-3 py-1.5 text-xs font-semibold backdrop-blur"
+              className="absolute right-2 bottom-2 inline-flex items-center gap-1 rounded-md bg-black/70 px-2.5 py-1.5 text-xs font-medium text-white"
             >
               <RotateCcwIcon className="size-3.5" /> Retake
             </button>
           </div>
           <div className="grid content-start gap-3">
-            <h2 id="snap-title" className="font-heading text-xl font-bold">
-              Add a few details <span className="text-sm font-normal text-white/60">(all optional)</span>
+            <h2 id="snap-title" className="font-heading text-base font-semibold">
+              Add details <span className="text-sm font-normal text-muted-foreground">if you have a second</span>
             </h2>
             <div className="grid grid-cols-2 gap-2">
-              <label className="grid gap-1 text-xs font-semibold text-white/80">
+              <label className="grid gap-1 text-xs font-medium text-muted-foreground">
                 Store
                 <input
                   list="receipt-stores"
@@ -154,7 +144,7 @@ export function SnapReceipt({ stores }: { stores: string[] }) {
                   onChange={(e) => setStore(e.target.value)}
                   maxLength={60}
                   placeholder="Costco"
-                  className="h-11 rounded-xl border border-white/15 bg-white/10 px-3 text-base text-white placeholder:text-white/40"
+                  className="h-11 rounded-md border border-input bg-card px-3 text-base text-foreground placeholder:text-muted-foreground/60 focus-visible:border-ring focus-visible:outline-none"
                 />
                 <datalist id="receipt-stores">
                   {stores.map((s) => (
@@ -162,45 +152,45 @@ export function SnapReceipt({ stores }: { stores: string[] }) {
                   ))}
                 </datalist>
               </label>
-              <label className="grid gap-1 text-xs font-semibold text-white/80">
+              <label className="grid gap-1 text-xs font-medium text-muted-foreground">
                 Total
                 <span className="relative">
-                  <span className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-white/50">$</span>
+                  <span className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-muted-foreground">$</span>
                   <input
                     inputMode="decimal"
                     value={total}
                     onChange={(e) => setTotal(e.target.value)}
                     placeholder="84.17"
-                    className="h-11 w-full rounded-xl border border-white/15 bg-white/10 pr-3 pl-7 text-base text-white placeholder:text-white/40"
+                    className="h-11 w-full rounded-md border border-input bg-card pr-3 pl-7 text-base text-foreground placeholder:text-muted-foreground/60 focus-visible:border-ring focus-visible:outline-none"
                   />
                 </span>
               </label>
-              <label className="grid gap-1 text-xs font-semibold text-white/80">
+              <label className="grid gap-1 text-xs font-medium text-muted-foreground">
                 Who shopped
                 <input
                   value={shopper}
                   onChange={(e) => setShopper(e.target.value)}
                   maxLength={60}
                   placeholder="Mr. Lopez"
-                  className="h-11 rounded-xl border border-white/15 bg-white/10 px-3 text-base text-white placeholder:text-white/40"
+                  className="h-11 rounded-md border border-input bg-card px-3 text-base text-foreground placeholder:text-muted-foreground/60 focus-visible:border-ring focus-visible:outline-none"
                 />
               </label>
-              <label className="grid gap-1 text-xs font-semibold text-white/80">
+              <label className="grid gap-1 text-xs font-medium text-muted-foreground">
                 Note
                 <input
                   value={note}
                   onChange={(e) => setNote(e.target.value)}
                   maxLength={200}
                   placeholder="Out of Takis"
-                  className="h-11 rounded-xl border border-white/15 bg-white/10 px-3 text-base text-white placeholder:text-white/40"
+                  className="h-11 rounded-md border border-input bg-card px-3 text-base text-foreground placeholder:text-muted-foreground/60 focus-visible:border-ring focus-visible:outline-none"
                 />
               </label>
             </div>
             <div className="flex flex-wrap gap-2">
-              <Button onClick={save} disabled={saving} className="h-12 flex-1 rounded-xl text-base font-bold">
+              <Button onClick={save} disabled={saving} className="h-11 flex-1 text-[0.9375rem]">
                 {saving ? <Loader2Icon className="animate-spin" /> : <CheckCircle2Icon />} Save receipt
               </Button>
-              <Button variant="ghost" onClick={reset} disabled={saving} className="h-12 rounded-xl text-white hover:bg-white/10 hover:text-white">
+              <Button variant="ghost" onClick={reset} disabled={saving} className="h-11">
                 <XIcon /> Cancel
               </Button>
             </div>

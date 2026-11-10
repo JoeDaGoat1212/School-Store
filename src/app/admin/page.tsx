@@ -1,11 +1,10 @@
 import Link from "next/link";
 import { FileUpIcon, ReceiptIcon } from "lucide-react";
-import { staffNav } from "@/components/staff/nav-items";
 import { Button } from "@/components/ui/button";
 import { features } from "@/config/features";
 import { requireAdmin } from "@/lib/auth";
 import { EOP_PREFIX } from "@/lib/end-of-period";
-import { addDays, formatDay, storeToday } from "@/lib/format";
+import { addDays, storeToday } from "@/lib/format";
 import { minutesBetween } from "@/lib/staff";
 import type { OrderStatus } from "@/lib/order-status";
 import { AutoRefresh } from "./auto-refresh";
@@ -148,25 +147,22 @@ export default async function DashboardPage() {
   return (
     <>
       {/* ---- Greeting and the two things you do most ---- */}
-      <div className="mb-8 flex flex-wrap items-end justify-between gap-4">
+      <div className="mb-6 flex flex-wrap items-end justify-between gap-x-6 gap-y-4">
         <div>
-          <p className="flex flex-wrap items-center gap-x-3 text-sm font-medium text-ember-ink">
-            {formatDay(s.today, { weekday: "long", month: "long" })}
+          <h1 className="font-heading text-[1.75rem] leading-tight font-bold sm:text-[2rem]">{greeting()}</h1>
+          <p className="mt-1 flex flex-wrap items-center gap-x-3 text-[0.9375rem] text-muted-foreground">
+            {todos.length === 0 ? "Nothing needs you right now." : `${todos.length} thing${plural(todos.length)} need${todos.length === 1 ? "s" : ""} a look today.`}
             <AutoRefresh loadedAt={loadedAt.toISOString()} />
           </p>
-          <h1 className="mt-1 font-heading text-3xl leading-tight font-extrabold tracking-tight sm:text-4xl">{greeting()}</h1>
-          <p className="mt-1.5 text-muted-foreground">
-            {todos.length === 0 ? "Everything's handled. Nice work." : `${todos.length} thing${plural(todos.length)} could use a look today.`}
-          </p>
         </div>
-        <div className="flex flex-wrap gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <LockTablet ready={!kiosk.error} hasPin={Boolean(kiosk.data?.kiosk_pin_hash)} />
           <Button asChild variant="outline" className="h-10 px-4">
             <Link href="/admin/imports">
               <FileUpIcon /> Import sales
             </Link>
           </Button>
-          <Button asChild className="h-10 px-4 font-semibold">
+          <Button asChild className="h-10 px-4">
             <Link href="/admin/expenses/new">
               <ReceiptIcon /> Log a shopping trip
             </Link>
@@ -176,7 +172,7 @@ export default async function DashboardPage() {
 
       <DashboardNumbers days={days} year={year} today={today} lowStock={s.low_stock.length} outOfStock={outOfStock} lastSaleDate={s.last_sale_date} />
 
-      <div className="mt-6 grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,360px)]">
+      <div className="mt-4 grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,360px)]">
         <SalesChart days={days} months={year.months} today={today} />
         <TodoList todos={todos} today={today} />
       </div>
@@ -186,37 +182,11 @@ export default async function DashboardPage() {
 
       {/* ---- Running low ---- */}
       {s.low_stock.length > 0 && (
-        <div className="mt-6">
+        <div className="mt-4">
           <LowStock items={s.low_stock} />
         </div>
       )}
 
-      {/* ---- Every tool, one tap away ---- */}
-      <section aria-labelledby="tools-title" className="mt-10">
-        <h2 id="tools-title" className="mb-3 font-heading text-lg font-bold">
-          All tools
-        </h2>
-        <ul className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-4">
-          {staffNav
-            .filter((t) => t.href !== "/admin")
-            .map((t) => (
-              <li key={t.href}>
-                <Link
-                  href={t.href}
-                  className="group flex h-full items-start gap-3 rounded-2xl border bg-card p-4 shadow-soft hover:-translate-y-0.5 hover:border-primary/50 focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
-                >
-                  <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-primary/10 text-ember-ink transition-colors group-hover:bg-primary group-hover:text-primary-foreground">
-                    <t.icon className="size-5" />
-                  </span>
-                  <span className="min-w-0">
-                    <span className="block font-semibold">{t.title}</span>
-                    <span className="block text-sm leading-snug text-muted-foreground">{t.blurb}</span>
-                  </span>
-                </Link>
-              </li>
-            ))}
-        </ul>
-      </section>
     </>
   );
 }

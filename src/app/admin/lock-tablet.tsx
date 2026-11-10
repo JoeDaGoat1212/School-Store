@@ -48,9 +48,9 @@ export function LockTablet({ hasPin, ready }: { hasPin: boolean; ready: boolean 
         <MonitorSmartphoneIcon /> Lock tablet on time clock
       </Button>
       {open && (
-        <div className="absolute right-0 z-40 mt-2 grid w-[min(22rem,calc(100vw-2rem))] gap-3 rounded-2xl border bg-card p-4 shadow-2xl">
+        <div className="absolute right-0 z-40 mt-2 grid w-[min(22rem,calc(100vw-2rem))] gap-3 rounded-xl border bg-card p-4 shadow-xl">
           <div className="flex items-start justify-between gap-3">
-            <p className="font-heading text-lg font-bold">Lock this tablet on the time clock</p>
+            <p className="font-heading text-base font-semibold">Lock this tablet on the time clock</p>
             <button type="button" aria-label="Close" onClick={() => setOpen(false)} className="grid size-7 place-items-center rounded-md hover:bg-muted">
               <XIcon className="size-4" />
             </button>

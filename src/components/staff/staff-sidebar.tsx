@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ExternalLinkIcon, LogOutIcon } from "lucide-react";
+import { LogOutIcon } from "lucide-react";
 import { logout } from "@/app/login/actions";
 import { BrandMark } from "@/components/brand-mark";
 import {
@@ -65,8 +65,8 @@ export function StaffSidebar({
               <Link href="/admin">
                 <BrandMark size={32} />
                 <span className="grid leading-tight">
-                  <span className="font-heading text-[0.95rem] font-bold">{brand.name}</span>
-                  <span className="text-xs text-sidebar-foreground/60">Store manager</span>
+                  <span className="text-[0.9375rem] font-semibold text-foreground">{brand.name}</span>
+                  <span className="text-xs text-muted-foreground">Back office</span>
                 </span>
               </Link>
             </SidebarMenuButton>
@@ -104,14 +104,6 @@ export function StaffSidebar({
 
       <SidebarFooter>
         <SidebarMenu>
-          <SidebarMenuItem>
-            <SidebarMenuButton asChild tooltip="Open the store students see">
-              <Link href="/home" target="_blank">
-                <ExternalLinkIcon />
-                <span>View the store</span>
-              </Link>
-            </SidebarMenuButton>
-          </SidebarMenuItem>
           <SidebarMenuItem>
             <form action={logout}>
               <SidebarMenuButton type="submit" size="lg" tooltip="Log out">

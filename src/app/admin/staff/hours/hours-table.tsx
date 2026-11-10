@@ -168,7 +168,7 @@ export function HoursTable({
         <div className="overflow-x-auto rounded-2xl border bg-card shadow-soft">
           <table className="w-full min-w-[720px] text-sm">
             <thead>
-              <tr className="border-b text-left text-xs tracking-wide text-muted-foreground uppercase">
+              <tr className="border-b text-left text-xs font-medium text-muted-foreground">
                 <th className="p-3">Employee</th>
                 <th className="p-3">Date</th>
                 <th className="p-3">In</th>

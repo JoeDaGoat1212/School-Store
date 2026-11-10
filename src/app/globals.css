@@ -432,110 +432,114 @@
 
 /* =============================================================================
    The back room: the staff pages' look.
-   Clean and calm: soft gray page, white cards, a dark sidebar, and Firebirds
-   orange for the things you tap. Old color names (--stamp, --ledger, --label,
-   --manila, --paper, --ink) are kept so every staff page still finds them.
-   `body:has(.backroom)` (not just .backroom) so pop-ups and the phone menu,
-   which render outside the page, get the same colors.
+   Scoreboard and clipboard. The money numbers are set in the store's jersey
+   face (Big Shoulders, --font-score); everything else is quiet Archivo on a
+   few large white sheets with ruled lines inside, on a gray-green board.
+   Color only means something: ink = the button to press, Firebirds orange =
+   where you are and sales, green = money up, red = a problem.
+   Old color names (--stamp, --ledger, --label, --manila, --paper, --ink) are
+   kept so every staff page still finds them. `body:has(.backroom)` so pop-ups
+   and the phone menu, which render outside the page, get the same colors.
    ============================================================================= */
 body:has(.backroom) {
   --paper: #ffffff;
-  --manila: #f5f6f8;
-  --ink: #12161d;
-  --stamp: #d93a2b;
-  --ledger: #0e9488;
+  --manila: #f1f2ee;
+  --ink: #17191c;
+  --stamp: #c4321c;
+  --ledger: #2f6f8f;
   --label: var(--brand);
-  --rule: #eceef2;
+  --rule: #e4e6e1;
   --background: var(--manila);
   --foreground: var(--ink);
   --card: var(--paper);
   --card-foreground: var(--ink);
   --popover: var(--paper);
   --popover-foreground: var(--ink);
-  --primary: var(--brand);
-  --primary-foreground: var(--brand-foreground);
-  --secondary: #eef0f4;
+  --primary: var(--ink);
+  --primary-foreground: #ffffff;
+  --secondary: #ebece8;
   --secondary-foreground: var(--ink);
-  --muted: #f0f2f5;
-  --muted-foreground: #5c6577;
-  --accent: #f3f4f7;
+  --muted: #ebece8;
+  --muted-foreground: #60666f;
+  --accent: #ebece8;
   --accent-foreground: var(--ink);
   --destructive: var(--stamp);
-  --success: #0f8a5f;
-  --warning: #b45309;
-  --border: #e4e7ec;
-  --input: #d6dae1;
+  --success: #18794e;
+  --warning: #a15c07;
+  --border: #e1e3de;
+  --input: #cfd2cb;
   --ring: var(--brand);
   --ember-ink: #c2410c;
-  --radius: 0.75rem;
-  --shadow-soft: 0 1px 2px rgb(16 24 40 / 0.04), 0 4px 14px -6px rgb(16 24 40 / 0.1);
+  --radius: 0.5rem;
+  --shadow-soft: 0 0 #0000;
   --chart-1: var(--brand);
   --chart-2: var(--ledger);
-  --sidebar: #12161d;
-  --sidebar-foreground: #c9cfda;
-  --sidebar-primary: var(--brand);
-  --sidebar-primary-foreground: var(--brand-foreground);
-  --sidebar-accent: rgb(255 255 255 / 0.07);
-  --sidebar-accent-foreground: #ffffff;
-  --sidebar-border: rgb(255 255 255 / 0.08);
+  --sidebar: var(--manila);
+  --sidebar-foreground: #41464e;
+  --sidebar-primary: var(--ink);
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #e6e8e3;
+  --sidebar-accent-foreground: var(--ink);
+  --sidebar-border: var(--rule);
   --sidebar-ring: var(--brand);
   background: var(--manila);
 }
 .dark body:has(.backroom) {
-  --paper: #161a21;
-  --manila: #0e1116;
-  --ink: #eef1f6;
-  --stamp: #ff7466;
-  --ledger: #2dd4bf;
-  --rule: #232833;
-  --secondary: #1f242d;
+  --paper: #191b1d;
+  --manila: #111213;
+  --ink: #ecedea;
+  --stamp: #ff6b57;
+  --ledger: #6fb3d6;
+  --rule: #2a2d30;
+  --primary: var(--ink);
+  --primary-foreground: #111213;
+  --secondary: #232528;
   --secondary-foreground: var(--ink);
-  --muted: #1f242d;
-  --muted-foreground: #9aa3b4;
-  --accent: #222833;
-  --border: #262c37;
-  --input: #333a47;
-  --success: #34d399;
-  --warning: #fbbf24;
+  --muted: #232528;
+  --muted-foreground: #9a9fa7;
+  --accent: #232528;
+  --border: #2a2d30;
+  --input: #3a3e43;
+  --success: #3dd68c;
+  --warning: #f2b544;
   --ember-ink: #ff8a50;
-  --sidebar: #0a0c10;
-  --sidebar-foreground: #b4bccb;
-  --sidebar-accent-foreground: #ffffff;
-  --shadow-soft: 0 1px 2px rgb(0 0 0 / 0.4), 0 6px 18px -8px rgb(0 0 0 / 0.7);
+  --sidebar: var(--manila);
+  --sidebar-foreground: #b3b8bf;
+  --sidebar-primary: var(--ink);
+  --sidebar-primary-foreground: #111213;
+  --sidebar-accent: #1d1f22;
+  --sidebar-accent-foreground: var(--ink);
 }
 
 .backroom {
-  --font-display: var(--font-slab);
-  /* No more handwriting: notes use the clean heading font. */
-  --font-hand: var(--font-slab);
+  --font-display: var(--font-body);
+  --font-hand: var(--font-body);
 }
-
 .backroom [data-slot="sidebar-inset"] { background-color: var(--manila); }
+.backroom .font-heading { letter-spacing: -0.02em; }
+.backroom .font-hand { font-weight: 600; font-size: 0.9em; }
 
-/* Headings: bold and a little tight. */
-.backroom .font-heading { letter-spacing: -0.015em; }
-/* "Handwritten" notes were sized for a script font; bring them down a notch. */
-.backroom .font-hand { font-weight: 600; letter-spacing: -0.01em; font-size: 0.82em; }
-
-/* Cards lift a little when they're links. */
-.backroom a.rounded-2xl { transition: box-shadow 150ms ease, transform 150ms ease, border-color 150ms ease; }
-
-/* Sidebar: quiet labels, orange bar on the page you're on. */
-.backroom [data-sidebar="group-label"] {
-  font-size: 0.68rem;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: rgb(201 207 218 / 0.45);
+/* The scoreboard numerals: money and counts that matter. */
+.score {
+  font-family: var(--font-score), "Arial Narrow", sans-serif;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  line-height: 0.9;
+  letter-spacing: 0.005em;
 }
-.backroom [data-sidebar="menu-button"] { font-size: 0.875rem; border-radius: 0.6rem; }
+
+/* Sidebar: same board as the page, the page you're on is a white tab. */
+.backroom [data-sidebar="sidebar"] { border-right: 1px solid var(--rule); }
+.backroom [data-sidebar="group-label"] { font-size: 0.75rem; font-weight: 500; color: var(--muted-foreground); }
+.backroom [data-sidebar="menu-button"] { font-size: 0.875rem; border-radius: 0.375rem; }
+.backroom [data-sidebar="menu-button"] svg { color: var(--muted-foreground); }
 .backroom [data-sidebar="menu-button"][data-active="true"] {
-  background: rgb(255 90 31 / 0.14);
-  color: #ffffff;
+  background: var(--paper);
+  color: var(--ink);
   font-weight: 600;
-  box-shadow: inset 3px 0 0 var(--brand);
+  box-shadow: 0 0 0 1px var(--rule), inset 2px 0 0 var(--brand);
 }
-.backroom [data-sidebar="menu-button"][data-active="true"] svg { color: var(--brand); }
+.backroom [data-sidebar="menu-button"][data-active="true"] svg { color: var(--ember-ink); }
 .backroom [data-sidebar="menu-badge"] {
   background: var(--brand);
   color: var(--brand-foreground);
@@ -545,6 +549,14 @@ body:has(.backroom) {
   justify-content: center;
 }
 
+/* Tables: plain headers, a faint highlight on the row you're on. */
+.backroom [data-slot="table-head"] { font-size: 0.75rem; font-weight: 500; color: var(--muted-foreground); }
+.backroom [data-slot="table-row"]:hover { background: var(--accent); }
+
+/* Cards are flat sheets; overlays are the only things with a shadow. */
+.backroom [data-slot="card"] { --tw-ring-color: var(--border); }
+.backroom [data-slot="button"]:active:not(:disabled) { transform: translateY(1px); }
+
 /* Order tickets: register receipts with a torn bottom edge. */
 .backroom .receipt {
   --tear: 7px;
@@ -553,80 +565,6 @@ body:has(.backroom) {
   mask: conic-gradient(from -45deg at bottom, #0000, #000 1deg 89deg, #0000 90deg) 50% / calc(2 * var(--tear)) 100%;
 }
 .backroom .receipt .receipt-number { font-family: var(--font-receipt); font-weight: 700; letter-spacing: 0.02em; }
-
-/* ---- Back room polish (every staff tool) ---- */
-
-/* Page title: a glowing icon tile and a hairline that fades out. */
-.backroom .page-header::after {
-  content: "";
-  position: absolute;
-  inset: auto 0 0 0;
-  height: 1px;
-  background: linear-gradient(90deg, var(--brand), color-mix(in oklab, var(--brand) 30%, transparent) 30%, transparent 85%);
-}
-.backroom .page-header-icon {
-  background:
-    radial-gradient(120% 120% at 20% 0%, rgb(255 255 255 / 0.35), transparent 55%),
-    linear-gradient(140deg, var(--brand), color-mix(in oklab, var(--brand) 60%, #7c2d12));
-  box-shadow: 0 10px 28px -10px var(--brand), inset 0 1px 0 rgb(255 255 255 / 0.3);
-}
-
-/* Each page slides up a touch when it opens. */
-@media (prefers-reduced-motion: no-preference) {
-  .backroom [data-slot="sidebar-inset"] > div > * { animation: backroom-in 320ms cubic-bezier(0.2, 0.7, 0.2, 1) both; }
-  @keyframes backroom-in {
-    from { opacity: 0; transform: translateY(6px); }
-    to { opacity: 1; transform: none; }
-  }
-}
-
-/* Cards: soft shadow, rounder, lift when they're links. */
-.backroom [data-slot="card"] {
-  border-radius: 1rem;
-  box-shadow: var(--shadow-soft);
-  --tw-ring-color: var(--border);
-}
-.backroom a.rounded-2xl:hover,
-.backroom a[data-slot="card"]:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 2px 4px rgb(16 24 40 / 0.05), 0 14px 30px -12px rgb(16 24 40 / 0.22);
-  border-color: color-mix(in oklab, var(--brand) 35%, var(--border));
-}
-
-/* Tables: quiet small-caps headers, a highlight on the row you're on. */
-.backroom [data-slot="table-head"],
-.backroom table thead th {
-  font-size: 0.7rem;
-  font-weight: 700;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: var(--muted-foreground);
-}
-.backroom [data-slot="table-row"]:hover { background: color-mix(in oklab, var(--brand) 5%, transparent); }
-
-/* Inputs: rounder, with an orange glow when you're typing. */
-.backroom [data-slot="input"],
-.backroom [data-slot="select-trigger"],
-.backroom [data-slot="textarea"] { border-radius: 0.65rem; }
-.backroom [data-slot="input"]:focus-visible,
-.backroom [data-slot="textarea"]:focus-visible { box-shadow: 0 0 0 4px color-mix(in oklab, var(--brand) 18%, transparent); }
-
-/* Buttons press in a little. */
-.backroom [data-slot="button"] { transition: transform 120ms ease, background-color 150ms ease, box-shadow 150ms ease; }
-.backroom [data-slot="button"]:active:not(:disabled) { transform: translateY(1px) scale(0.985); }
-.backroom [data-slot="button"][data-variant="default"] { box-shadow: 0 6px 18px -8px var(--brand); }
-
-/* Sidebar: a warm glow behind the logo and slimmer scrollbars. */
-.backroom [data-sidebar="sidebar"] {
-  background:
-    radial-gradient(90% 260px at 0% 0%, color-mix(in oklab, var(--brand) 22%, transparent), transparent 70%),
-    var(--sidebar);
-}
-.backroom [data-sidebar="content"] { scrollbar-width: thin; scrollbar-color: rgb(255 255 255 / 0.15) transparent; }
-.backroom [data-sidebar="menu-button"]:not([data-active="true"]):hover svg { color: #fff; }
-
-/* The top bar picks up a hairline shadow. */
-.backroom [data-slot="sidebar-inset"] > header { box-shadow: 0 1px 0 rgb(16 24 40 / 0.02), 0 8px 24px -20px rgb(16 24 40 / 0.4); }
 
 /* Handwriting and receipt type helpers. */
 .font-hand { font-family: var(--font-hand), cursive; }

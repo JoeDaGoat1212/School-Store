@@ -56,7 +56,7 @@ export function ScheduleBoard({
         <table className="w-full min-w-[760px] border-collapse text-sm">
           <thead>
             <tr>
-              <th className="w-28 border-b p-3 text-left text-xs font-bold tracking-wide text-muted-foreground uppercase">Hour</th>
+              <th className="w-28 border-b p-3 text-left text-xs font-medium text-muted-foreground">Hour</th>
               {days.map((d) => (
                 <th key={d} className={`border-b border-l p-3 text-left ${d === today ? "bg-primary/10" : ""}`}>
                   <span className="block font-heading text-base font-bold">{formatDay(d, { weekday: "long", month: undefined, day: undefined })}</span>
