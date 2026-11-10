@@ -101,13 +101,13 @@ jobs:
             adb shell input keyevent 66
             sleep 6
             adb exec-out screencap -p > shot-2-today.png
-            sh mobile/test-tap.sh "Clock in"
+            adb shell input tap 540 840
             sleep 5
             adb exec-out screencap -p > shot-3-clocked-in.png
-            sh mobile/test-tap.sh "Schedule"
+            adb shell input tap 540 2275
             sleep 3
             adb exec-out screencap -p > shot-4-schedule.png
-            sh mobile/test-tap.sh "Credit"
+            adb shell input tap 900 2275
             sleep 3
             adb exec-out screencap -p > shot-5-credit.png
             if [ "$(adb shell getprop ro.build.version.sdk)" != "" ]; then adb shell cmd uimode night yes; fi
