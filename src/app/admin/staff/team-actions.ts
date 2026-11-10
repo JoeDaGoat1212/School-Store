@@ -2,7 +2,8 @@
 
 import { revalidatePath } from "next/cache";
 import { requireAdmin } from "@/lib/auth";
-import { removePushSubscription, savePushSubscription } from "@/lib/push";
+import { removePushSubscription, savePushSubscription, testFcmAccount } from "@/lib/push";
+import { createSecretClient } from "@/lib/supabase/server";
 import { ADMIN, contacts, createGroup, leaveGroup, listThreads, openDirect, readThread, sendMessage } from "@/lib/team";
 
 /* The manager's side of messages, tasks, restock checks and notifications (database update 20). */
@@ -117,5 +118,27 @@ export async function markAbsencesSeen() {
   const { supabase } = await requireAdmin();
   await supabase.from("staff_absences").update({ seen: true }).eq("seen", false);
   revalidatePath("/admin", "layout");
+  return { ok: true as const };
+}
+
+/* ---------------------------------------------------------------- Android notifications (Firebase) */
+
+/** Saves the Firebase service account key after checking Google accepts it. */
+export async function saveFirebaseKey(json: string) {
+  await requireAdmin();
+  const r = await testFcmAccount(json.trim());
+  if (!r.account) return { error: r.error ?? "That key didn't work." };
+  const { error } = await createSecretClient()
+    .from("app_secrets")
+    .upsert({ key: "fcm_service_account", value: JSON.stringify(r.account) }, { onConflict: "key" });
+  if (error) return { error: "Run database update 20 first." };
+  revalidatePath("/admin/staff/messages");
+  return { ok: true as const, project: r.account.project_id };
+}
+
+export async function removeFirebaseKey() {
+  await requireAdmin();
+  await createSecretClient().from("app_secrets").delete().eq("key", "fcm_service_account");
+  revalidatePath("/admin/staff/messages");
   return { ok: true as const };
 }

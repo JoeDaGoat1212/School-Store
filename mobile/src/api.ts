@@ -100,7 +100,9 @@ export const sendMessage = (id: string, body: string) => call<{ ok: true }>("sen
 export const openDirect = (member: string) => call<{ id: string }>("direct", { member });
 export const makeGroup = (name: string, members: string[]) => call<{ id: string }>("group", { name, members });
 export const leaveGroup = (id: string) => call<{ ok: true }>("leave", { id });
-export const unread = async () => (await call<{ unread: number }>("unread")).unread;
+export type Unread = { unread: number; latest: { chat: string; title: string; body: string; unread: number; at: string }[] };
+export const unread = () => call<Unread>("unread");
+export const savePushToken = (token: string) => call<{ ok: true }>("push-token", { token });
 
 export const loadTasks = async () => (await call<{ tasks: Task[] }>("tasks")).tasks;
 export const setTask = (id: string, done: boolean) => call<{ ok: true }>("task", { id, done });

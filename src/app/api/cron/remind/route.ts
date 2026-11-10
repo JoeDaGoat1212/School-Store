@@ -56,7 +56,7 @@ export async function POST(req: Request) {
       body: "Remember to clock in when you get to the store.",
       url: "/work",
       tag: `remind-${today}-${s.window_id}`,
-    });
+    }, { skipApp: true }); // the Android app schedules its own reminders on the phone
     count += 1;
   }
   return Response.json({ reminded: count });

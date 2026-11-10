@@ -3,6 +3,7 @@ import { ActivityIndicator, Alert, Pressable, RefreshControl, ScrollView, StyleS
 import * as Haptics from "expo-haptics";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { type Absence, loadAbsences, type Portal, punch, type Restock, signOut, SignedOut, startRestock, undo } from "./api";
+import * as Notifications from "expo-notifications";
 import { checkMessages, planShiftReminders } from "./notify";
 import { RestockFlow } from "./restock";
 import { AbsencesCard, ChatTab, TasksTab } from "./team";
@@ -43,6 +44,21 @@ export function Home({
   const [pulling, setPulling] = useState(false);
   const [now, setNow] = useState(Date.now());
   const [openChat, setOpenChat] = useState<string | null>(null);
+
+  // Tapping a notification opens that chat (or the tab it's about).
+  useEffect(() => {
+    const go = (r: Notifications.NotificationResponse | null) => {
+      const d = (r?.notification.request.content.data ?? {}) as { chat?: string; tab?: string };
+      if (d.chat) {
+        setTab("chat");
+        setOpenChat(d.chat);
+      } else if (d.tab === "today" || d.tab === "schedule") setTab(d.tab);
+      else if (d.tab === "messages") setTab("chat");
+    };
+    Notifications.getLastNotificationResponseAsync().then(go, () => undefined);
+    const sub = Notifications.addNotificationResponseReceivedListener(go);
+    return () => sub.remove();
+  }, []);
   const [unreadCount, setUnreadCount] = useState(0);
   const [restock, setRestock] = useState<Restock | null>(null);
   const [absences, setAbsences] = useState<Absence[] | null>(null);
@@ -61,7 +77,7 @@ export function Home({
     if (tab === "chat") return;
     const check = () => void checkMessages(true).then(setUnreadCount, () => undefined);
     check();
-    const t = setInterval(check, 30000);
+    const t = setInterval(check, 10000);
     return () => clearInterval(t);
   }, [tab]);
 

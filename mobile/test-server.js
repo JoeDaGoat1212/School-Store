@@ -40,7 +40,7 @@ http.createServer((req, res) => {
       { id: "m4", sender: "c", senderName: "Ava T", body: "I can", at: iso(10), mine: false },
     ],
   });
-  if (a === "unread") return send({ unread: 2 });
+  if (a === "unread") return send({ unread: 2, latest: [{ chat: "t-everyone", title: "Manager in Everyone", body: "Who can cover 6th hour Friday?", unread: 2, at: iso(12) }] });
   if (a === "tasks") return send({ tasks: [
     { id: "k1", title: "Wipe down the counter", details: "Spray and paper towel, under the register too", forEveryone: true, repeats: "Every day", done: true },
     { id: "k2", title: "Count the cash box", details: null, forEveryone: false, repeats: null, done: false },

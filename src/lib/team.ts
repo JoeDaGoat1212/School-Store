@@ -100,6 +100,15 @@ export async function listThreads(me: Me): Promise<{ threads?: ThreadSummary[]; 
   };
 }
 
+/** The newest unread messages (who and what), for notifications that show the text. */
+export async function latestUnread(me: Me, max = 3) {
+  const r = await listThreads(me);
+  return (r.threads ?? [])
+    .filter((t) => t.unread > 0 && t.last && t.last.sender !== me.member)
+    .slice(0, max)
+    .map((t) => ({ chat: t.id, title: t.kind === "direct" ? t.last!.senderName : `${t.last!.senderName} in ${t.title}`, body: t.last!.body, unread: t.unread, at: t.last!.at }));
+}
+
 export async function unreadCount(me: Me) {
   const r = await listThreads(me);
   return (r.threads ?? []).reduce((n, t) => n + t.unread, 0);
@@ -149,7 +158,7 @@ export async function sendMessage(me: Me, threadId: string, text: string): Promi
   const title = t.kind === "direct" ? me.name : `${me.name} in ${t.kind === "everyone" ? "Everyone" : (t.name ?? "a group")}`;
   const preview = body.length > 140 ? `${body.slice(0, 137)}…` : body;
   await Promise.all([
-    notify(to.filter((x) => x !== "admin"), { title, body: preview, url: `/work?tab=messages&chat=${threadId}`, tag: `chat-${threadId}` }),
+    notify(to.filter((x) => x !== "admin"), { title, body: preview, url: `/work?tab=messages&chat=${threadId}`, tag: `chat-${threadId}`, chat: threadId, tab: "messages" }),
     to.includes("admin") ? notify(["admin"], { title, body: preview, url: `/admin/staff/messages?chat=${threadId}`, tag: `chat-${threadId}` }) : null,
   ]);
   return { ok: true };

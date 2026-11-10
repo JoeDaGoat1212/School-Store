@@ -17,8 +17,10 @@ import {
   skipRestock,
   startRestock,
   tasksForDay,
+  latestUnread,
   unreadCount,
 } from "@/lib/team";
+import { saveFcmToken } from "@/lib/push";
 import { deviceHashFrom, endSession, portalFor, punchFor, startSession, undoPunch } from "@/lib/work-session";
 
 /*
@@ -34,6 +36,7 @@ import { deviceHashFrom, endSession, portalFor, punchFor, startSession, undoPunc
  *
  * Team tools (database update 20):
  *   threads, thread {id}, send {id, body}, direct {member}, group {name, members}, leave {id}, unread
+ *   push-token {token}   (this phone's Firebase token, for instant notifications)
  *   tasks, task {id, done}
  *   absences, absent {date, shift, reason}, present {id}
  *   restock-start {shift, undo}, restock-photo {check, token, area, type, data(base64)}, restock-skip {check, token, note}
@@ -125,8 +128,12 @@ async function team(action: string, token: string, req: Request) {
       return reply(await createGroup(me, str("name"), Array.isArray(b.members) ? b.members.map(String) : []));
     case "leave":
       return reply(await leaveGroup(me, str("id")));
-    case "unread":
-      return json({ unread: await unreadCount(me) });
+    case "unread": {
+      const [unread, latest] = await Promise.all([unreadCount(me), latestUnread(me)]);
+      return json({ unread, latest });
+    }
+    case "push-token":
+      return reply(await saveFcmToken(me.member, str("token")));
     case "tasks":
       return reply(await tasksForDay(storeToday(), me.staffId));
     case "task":
