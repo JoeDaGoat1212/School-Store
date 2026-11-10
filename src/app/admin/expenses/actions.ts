@@ -59,6 +59,11 @@ export async function createExpense(input: ExpenseInput): Promise<ExpenseState> 
   });
   if (error) return { message: error.hint || error.message };
 
+  // A trip made from a receipt photo snapped at the store: it's entered now.
+  if (e.receipt_path.startsWith("inbox/")) {
+    await supabase.from("receipt_inbox").update({ expense_id: id }).eq("path", e.receipt_path);
+  }
+
   revalidatePath("/admin/expenses");
   revalidatePath("/admin/inventory");
   revalidatePath("/admin");

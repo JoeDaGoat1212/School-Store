@@ -8,6 +8,8 @@ import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { requireAdmin } from "@/lib/auth";
 import { formatCents, formatDay, storeToday } from "@/lib/format";
+import { RECEIPT_BUCKET } from "@/lib/photos";
+import { type InboxReceipt, ReceiptInbox } from "./receipt-inbox";
 
 export const metadata: Metadata = { title: "Expenses" };
 
@@ -45,6 +47,28 @@ export default async function ExpensesPage(props: PageProps<"/admin/expenses">) 
 
   const total = expenses.reduce((s, e) => s + e.total_cents, 0);
 
+  // Receipt photos snapped at the store, waiting to become trips (empty until database update 19).
+  const { data: inboxRows } = await supabase
+    .from("receipt_inbox")
+    .select("id, path, store, total_cents, shopper, note, shopped_on")
+    .is("expense_id", null)
+    .eq("dismissed", false)
+    .order("created_at", { ascending: false })
+    .limit(30);
+  const signed = inboxRows?.length
+    ? (await supabase.storage.from(RECEIPT_BUCKET).createSignedUrls(inboxRows.map((r) => r.path), 60 * 60)).data ?? []
+    : [];
+  const inbox: InboxReceipt[] = (inboxRows ?? []).map((r, i) => ({
+    id: r.id,
+    url: signed[i]?.signedUrl ?? null,
+    isPdf: r.path.endsWith(".pdf"),
+    store: r.store,
+    totalCents: r.total_cents,
+    shopper: r.shopper,
+    note: r.note,
+    shoppedOn: r.shopped_on,
+  }));
+
   return (
     <>
       <Suspense>
@@ -61,6 +85,8 @@ export default async function ExpensesPage(props: PageProps<"/admin/expenses">) 
           </Button>
         }
       />
+
+      {inbox.length > 0 && <ReceiptInbox receipts={inbox} />}
 
       <div className="mb-4 flex flex-wrap items-center gap-3">
         <div className="inline-flex items-center rounded-lg border bg-card">

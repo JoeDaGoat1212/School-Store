@@ -42,12 +42,15 @@ export function ExpenseForm({
   today,
   initialSupplierId,
   initialLines,
+  fromReceipt,
 }: {
   products: FormProduct[];
   suppliers: { id: string; name: string }[];
   today: string;
   initialSupplierId: string;
   initialLines: { product_id: string; quantity: number }[];
+  /** Started from a receipt photo snapped at the store: its photo and details. */
+  fromReceipt?: { path: string; date: string; buyer: string; newSupplier: string; notes: string };
 }) {
   const byId = new Map(products.map((p) => [p.id, p]));
   const dollars = (cents: number) => (cents / 100).toFixed(2);
@@ -62,12 +65,12 @@ export function ExpenseForm({
     expires_on: "",
   });
 
-  const [date, setDate] = useState(today);
+  const [date, setDate] = useState(fromReceipt?.date ?? today);
   const [supplierId, setSupplierId] = useState(initialSupplierId || "none");
-  const [newSupplier, setNewSupplier] = useState("");
-  const [buyer, setBuyer] = useState("");
-  const [notes, setNotes] = useState("");
-  const [receipt, setReceipt] = useState<{ path: string; name: string } | null>(null);
+  const [newSupplier, setNewSupplier] = useState(fromReceipt?.newSupplier ?? "");
+  const [buyer, setBuyer] = useState(fromReceipt?.buyer ?? "");
+  const [notes, setNotes] = useState(fromReceipt?.notes ?? "");
+  const [receipt, setReceipt] = useState<{ path: string; name: string } | null>(fromReceipt ? { path: fromReceipt.path, name: "Receipt photo from the store" } : null);
   const [uploading, setUploading] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [saving, startSaving] = useTransition();

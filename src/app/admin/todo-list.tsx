@@ -13,6 +13,7 @@ import {
   FileUpIcon,
   GraduationCapIcon,
   MessageSquarePlusIcon,
+  ReceiptIcon,
   UsersIcon,
   XIcon,
 } from "lucide-react";
@@ -26,6 +27,7 @@ const ICONS = {
   teacher: GraduationCapIcon,
   request: MessageSquarePlusIcon,
   people: UsersIcon,
+  receipt: ReceiptIcon,
 };
 
 export type Todo = {

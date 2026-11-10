@@ -1195,6 +1195,24 @@ export type Database = {
         Update: { note?: string | null };
         Relationships: [];
       };
+      receipt_inbox: {
+        Row: {
+          id: string;
+          path: string;
+          store: string | null;
+          total_cents: number | null;
+          shopper: string | null;
+          note: string | null;
+          shopped_on: string;
+          expense_id: string | null;
+          dismissed: boolean;
+          created_at: string;
+        };
+        ComputedFields: never;
+        Insert: { id?: string; path: string; store?: string | null; total_cents?: number | null; shopper?: string | null; note?: string | null; shopped_on?: string };
+        Update: { expense_id?: string | null; dismissed?: boolean; store?: string | null; total_cents?: number | null; note?: string | null };
+        Relationships: [];
+      };
       staff_sessions: {
         Row: { token_hash: string; staff_id: string; user_agent: string | null; created_at: string; last_seen: string };
         ComputedFields: never;
