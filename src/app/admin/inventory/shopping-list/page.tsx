@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { CalendarClockIcon, ChevronLeftIcon, ShoppingCartIcon } from "lucide-react";
+import { ChevronLeftIcon, ShoppingCartIcon } from "lucide-react";
 import { PrintButton } from "@/components/staff/print-button";
 import { EmptyState, PageHeader } from "@/components/staff/page-header";
 import { Button } from "@/components/ui/button";
@@ -52,7 +52,7 @@ export default async function ShoppingListPage() {
     <div className="mx-auto max-w-4xl">
       <PageHeader
         title="Shopping list"
-        description={`Enough to last ${inv.shopping_interval_days} days plus ${inv.reorder_buffer_days} safety days${inv.next_shopping_date ? ` · next trip ${formatDay(inv.next_shopping_date, { weekday: "long" })}` : ""}.`}
+        description={`Enough to last ${inv.shopping_interval_days} days plus ${inv.reorder_buffer_days} spare days.${inv.next_shopping_date ? ` Next trip ${formatDay(inv.next_shopping_date, { weekday: "long" })}.` : ""}`}
         actions={
           <>
             <Button asChild variant="ghost" className="no-print">
@@ -65,39 +65,15 @@ export default async function ShoppingListPage() {
         }
       />
 
-      {/* The numbers for this trip at a glance. */}
-      <div className="grid grid-cols-3 gap-3">
-        {[
-          { label: "To buy", value: String(toBuy.length), sub: `item${toBuy.length === 1 ? "" : "s"}` },
-          { label: "Stores", value: String(groups.length), sub: groups.length === 1 ? "stop" : "stops" },
-          { label: "Budget", value: formatCents(total), sub: "estimated" },
-        ].map((t) => (
-          <div key={t.label} className="rounded-2xl border bg-card p-4 shadow-soft">
-            <p className="text-[0.7rem] font-bold tracking-wider text-muted-foreground uppercase">{t.label}</p>
-            <p className="mt-1 font-heading text-2xl font-extrabold tabular-nums sm:text-3xl">{t.value}</p>
-            <p className="text-xs text-muted-foreground">{t.sub}</p>
-          </div>
-        ))}
-      </div>
-
       <SnapReceipt stores={stores} />
 
-      {/* How often to shop */}
-      <section className="mt-6 flex gap-4 rounded-2xl border bg-card p-5 shadow-soft print:border-black">
-        <span className="grid size-11 shrink-0 place-items-center rounded-xl bg-primary/10 text-ember-ink">
-          <CalendarClockIcon className="size-5" />
-        </span>
-        <div>
-          <h2 className="font-heading text-lg font-semibold">
-            Shop every {inv.frequency.days} days
-            <span className="ml-2 text-base font-normal text-muted-foreground">about {formatCents(inv.frequency.budgetCents)} per trip</span>
-          </h2>
-          <p className="mt-0.5 text-sm text-muted-foreground">
-            {inv.frequency.reason} The trip budget is what the store sells in {inv.frequency.days} days, at cost.
-            {inv.frequency.days !== inv.shopping_interval_days && ` (Settings currently say every ${inv.shopping_interval_days} days.)`}
-          </p>
-        </div>
-      </section>
+      <p className="mt-6 border-l-2 border-[var(--brand)] pl-4 text-sm text-muted-foreground">
+        <span className="font-medium text-foreground">
+          Shop every {inv.frequency.days} days, about {formatCents(inv.frequency.budgetCents)} a trip.
+        </span>{" "}
+        {inv.frequency.reason} The trip budget is what the store sells in {inv.frequency.days} days, at cost.
+        {inv.frequency.days !== inv.shopping_interval_days && ` Settings currently say every ${inv.shopping_interval_days} days.`}
+      </p>
 
       {toBuy.length === 0 ? (
         <div className="mt-8">
@@ -107,12 +83,8 @@ export default async function ShoppingListPage() {
         </div>
       ) : (
         <>
-          <ShoppingChecklist groups={checklist} today={storeToday()} />
-          <div className="mt-8 flex items-baseline justify-between rounded-2xl bg-neutral-950 p-5 text-white print:border print:border-black print:bg-transparent print:text-black">
-            <span className="font-semibold">Estimated budget</span>
-            <span className="font-heading text-3xl font-bold tabular-nums">{formatCents(total)}</span>
-          </div>
-          <p className="mt-2 text-xs text-muted-foreground">Based on each product&apos;s last known cost.</p>
+          <ShoppingChecklist groups={checklist} today={storeToday()} totalCents={total} />
+          <p className="mt-3 text-xs text-muted-foreground">Costs use each product&apos;s last known price.</p>
         </>
       )}
     </div>

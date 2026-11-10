@@ -76,7 +76,7 @@ export function CreditBoard({
             <div className="overflow-x-auto rounded-2xl border bg-card shadow-soft">
               <table className="w-full min-w-[600px] text-sm">
                 <thead>
-                  <tr className="border-b text-left text-xs tracking-wide text-muted-foreground uppercase">
+                  <tr className="border-b text-left text-xs font-medium text-muted-foreground">
                     <th className="p-3">Employee</th>
                     <th className="p-3 text-right">This week</th>
                     <th className="p-3 text-right">Discount now</th>

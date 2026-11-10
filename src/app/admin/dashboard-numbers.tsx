@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { ArrowDownRightIcon, ArrowRightIcon, ArrowUpRightIcon, BoxesIcon, DollarSignIcon, type LucideIcon, PiggyBankIcon, WalletIcon } from "lucide-react";
+import { ArrowDownRightIcon, ArrowUpRightIcon } from "lucide-react";
 import { addDays, formatCents, formatDay } from "@/lib/format";
 
 /*
@@ -84,42 +84,41 @@ export function DashboardNumbers({
   const vs = PERIODS[period].vs;
 
   return (
-    <>
-      <section aria-labelledby="numbers-title">
-        <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
-          <h2 id="numbers-title" className="sr-only">
-            Sales, spending and profit
-          </h2>
-          <Segmented
-            label="Show numbers for"
-            options={Object.entries(PERIODS).map(([k, v]) => ({ value: k as Period, label: v.label }))}
-            value={period}
-            onChange={setPeriod}
-          />
-          <p className="text-xs text-muted-foreground">
-            {from === to ? formatDay(from) : `${formatDay(from)} – ${formatDay(to)}`}
-            {lastSaleDate && lastSaleDate < to && ` · sales imported through ${formatDay(lastSaleDate)}`}
-          </p>
-        </div>
-        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4 lg:gap-4">
-          <StatCard icon={DollarSignIcon} label="Sales" value={now.sales} last={before.sales} vs={vs} href="/admin/insights" />
-          <StatCard icon={WalletIcon} label="Spent" value={now.spending} last={before.spending} vs={vs} upIsBad href="/admin/expenses" />
-          <StatCard icon={PiggyBankIcon} label="Profit" value={now.profit} last={before.profit} vs={vs} tone href="/admin/insights" />
-          <Link
-            href="/admin/inventory/shopping-list"
-            className="group rounded-2xl border bg-card p-4 shadow-soft transition hover:-translate-y-0.5 hover:border-primary/50 focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none sm:p-5"
-          >
-            <CardTop icon={BoxesIcon} label="Need restocking" />
-            <p className="mt-2 font-heading text-2xl font-extrabold tabular-nums sm:text-3xl">{lowStock}</p>
-            <p className={`mt-1 text-xs font-medium ${outOfStock > 0 ? "text-destructive" : "text-muted-foreground"}`}>
-              {outOfStock > 0 ? `${outOfStock} sold out` : lowStock === 0 ? "Shelves are full" : "None sold out"}
-            </p>
-          </Link>
-        </div>
-      </section>
-    </>
+    <section aria-labelledby="numbers-title" className="overflow-hidden rounded-xl border bg-card">
+      <h2 id="numbers-title" className="sr-only">
+        Sales, spending and profit
+      </h2>
+      <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 border-b px-4 py-2.5 sm:px-5">
+        <Segmented
+          label="Show numbers for"
+          options={Object.entries(PERIODS).map(([k, v]) => ({ value: k as Period, label: v.label }))}
+          value={period}
+          onChange={setPeriod}
+        />
+        <p className="text-xs text-muted-foreground">
+          {from === to ? formatDay(from) : `${formatDay(from)} to ${formatDay(to)}`}
+          {lastSaleDate && lastSaleDate < to && `. Sales imported through ${formatDay(lastSaleDate)}`}
+        </p>
+      </div>
+      <div className="grid grid-cols-2 lg:grid-cols-4">
+        <StatCell label="Sales" value={now.sales} last={before.sales} vs={vs} href="/admin/insights" />
+        <StatCell label="Spent" value={now.spending} last={before.spending} vs={vs} upIsBad href="/admin/expenses" />
+        <StatCell label="Profit" value={now.profit} last={before.profit} vs={vs} tone href="/admin/insights" />
+        <Link href="/admin/inventory/shopping-list" className={CELL}>
+          <span className="text-sm font-medium text-muted-foreground">Need restocking</span>
+          <span className="score mt-3 block text-5xl sm:text-6xl">{lowStock}</span>
+          <span className={`mt-3 block text-xs font-medium ${outOfStock > 0 ? "text-destructive" : "text-muted-foreground"}`}>
+            {outOfStock > 0 ? `${outOfStock} sold out` : lowStock === 0 ? "Shelves are full" : "None sold out"}
+          </span>
+        </Link>
+      </div>
+    </section>
   );
 }
+
+/* One scoreboard cell. Rules between cells: vertical on one row, plus a top rule on the second row of the phone layout. */
+const CELL =
+  "group block min-w-0 border-l p-4 transition-colors hover:bg-accent/60 focus-visible:bg-accent focus-visible:outline-none sm:p-6 [&:nth-child(odd)]:border-l-0 lg:[&:nth-child(odd)]:border-l lg:first:border-l-0 [&:nth-child(n+3)]:border-t lg:[&:nth-child(n+3)]:border-t-0";
 
 /** [from, to, previousFrom, previousTo] for a period, "so far" up to today. */
 function periodDates(period: Exclude<Period, "year">, today: string): [string, string, string, string] {
@@ -136,29 +135,27 @@ function periodDates(period: Exclude<Period, "year">, today: string): [string, s
   return [first, today, prevFirst, sameDay <= prevLast ? sameDay : prevLast];
 }
 
-function CardTop({ icon: Icon, label }: { icon: LucideIcon; label: string }) {
+/** "$1,234.50" → big "$1,234" and small ".50", like a price on a menu board. */
+function Money({ text }: { text: string }) {
+  const m = text.match(/^(.*?)(\.\d\d)$/);
+  if (!m) return <>{text}</>;
   return (
-    <div className="flex items-center justify-between gap-2">
-      <span className="text-sm font-medium text-muted-foreground">{label}</span>
-      <span className="grid size-8 place-items-center rounded-lg bg-muted text-muted-foreground transition-colors group-hover:bg-primary/10 group-hover:text-ember-ink">
-        <Icon className="size-4" />
-      </span>
-    </div>
+    <>
+      {m[1]}
+      <span className="text-[0.5em] align-[0.62em]">{m[2]}</span>
+    </>
   );
 }
 
-function StatCard({
-  icon,
+function StatCell({
   label,
   value,
   last,
   vs,
   upIsBad = false,
   tone = false,
-  format = formatCents,
   href,
 }: {
-  icon: LucideIcon;
   label: string;
   value: number;
   last: number;
@@ -167,8 +164,6 @@ function StatCard({
   upIsBad?: boolean;
   /** Profit: the number itself is green, or red below $0. */
   tone?: boolean;
-  /** How to show the number (money unless told otherwise). */
-  format?: (n: number) => string;
   href: string;
 }) {
   const diff = value - last;
@@ -176,24 +171,21 @@ function StatCard({
   const good = upIsBad ? !up : up;
   const Arrow = up ? ArrowUpRightIcon : ArrowDownRightIcon;
   return (
-    <Link
-      href={href}
-      className="group rounded-2xl border bg-card p-4 shadow-soft transition hover:-translate-y-0.5 hover:border-primary/50 focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none sm:p-5"
-    >
-      <CardTop icon={icon} label={label} />
-      <p className={`mt-2 font-heading text-2xl font-extrabold tabular-nums sm:text-3xl ${tone ? (value < 0 ? "text-destructive" : "text-success") : ""}`}>
-        {format(value)}
-      </p>
-      <p className="mt-1 text-xs font-medium">
+    <Link href={href} className={CELL}>
+      <span className="text-sm font-medium text-muted-foreground">{label}</span>
+      <span className={`score mt-3 block text-5xl sm:text-6xl ${tone ? (value < 0 ? "text-destructive" : "text-success") : ""}`}>
+        <Money text={formatCents(value)} />
+      </span>
+      <span className="mt-3 block text-xs font-medium">
         {value === 0 && last === 0 ? (
           <span className="text-muted-foreground">Nothing yet</span>
         ) : (
           <span className={`inline-flex items-center gap-0.5 ${diff === 0 ? "text-muted-foreground" : good ? "text-success" : "text-destructive"}`}>
             <Arrow className="size-3.5" />
-            {format(Math.abs(diff))} {vs}
+            {formatCents(Math.abs(diff))} <span className="text-muted-foreground">{vs}</span>
           </span>
         )}
-      </p>
+      </span>
     </Link>
   );
 }
@@ -211,15 +203,15 @@ export function Segmented<T extends string>({
   onChange: (v: T) => void;
 }) {
   return (
-    <div role="group" aria-label={label} className="inline-flex rounded-full border bg-card p-1 shadow-soft">
+    <div role="group" aria-label={label} className="inline-flex rounded-md bg-muted p-0.5">
       {options.map((o) => (
         <button
           key={o.value}
           type="button"
           aria-pressed={value === o.value}
           onClick={() => onChange(o.value)}
-          className={`h-8 rounded-full px-3.5 text-sm font-semibold transition-colors focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none ${
-            value === o.value ? "bg-foreground text-background" : "text-muted-foreground hover:text-foreground"
+          className={`h-7 rounded-[5px] px-3 text-[0.8125rem] font-medium whitespace-nowrap transition-colors focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none ${
+            value === o.value ? "bg-card text-foreground shadow-[0_0_0_1px_var(--border)]" : "text-muted-foreground hover:text-foreground"
           }`}
         >
           {o.label}
@@ -272,10 +264,10 @@ export function SalesChart({ days: all, months, today }: { days: Day[]; months: 
   };
 
   return (
-    <section aria-labelledby="chart-title" className="min-w-0 rounded-2xl border bg-card p-5 shadow-soft sm:p-6">
+    <section aria-labelledby="chart-title" className="min-w-0 rounded-xl border bg-card p-4 sm:p-6">
       <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h2 id="chart-title" className="font-heading text-lg font-bold">
+          <h2 id="chart-title" className="font-heading text-base font-semibold">
             {byMonth ? `Sales by month, ${today.slice(0, 4)}` : "Sales by school day"}
           </h2>
           <p className="text-sm text-muted-foreground">
@@ -286,7 +278,7 @@ export function SalesChart({ days: all, months, today }: { days: Day[]; months: 
       </div>
 
       {!hasData ? (
-        <div className="grid h-52 place-items-center rounded-xl border border-dashed text-center text-sm text-muted-foreground">
+        <div className="grid h-52 place-items-center rounded-lg border border-dashed text-center text-sm text-muted-foreground">
           <p>
             No sales yet for these days.
             <br />
@@ -300,7 +292,7 @@ export function SalesChart({ days: all, months, today }: { days: Day[]; months: 
         <>
           {/* The day you're pointing at */}
           {active && (
-            <div aria-live="polite" className="mb-3 flex flex-wrap items-baseline gap-x-5 gap-y-1 rounded-xl bg-muted/60 px-4 py-2.5 text-sm">
+            <div aria-live="polite" className="mb-4 flex flex-wrap items-baseline gap-x-5 gap-y-1 border-y py-2 text-sm">
               <span className="font-semibold">
                 {byMonth ? monthName(active.date, "long") : formatDay(active.date, { weekday: "long" })}
                 {!byMonth && active.date === today && " (today)"}
@@ -340,7 +332,7 @@ export function SalesChart({ days: all, months, today }: { days: Day[]; months: 
           >
             {ticks.map((t) => (
               <g key={t}>
-                <line x1={pad.left} x2={W - pad.right} y1={y(t)} y2={y(t)} stroke="var(--border)" strokeDasharray={t === 0 ? undefined : "3 4"} />
+                <line x1={pad.left} x2={W - pad.right} y1={y(t)} y2={y(t)} stroke={t === 0 ? "var(--input)" : "var(--border)"} />
                 <text x={pad.left - 8} y={y(t)} dy="0.32em" textAnchor="end" fontSize="11" fill="var(--muted-foreground)">
                   {formatCents(t).replace(/\.00$/, "")}
                 </text>
@@ -349,17 +341,17 @@ export function SalesChart({ days: all, months, today }: { days: Day[]; months: 
             {days.map((d, i) => {
               const cx = pad.left + slot * i + slot / 2;
               const isActive = d.date === active?.date;
-              const dim = active && !isActive ? 0.55 : 1;
+              const dim = picked && !isActive ? 0.35 : 1;
               const salesX = both ? cx - barW - 1.5 : cx - barW / 2;
               const spendX = both ? cx + 1.5 : cx - barW / 2;
               return (
                 <g key={d.date} onMouseEnter={() => setPicked(d.date)} onClick={() => setPicked(d.date)} className="cursor-pointer">
-                  <rect x={cx - slot / 2} y={pad.top} width={slot} height={innerH} fill={isActive ? "var(--muted)" : "transparent"} rx="6" />
+                  <rect x={cx - slot / 2} y={pad.top} width={slot} height={innerH} fill={isActive && picked ? "var(--accent)" : "transparent"} rx="3" />
                   {showSales && (
-                    <rect x={salesX} y={y(d.sales)} width={barW} height={Math.max(0, y(0) - y(d.sales))} rx="4" fill="var(--chart-1)" opacity={dim} />
+                    <rect x={salesX} y={y(d.sales)} width={barW} height={Math.max(0, y(0) - y(d.sales))} rx="1.5" fill="var(--chart-1)" opacity={dim} />
                   )}
                   {showSpending && (
-                    <rect x={spendX} y={y(d.spending)} width={barW} height={Math.max(0, y(0) - y(d.spending))} rx="4" fill="var(--chart-2)" opacity={dim} />
+                    <rect x={spendX} y={y(d.spending)} width={barW} height={Math.max(0, y(0) - y(d.spending))} rx="1.5" fill="var(--chart-2)" opacity={dim} />
                   )}
                   {(i % labelEvery === 0 || isActive) && (
                     <text
@@ -382,11 +374,11 @@ export function SalesChart({ days: all, months, today }: { days: Day[]; months: 
             })}
           </svg>
 
-          <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
+          <div className="mt-3 flex flex-wrap items-center gap-4 text-xs">
             <LegendToggle color="var(--chart-1)" label="Sales" on={showSales} onChange={() => (showSales && !showSpending ? null : setShowSales(!showSales))} />
             <LegendToggle color="var(--chart-2)" label="Spending" on={showSpending} onChange={() => (showSpending && !showSales ? null : setShowSpending(!showSpending))} />
             <Link href="/admin/insights" className="ml-auto inline-flex items-center gap-1 font-semibold text-ember-ink underline-offset-4 hover:underline">
-              All insights <ArrowRightIcon className="size-3.5" />
+              All insights
             </Link>
           </div>
 
@@ -421,11 +413,11 @@ function LegendToggle({ color, label, on, onChange }: { color: string; label: st
       type="button"
       aria-pressed={on}
       onClick={onChange}
-      className={`inline-flex h-7 items-center gap-1.5 rounded-full border px-2.5 font-semibold transition focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none ${
-        on ? "bg-card" : "bg-transparent text-muted-foreground line-through opacity-70"
+      className={`inline-flex h-7 items-center gap-1.5 rounded font-medium transition focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none ${
+        on ? "" : "text-muted-foreground line-through opacity-60"
       }`}
     >
-      <span aria-hidden className="size-2.5 rounded-sm" style={{ background: color }} /> {label}
+      <span aria-hidden className="h-2.5 w-1 rounded-[1px]" style={{ background: color }} /> {label}
     </button>
   );
 }

@@ -93,7 +93,7 @@ export default async function AdminLayout({ children }: LayoutProps<"/admin">) {
       <SkipLink />
       <StaffSidebar email={user.email} openOrders={openOrders ?? 0} pendingTeachers={pendingTeachers ?? 0} newRequests={newRequests ?? 0} pendingJobs={pendingJobs ?? 0} pendingStaff={pendingStaff ?? 0} />
       <SidebarInset id="main">
-        <header className="no-print sticky top-0 z-10 flex h-14 items-center gap-3 border-b bg-background/80 px-4 backdrop-blur-md md:px-6">
+        <header className="no-print sticky top-0 z-10 flex h-12 items-center gap-3 border-b bg-background px-4 md:px-6">
           <SidebarTrigger className="-ml-1" />
           <span aria-hidden className="h-5 w-px bg-border" />
           <p className="text-sm font-medium text-muted-foreground">{formatDay(storeToday(), { weekday: "long", month: "long" })}</p>

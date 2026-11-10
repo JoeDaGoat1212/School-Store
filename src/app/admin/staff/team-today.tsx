@@ -69,16 +69,16 @@ export async function loadTeamToday(supabase: Supabase, today: string): Promise<
 /** The "Team today" card on the dashboard. */
 export function TeamToday({ team }: { team: TeamToday }) {
   return (
-    <section aria-labelledby="team-title" className="mt-6 rounded-2xl border bg-card p-5 shadow-soft sm:p-6">
-      <div className="mb-3 flex items-baseline justify-between gap-4">
-        <h2 id="team-title" className="flex items-center gap-3 font-heading text-lg font-bold">
+    <section aria-labelledby="team-title" className="mt-4 overflow-hidden rounded-xl border bg-card">
+      <div className="flex items-baseline justify-between gap-4 border-b px-4 py-3 sm:px-5">
+        <h2 id="team-title" className="flex items-center gap-3 font-heading text-base font-semibold">
           Team today <LiveShifts />
         </h2>
-        <Link href="/admin/staff" className="flex items-center gap-1 text-sm font-semibold text-ember-ink hover:underline">
+        <Link href="/admin/staff" className="flex items-center gap-1 text-sm font-medium text-muted-foreground hover:text-foreground">
           Schedule <ArrowRightIcon className="size-3.5" />
         </Link>
       </div>
-      <div className="mb-5 grid grid-cols-2 gap-2 sm:grid-cols-4">
+      <div className="grid grid-cols-2 border-b sm:grid-cols-4">
         {[
           { label: "Worked today", value: formatMinutes(team.totals.todayMinutes), href: "/admin/staff/hours?range=today" },
           { label: "Team this week", value: formatMinutes(team.totals.weekMinutes), href: "/admin/staff/hours" },
@@ -88,16 +88,16 @@ export function TeamToday({ team }: { team: TeamToday }) {
           <Link
             key={t.label}
             href={t.href}
-            className="rounded-xl bg-muted/60 px-3 py-2.5 transition hover:bg-primary/10 focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
+            className="border-l px-4 py-3 transition-colors hover:bg-accent/60 focus-visible:bg-accent focus-visible:outline-none sm:px-5 [&:nth-child(odd)]:border-l-0 sm:[&:nth-child(odd)]:border-l sm:first:border-l-0 [&:nth-child(n+3)]:border-t sm:[&:nth-child(n+3)]:border-t-0"
           >
-            <span className="block text-xs font-medium text-muted-foreground">{t.label}</span>
-            <span className="block font-heading text-lg font-bold tabular-nums">{t.value}</span>
+            <span className="block text-xs text-muted-foreground">{t.label}</span>
+            <span className="score mt-1.5 block text-3xl">{t.value}</span>
           </Link>
         ))}
       </div>
-      <div className="grid gap-6 md:grid-cols-2">
+      <div className="grid gap-6 p-4 sm:p-5 md:grid-cols-2">
         <div>
-          <p className="mb-2 text-xs font-bold tracking-wide text-muted-foreground uppercase">On the clock now</p>
+          <p className="mb-2 text-xs font-medium text-muted-foreground">On the clock now</p>
           {team.onClock.length === 0 ? (
             <p className="text-sm text-muted-foreground">Nobody right now.</p>
           ) : (
@@ -116,13 +116,11 @@ export function TeamToday({ team }: { team: TeamToday }) {
           )}
         </div>
         <div>
-          <p className="mb-2 text-xs font-bold tracking-wide text-muted-foreground uppercase">
-            Scheduled today <span className="font-medium normal-case">(green = clocked in)</span>
-          </p>
+          <p className="mb-2 text-xs font-medium text-muted-foreground">Scheduled today. Green means clocked in.</p>
           {team.scheduled.length === 0 ? (
             <p className="text-sm text-muted-foreground">
               Nobody is scheduled today.{" "}
-              <Link href="/admin/staff" className="font-semibold text-ember-ink underline-offset-4 hover:underline">
+              <Link href="/admin/staff" className="font-medium text-foreground underline underline-offset-4">
                 Make a schedule
               </Link>
             </p>
@@ -131,7 +129,7 @@ export function TeamToday({ team }: { team: TeamToday }) {
               {team.scheduled.map((h) => (
                 <li key={h.label} className="flex items-baseline gap-3 text-sm">
                   <span className="w-20 shrink-0 font-semibold">{h.label}</span>
-                  <span className="w-16 shrink-0 font-receipt text-xs text-muted-foreground">{formatClock(h.startsAt)}</span>
+                  <span className="w-16 shrink-0 text-xs text-muted-foreground tabular-nums">{formatClock(h.startsAt)}</span>
                   <span className="min-w-0 flex-1">
                     {h.names.map((n, i) => (
                       <span key={n}>

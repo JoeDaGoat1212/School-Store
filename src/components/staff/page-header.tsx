@@ -1,5 +1,4 @@
 import type { LucideIcon } from "lucide-react";
-import { PageTitle } from "./page-title";
 
 /** Title row at the top of every staff page, with optional buttons on the right. */
 export function PageHeader({
@@ -12,9 +11,12 @@ export function PageHeader({
   actions?: React.ReactNode;
 }) {
   return (
-    <div className="page-header relative mb-8 flex flex-wrap items-end justify-between gap-4 pb-6">
-      <PageTitle title={title} description={description} />
-      {actions && <div className="flex flex-wrap gap-2">{actions}</div>}
+    <div className="mb-8 flex flex-wrap items-end justify-between gap-x-6 gap-y-4">
+      <div className="min-w-0">
+        <h1 className="font-heading text-[1.75rem] leading-tight font-bold text-balance sm:text-[2rem]">{title}</h1>
+        {description && <p className="mt-1.5 max-w-[60ch] text-[0.9375rem] text-pretty text-muted-foreground">{description}</p>}
+      </div>
+      {actions && <div className="flex flex-wrap items-center gap-2">{actions}</div>}
     </div>
   );
 }
@@ -32,11 +34,9 @@ export function EmptyState({
   action?: React.ReactNode;
 }) {
   return (
-    <div className="flex flex-col items-center rounded-2xl border border-dashed bg-card px-6 py-14 text-center">
-      <span className="mb-4 grid size-12 place-items-center rounded-2xl bg-primary/10 text-ember-ink">
-        <Icon className="size-6" />
-      </span>
-      <h2 className="font-heading text-xl font-bold">{title}</h2>
+    <div className="flex flex-col items-center rounded-xl border border-dashed px-6 py-14 text-center">
+      <Icon aria-hidden className="mb-3 size-6 text-muted-foreground" />
+      <h2 className="font-heading text-lg font-semibold">{title}</h2>
       {children && <div className="mt-1 max-w-sm text-sm text-muted-foreground">{children}</div>}
       {action && <div className="mt-5">{action}</div>}
     </div>
