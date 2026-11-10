@@ -14,6 +14,9 @@ import {
   GraduationCapIcon,
   MessageSquarePlusIcon,
   ReceiptIcon,
+  CameraIcon,
+  MessageCircleIcon,
+  UserXIcon,
   UsersIcon,
   XIcon,
 } from "lucide-react";
@@ -28,6 +31,9 @@ const ICONS = {
   request: MessageSquarePlusIcon,
   people: UsersIcon,
   receipt: ReceiptIcon,
+  restock: CameraIcon,
+  message: MessageCircleIcon,
+  absent: UserXIcon,
 };
 
 export type Todo = {

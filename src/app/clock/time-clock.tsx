@@ -24,7 +24,9 @@ import { BrandMark } from "@/components/brand-mark";
 import { brand } from "@/config/brand";
 import { formatCents, formatClock, formatTime, relativeDay, STORE_TIMEZONE, storeToday } from "@/lib/format";
 import { autoOutAt, type ClockBoard, formatMinutes, minutesBetween } from "@/lib/staff";
+import { type RestockSession, RestockWalkthrough } from "@/components/staff/restock-walkthrough";
 import { type ClockStats, loadBoard, punch, signUp, undoPunch, unlockTablet } from "./actions";
+import { restockBegin } from "./restock-actions";
 import { Confetti } from "./confetti";
 
 const CONFETTI = [brand.colors.primary, brand.colors.accent, "#FFD23F", "#FFFFFF"];
@@ -43,6 +45,8 @@ type Result = {
   lines: string[];
   stats?: { label: string; value: string }[];
   undo?: { id: string; token: string };
+  /** A clock-out: when this card closes, the restock photos start. */
+  restockFrom?: { id: string; token: string };
 };
 
 const noSubscribe = () => () => {};
@@ -112,13 +116,32 @@ export function TimeClock({
     return () => document.removeEventListener("visibilitychange", ask);
   }, []);
 
-  const show = useCallback((r: Result) => {
-    setResult(r);
-    beep(r.tone);
-    if (r.tone === "in") setBurst((n) => n + 1);
+  // After a clock-out the card closes into the restock photos walkthrough.
+  const [restock, setRestock] = useState<RestockSession | null>(null);
+  const shown = useRef<Result | null>(null);
+  const closeResult = useCallback(() => {
+    const cur = shown.current;
+    shown.current = null;
     if (hideTimer.current) clearTimeout(hideTimer.current);
-    hideTimer.current = setTimeout(() => setResult(null), r.undo ? 7000 : r.tone === "auto" ? 8000 : 5000);
+    setResult(null);
+    if (cur?.restockFrom) {
+      void restockBegin(cur.restockFrom.id, cur.restockFrom.token).then((s) => {
+        if (!("error" in s)) setRestock(s);
+      });
+    }
   }, []);
+
+  const show = useCallback(
+    (r: Result) => {
+      shown.current = r;
+      setResult(r);
+      beep(r.tone);
+      if (r.tone === "in") setBurst((n) => n + 1);
+      if (hideTimer.current) clearTimeout(hideTimer.current);
+      hideTimer.current = setTimeout(closeResult, r.restockFrom ? 4000 : r.undo ? 7000 : r.tone === "auto" ? 8000 : 5000);
+    },
+    [closeResult],
+  );
 
   const submit = useCallback(
     async (value: string) => {
@@ -178,6 +201,7 @@ export function TimeClock({
               ],
               stats,
               undo: { id: r.id, token: r.undo },
+              restockFrom: r.status === "out" ? { id: r.id, token: r.undo } : undefined,
             });
           }
         }
@@ -210,8 +234,9 @@ export function TimeClock({
     const onKey = (e: KeyboardEvent) => {
       if (signupOpen || e.metaKey || e.ctrlKey || e.altKey) return;
       if (e.target instanceof HTMLElement && e.target.closest("input, textarea, select")) return;
+      if (restock) return;
       if (result) {
-        setResult(null);
+        closeResult();
         if (e.key === "Enter" || e.key === "Escape") {
           e.preventDefault();
           return;
@@ -228,7 +253,7 @@ export function TimeClock({
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [press, result, signupOpen]);
+  }, [press, result, signupOpen, restock, closeResult]);
 
   const doUndo = async (u: { id: string; token: string }) => {
     const r = await undoPunch(u.id, u.token);
@@ -384,7 +409,8 @@ export function TimeClock({
         <TodayDone board={board} />
       </div>
 
-      {result && <ResultCard result={result} onClose={() => setResult(null)} onUndo={doUndo} />}
+      {result && <ResultCard result={result} onClose={closeResult} onUndo={doUndo} />}
+      {restock && <RestockWalkthrough session={restock} dark onClose={() => setRestock(null)} />}
       {signupOpen && (
         <SignUp
           approval={board.signupApproval}
@@ -599,7 +625,7 @@ function ResultCard({ result, onClose, onUndo }: { result: Result; onClose: () =
             onClick={onClose}
             className={`h-12 rounded-lg px-8 font-semibold ${light ? "bg-white text-neutral-950" : "bg-foreground text-background"}`}
           >
-            Done
+            {result.restockFrom ? "Restock photos" : "Done"}
           </button>
         </div>
       </div>

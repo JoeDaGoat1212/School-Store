@@ -24,18 +24,25 @@ export default async function SchedulePage(props: PageProps<"/admin/staff">) {
   const monday = startOfWeek(requested);
   const days = [0, 1, 2, 3, 4].map((i) => addDays(monday, i));
 
-  const [{ employees, missing }, hours, schedule, closed] = await Promise.all([
+  const [{ employees, missing }, hours, schedule, closed, absences] = await Promise.all([
     loadEmployees(supabase),
     loadClassHours(supabase),
     supabase.from("staff_schedule").select("id, staff_id, work_date, window_id").gte("work_date", days[0]).lte("work_date", days[4]),
     supabase.from("closed_dates").select("closed_on, reason").gte("closed_on", days[0]).lte("closed_on", days[4]),
+    // "Can't make it" from employees (database update 20; empty before it's run).
+    supabase.from("staff_absences").select("staff_id, work_date, window_id, reason").gte("work_date", days[0]).lte("work_date", days[4]),
   ]);
+  const absentFor = (staffId: string, date: string, windowId: number) =>
+    (absences.data ?? []).find((a) => a.staff_id === staffId && a.work_date === date && (a.window_id === null || a.window_id === windowId));
   const pending = employees.filter((e) => e.status === "pending").length;
   const active = employees.filter((e) => e.status === "active");
   const names = new Map(employees.map((e) => [e.id, e.name]));
   const entries = (schedule.data ?? [])
     .filter((s) => names.has(s.staff_id))
-    .map((s) => ({ id: s.id, staffId: s.staff_id, date: s.work_date, windowId: s.window_id, name: names.get(s.staff_id) ?? "" }));
+    .map((s) => {
+      const a = absentFor(s.staff_id, s.work_date, s.window_id);
+      return { id: s.id, staffId: s.staff_id, date: s.work_date, windowId: s.window_id, name: names.get(s.staff_id) ?? "", absent: a ? (a.reason ?? "") : null };
+    });
 
   const weekLabel = `${formatDay(days[0], { weekday: undefined })} – ${formatDay(days[4], { weekday: undefined })}`;
 

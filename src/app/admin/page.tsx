@@ -4,13 +4,16 @@ import { Button } from "@/components/ui/button";
 import { features } from "@/config/features";
 import { requireAdmin } from "@/lib/auth";
 import { EOP_PREFIX } from "@/lib/end-of-period";
-import { addDays, storeToday } from "@/lib/format";
+import { addDays, formatDay, storeToday } from "@/lib/format";
+import { vapidKeys } from "@/lib/push";
+import { ADMIN, unreadCount } from "@/lib/team";
 import { minutesBetween } from "@/lib/staff";
 import type { OrderStatus } from "@/lib/order-status";
 import { AutoRefresh } from "./auto-refresh";
 import { type Day, DashboardNumbers, SalesChart, type YearTotals } from "./dashboard-numbers";
 import type { Insights } from "./insights/types";
 import { LockTablet } from "./lock-tablet";
+import { AdminNotifications } from "./staff/messages/admin-messages";
 import { LowStock } from "./low-stock";
 import { TeamToday, loadTeamToday } from "./staff/team-today";
 import { type Todo, TodoList } from "./todo-list";
@@ -46,7 +49,7 @@ export default async function DashboardPage() {
   const lastYearStart = `${Number(today.slice(0, 4)) - 1}-01-01`;
   const lastYearSameDay = `${Number(today.slice(0, 4)) - 1}${today.slice(4) === "-02-29" ? "-02-28" : today.slice(4)}`;
 
-  const [summary, trend, teachers, requests, jobs, unmatchedLines, team, thisYear, lastYear, shifts, kiosk, receipts] = await Promise.all([
+  const [summary, trend, teachers, requests, jobs, unmatchedLines, team, thisYear, lastYear, shifts, kiosk, receipts, absences, restocks, unreadChats, push] = await Promise.all([
     supabase.rpc("dashboard_summary"),
     supabase.rpc("insights", { p_from: from, p_to: today, p_bucket: "day" }),
     supabase.from("teachers").select("id", { count: "exact", head: true }).eq("status", "pending"),
@@ -67,6 +70,11 @@ export default async function DashboardPage() {
     supabase.from("settings").select("kiosk_pin_hash").eq("id", 1).maybeSingle(),
     // Receipt photos snapped at the store that aren't a shopping trip yet (errors until database update 19).
     supabase.from("receipt_inbox").select("id", { count: "exact", head: true }).is("expense_id", null).eq("dismissed", false),
+    // Team tools (database update 20): absences coming up, restock photos to look at, unread messages.
+    supabase.from("staff_absences").select("staff_id, work_date, window_id, reason").gte("work_date", storeToday()).order("work_date").limit(20),
+    supabase.from("restock_checks").select("id, completed_at, skipped_note").eq("reviewed", false).limit(100),
+    unreadCount(ADMIN).catch(() => 0),
+    vapidKeys(),
   ]);
   if (summary.error) throw new Error(summary.error.message);
   const s = summary.data as unknown as Summary;
@@ -134,6 +142,34 @@ export default async function DashboardPage() {
     todos.push({ id: "jobs", icon: "briefcase", text: `${pendingJobs} job application${plural(pendingJobs)} to answer`, href: "/admin/jobs", action: "Review", tone: "normal" });
   if (team.pending > 0)
     todos.push({ id: "employees", icon: "people", text: `${team.pending} new employee${plural(team.pending)} waiting for approval`, href: "/admin/staff/people", action: "Review", tone: "normal" });
+  const absent = absences.data ?? [];
+  if (absent.length > 0) {
+    const next = absent[0];
+    const { data: person } = await supabase.from("staff").select("name").eq("id", next.staff_id).maybeSingle();
+    const who = person?.name ?? "Someone";
+    todos.push({
+      id: "absences",
+      icon: "absent",
+      text: absent.length === 1 ? `${who} can't make it ${formatDay(next.work_date, { weekday: "long", month: undefined, day: undefined })}` : `${absent.length} shifts people can't make`,
+      href: "/admin/staff",
+      action: "Schedule",
+      tone: next.work_date === storeToday() ? "urgent" : "normal",
+    });
+  }
+  const restockWaiting = restocks.data ?? [];
+  if (restockWaiting.length > 0) {
+    const problems = restockWaiting.filter((r) => !r.completed_at).length;
+    todos.push({
+      id: "restock",
+      icon: "restock",
+      text: problems > 0 ? `${problems} restock check${plural(problems)} missing photos` : `${restockWaiting.length} restock check${plural(restockWaiting.length)} to look at`,
+      href: "/admin/staff/restock",
+      action: "Check",
+      tone: problems > 0 ? "urgent" : "normal",
+    });
+  }
+  if (unreadChats > 0)
+    todos.push({ id: "messages", icon: "message", text: `${unreadChats} new message${plural(unreadChats)}`, href: "/admin/staff/messages", action: "Read", tone: "normal" });
   const receiptsToEnter = receipts.error ? 0 : (receipts.count ?? 0);
   if (receiptsToEnter > 0)
     todos.push({ id: "receipts", icon: "receipt", text: `${receiptsToEnter} receipt photo${plural(receiptsToEnter)} to enter`, href: "/admin/expenses#receipts", action: "Enter", tone: "normal" });
@@ -156,6 +192,7 @@ export default async function DashboardPage() {
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
+          <AdminNotifications vapidKey={push?.publicKey ?? null} />
           <LockTablet ready={!kiosk.error} hasPin={Boolean(kiosk.data?.kiosk_pin_hash)} />
           <Button asChild variant="outline" className="h-10 px-4">
             <Link href="/admin/imports">

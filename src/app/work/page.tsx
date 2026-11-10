@@ -32,8 +32,13 @@ export const viewport: Viewport = {
  *   - The manager (signed in with the admin password) also gets every staff
  *     tool, one tap away.
  */
-export default async function WorkPage() {
-  const [{ data: portal, error }, admin] = await Promise.all([loadPortal(), isAdmin()]);
+const TABS = ["today", "tasks", "messages", "schedule", "money"] as const;
+
+export default async function WorkPage(props: PageProps<"/work">) {
+  const [{ data: portal, error }, admin, params] = await Promise.all([loadPortal(), isAdmin(), props.searchParams]);
+  // Notifications open a tab directly: /work?tab=messages&chat=…
+  const tab = TABS.find((t) => t === params.tab) ?? "today";
+  const chat = typeof params.chat === "string" && /^[0-9a-f-]{36}$/.test(params.chat) ? params.chat : null;
 
   return (
     <div className="min-h-svh bg-[#f1f2ee] dark:bg-background pt-[env(safe-area-inset-top)] pb-[max(1.5rem,env(safe-area-inset-bottom))]">
@@ -59,7 +64,7 @@ export default async function WorkPage() {
 
         <AndroidApp />
 
-        {portal ? <Portal initial={portal} /> : !admin || !error ? <SignIn manager={admin} /> : null}
+        {portal ? <Portal initial={portal} initialTab={tab} initialChat={chat} /> : !admin || !error ? <SignIn manager={admin} /> : null}
       </main>
     </div>
   );

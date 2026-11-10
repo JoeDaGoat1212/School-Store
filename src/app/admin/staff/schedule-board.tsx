@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { addDays, formatClock, formatDay } from "@/lib/format";
 import { addToSchedule, copyWeek, removeFromSchedule } from "./actions";
 
-type Entry = { id: string; staffId: string; date: string; windowId: number; name: string };
+type Entry = { id: string; staffId: string; date: string; windowId: number; name: string; /** They said they can't make it (the reason, or "") */ absent?: string | null };
 
 /**
  * The week as a grid: class hours down the side, school days across the top.
@@ -84,9 +84,14 @@ export function ScheduleBoard({
                       {isClosed && h.id === hours[0].id && <p className="mb-1 text-xs font-semibold text-muted-foreground">Closed: {isClosed}</p>}
                       <ul className="mb-1.5 grid gap-1">
                         {people.map((p) => (
-                          <li key={p.id} className="flex items-center justify-between gap-1.5 rounded-full border bg-background py-0.5 pr-0.5 pl-0.5 font-medium shadow-xs">
+                          <li
+                            key={p.id}
+                            title={p.absent != null ? `Can't make it${p.absent ? `: ${p.absent}` : ""}` : undefined}
+                            className={`flex items-center justify-between gap-1.5 rounded-full border py-0.5 pr-0.5 pl-0.5 font-medium shadow-xs ${p.absent != null ? "border-destructive/40 bg-destructive/5" : "bg-background"}`}
+                          >
                             <Avatar name={p.name} size={24} />
-                            <span className="min-w-0 flex-1 truncate">{p.name}</span>
+                            <span className={`min-w-0 flex-1 truncate ${p.absent != null ? "text-muted-foreground line-through" : ""}`}>{p.name}</span>
+                            {p.absent != null && <span className="shrink-0 text-[0.7rem] font-semibold text-destructive">Out</span>}
                             <button
                               type="button"
                               disabled={busy}

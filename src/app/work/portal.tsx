@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation";
 import {
   AlarmClockOffIcon,
   CalendarClockIcon,
+  ListChecksIcon,
+  MessageCircleIcon,
   HomeIcon,
   Loader2Icon,
   LogOutIcon,
@@ -16,22 +18,28 @@ import {
 import { Avatar } from "@/components/staff/avatar";
 import { formatCents, formatClock, formatDay, formatTime, relativeDay, STORE_TIMEZONE, storeToday } from "@/lib/format";
 import { autoOutAt, creditRuleText, formatMinutes, minutesBetween, nextReward, type PortalData, shortMoney } from "@/lib/staff";
+import { type RestockSession, RestockWalkthrough } from "@/components/staff/restock-walkthrough";
+import { restockBegin } from "../clock/restock-actions";
 import { loadPortal, phonePunch, phoneUndo, signOut } from "./actions";
+import { WorkAbsences, WorkMessages, WorkNotifications, WorkTasks } from "./team";
 
 type Note = { tone: "in" | "out" | "auto" | "error"; text: string; undo?: { id: string; token: string } };
-type Tab = "today" | "schedule" | "money";
+export type Tab = "today" | "tasks" | "messages" | "schedule" | "money";
 
 const TABS: { id: Tab; label: string; icon: LucideIcon }[] = [
   { id: "today", label: "Today", icon: HomeIcon },
+  { id: "tasks", label: "Tasks", icon: ListChecksIcon },
+  { id: "messages", label: "Chat", icon: MessageCircleIcon },
   { id: "schedule", label: "Schedule", icon: CalendarClockIcon },
-  { id: "money", label: "Money", icon: WalletIcon },
+  { id: "money", label: "Credit", icon: WalletIcon },
 ];
 
 /** One employee's own app: clock in/out, live shift ring, discount pass, credit, schedule. */
-export function Portal({ initial }: { initial: PortalData }) {
+export function Portal({ initial, initialTab = "today", initialChat = null }: { initial: PortalData; initialTab?: Tab; initialChat?: string | null }) {
   const router = useRouter();
   const [data, setData] = useState(initial);
-  const [tab, setTab] = useState<Tab>("today");
+  const [tab, setTab] = useState<Tab>(initialTab);
+  const [restock, setRestock] = useState<RestockSession | null>(null);
   const [loadedAt, setLoadedAt] = useState(() => new Date().getTime());
   const [now, setNow] = useState(() => new Date().getTime());
   const [note, setNote] = useState<Note | null>(null);
@@ -105,6 +113,11 @@ export function Portal({ initial }: { initial: PortalData }) {
               : `Clocked out. You worked ${formatMinutes(minutesBetween(r.in, r.out))} (${formatTime(r.in)} – ${formatTime(r.out ?? r.in)}).`,
           undo: { id: r.id, token: r.undo },
         });
+        // After every shift: the restock photos.
+        if (r.status === "out") {
+          const session = await restockBegin(r.id, r.undo);
+          if (!("error" in session)) setRestock(session);
+        }
       }
       buzz();
       await refresh();
@@ -140,6 +153,9 @@ export function Portal({ initial }: { initial: PortalData }) {
           <LogOutIcon className="size-4" /> Sign out
         </button>
       </div>
+      <div className="-mt-2 flex justify-end empty:hidden">
+        <WorkNotifications />
+      </div>
 
       {tab === "today" && (
         <>
@@ -160,15 +176,24 @@ export function Portal({ initial }: { initial: PortalData }) {
         </>
       )}
 
-      {tab === "schedule" && <ScheduleTab data={data} now={now} />}
+      {tab === "tasks" && <WorkTasks />}
+      {tab === "messages" && <WorkMessages initialChat={initialChat} />}
+      {tab === "schedule" && (
+        <>
+          <ScheduleTab data={data} now={now} />
+          <WorkAbsences schedule={data.schedule} />
+        </>
+      )}
       {tab === "money" && <MoneyTab data={data} />}
+
+      {restock && <RestockWalkthrough session={restock} onClose={() => setRestock(null)} />}
 
       {/* ---- App tab bar ---- */}
       <nav
         aria-label="App sections"
         className="fixed inset-x-0 bottom-0 z-40 border-t bg-background pb-[env(safe-area-inset-bottom)]"
       >
-        <div className="mx-auto grid max-w-xl grid-cols-3">
+        <div className="mx-auto grid max-w-xl grid-cols-5">
           {TABS.map((t) => (
             <button
               key={t.id}

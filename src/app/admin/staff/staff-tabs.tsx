@@ -2,13 +2,16 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { CalendarClockIcon, ExternalLinkIcon, TimerIcon, UsersIcon, WalletIcon } from "lucide-react";
+import { CalendarClockIcon, CameraIcon, ExternalLinkIcon, ListChecksIcon, MessageCircleIcon, TimerIcon, UsersIcon, WalletIcon } from "lucide-react";
 
 const TABS = [
   { href: "/admin/staff", label: "Schedule", icon: CalendarClockIcon },
   { href: "/admin/staff/hours", label: "Timecards", icon: TimerIcon },
   { href: "/admin/staff/people", label: "Employees", icon: UsersIcon },
   { href: "/admin/staff/credit", label: "Store credit", icon: WalletIcon },
+  { href: "/admin/staff/tasks", label: "Tasks", icon: ListChecksIcon },
+  { href: "/admin/staff/restock", label: "Restock checks", icon: CameraIcon },
+  { href: "/admin/staff/messages", label: "Messages", icon: MessageCircleIcon },
 ];
 
 /** The row of tabs across the four employee pages, plus a link to open the time clock. */
@@ -30,7 +33,7 @@ export function StaffTabs({ pending = 0 }: { pending?: number }) {
             <t.icon className="size-4" />
             {t.label}
             {t.href === "/admin/staff/people" && pending > 0 && (
-              <span className="rounded-full bg-primary px-1.5 text-xs text-black" aria-label={`${pending} waiting for approval`}>
+              <span className="rounded-full bg-[var(--brand)] px-1.5 text-xs font-bold text-black" aria-label={`${pending} waiting for approval`}>
                 {pending}
               </span>
             )}
