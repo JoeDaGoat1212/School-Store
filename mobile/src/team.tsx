@@ -80,7 +80,7 @@ export function TasksTab({ c }: { c: Colors }) {
               {t.details && <Text style={{ color: c.muted, fontSize: 14, marginTop: 2 }}>{t.details}</Text>}
               <Text style={{ color: c.muted, fontSize: 12, marginTop: 2 }}>
                 {t.forEveryone ? "Whoever's working" : "Just you"}
-                {t.repeats ? `, ${t.repeats.toLowerCase()}` : ""}
+                {t.repeats ? `, ${t.repeats.charAt(0).toLowerCase()}${t.repeats.slice(1)}` : ""}
               </Text>
             </View>
           </Pressable>
