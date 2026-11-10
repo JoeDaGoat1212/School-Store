@@ -1,0 +1,120 @@
+# Builds the Firebirds Nest staff app (mobile/, Expo / React Native) for
+# Android whenever it changes, checks that it opens on an Android emulator,
+# and (from main) puts the download on the "Firebirds Nest staff app" release:
+#   https://github.com/JoeDaGoat1212/School-Store/releases/latest/download/firebirds-nest-staff.apk
+name: Phone app
+
+on:
+  push:
+    branches: [main, ci/auto-clock-out-check]
+    paths:
+      - "mobile/**"
+      - ".github/workflows/mobile.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  android:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: mobile
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - name: Install
+        run: |
+          if [ -f package-lock.json ]; then
+            npm ci --no-audit --no-fund
+          else
+            # First build: pick the newest Expo and the versions that go with it.
+            npm install --no-audit --no-fund expo@latest
+            npx expo install react react-native expo-constants expo-secure-store expo-haptics expo-status-bar expo-system-ui react-native-safe-area-context
+            npx expo install typescript @types/react -- --save-dev
+          fi
+      - uses: actions/upload-artifact@v4
+        with:
+          name: package-files
+          path: |
+            mobile/package.json
+            mobile/package-lock.json
+
+      - name: Typecheck
+        run: npx tsc --noEmit
+
+      - name: Make the Android project
+        run: npx expo prebuild --platform android --no-install
+
+      - name: Build the app
+        working-directory: mobile/android
+        run: ./gradlew assembleRelease --no-daemon -PreactNativeArchitectures=arm64-v8a,armeabi-v7a,x86_64
+
+      - name: Name the download
+        run: cp android/app/build/outputs/apk/release/app-release.apk firebirds-nest-staff.apk && ls -la firebirds-nest-staff.apk
+      - uses: actions/upload-artifact@v4
+        with:
+          name: apk
+          path: mobile/firebirds-nest-staff.apk
+          if-no-files-found: error
+
+  # Installs the app on an Android emulator, opens it and takes screenshots.
+  try-it:
+    needs: android
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: apk
+      - name: Let the emulator use hardware speed-up
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 34
+          arch: x86_64
+          target: google_apis
+          disable-animations: true
+          script: |
+            adb install -r firebirds-nest-staff.apk
+            adb shell monkey -p com.firebirdsnest.staff -c android.intent.category.LAUNCHER 1
+            sleep 25
+            adb exec-out screencap -p > shot-1-open.png
+            adb shell input tap 540 1000 || true
+            sleep 3
+            adb exec-out screencap -p > shot-2-typing.png
+            adb shell pidof com.firebirdsnest.staff && echo "APP IS RUNNING" || (echo "APP CRASHED"; adb logcat -d -s ReactNativeJS:V AndroidRuntime:E | tail -80; exit 1)
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: emulator-shots
+          path: "*.png"
+
+  release:
+    needs: [android, try-it]
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: apk
+      - name: Put the download on the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          if ! gh release view staff-app >/dev/null 2>&1; then
+            gh release create staff-app --target "$GITHUB_SHA" --title "Firebirds Nest staff app" \
+              --notes "The employee app for Android: clock in and out, your discount, store credit and schedule. Download firebirds-nest-staff.apk on the phone and open it (Android asks to allow installs from your browser the first time)."
+          fi
+          gh release upload staff-app firebirds-nest-staff.apk --clobber
