@@ -68,7 +68,7 @@ await page("work-money", "/work", { width: 390, height: 844 }, {
     await p.waitForTimeout(400);
   },
 });
-for (const [name, url] of [["admin-dashboard", "/admin"], ["admin-shopping", "/admin/inventory/shopping-list"], ["admin-inventory", "/admin/inventory"], ["admin-expenses", "/admin/expenses"]]) {
+for (const [name, url] of [["admin-dashboard", "/admin"], ["admin-shopping", "/admin/inventory/shopping-list"], ["admin-inventory", "/admin/inventory"], ["admin-expenses", "/admin/expenses"], ["admin-insights", "/admin/insights"]]) {
   await page(name, url, { width: 1440, height: 900 }, { admin: true });
 }
 await page("admin-dashboard-phone", "/admin", { width: 390, height: 844 }, { admin: true });
