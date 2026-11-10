@@ -357,6 +357,26 @@ Code: `src/app/clock/` (time clock), `src/app/work/` (employee app), `src/app/ad
 `src/lib/staff.ts`, and database updates 15–18 (`supabase/migrations/20261106000015_staff_time_clock.sql`,
 `supabase/migrations/20261109000016_employee_app.sql`, `supabase/migrations/20261109000017_auto_clock_out.sql`, `supabase/migrations/20261109000018_kiosk_lock.sql`).
 
+### The staff phone app (Android)
+
+A real Android app (Expo / React Native, in `mobile/`), not a web page: employees sign in once with their name and
+time clock PIN, then clock in and out, show their live discount pass at the window, and see their store credit,
+schedule and shifts. It talks to this website through `src/app/api/app/[action]/route.ts`, which uses the same
+employee sessions as the web app (`src/lib/work-session.ts`, database update 16).
+
+**Getting it:** on an Android phone, open
+`https://github.com/JoeDaGoat1212/School-Store/releases/latest/download/firebirds-nest-staff.apk` (the web app at
+`/work` shows a "Get the Android app" link on Android phones). Open the download and tap **Install**; the first time,
+Android asks to allow installs from the browser. New versions install over the old one.
+
+The **Phone app** GitHub Action builds it whenever `mobile/` changes, opens it on an Android emulator against a fake
+store (`mobile/test-server.js`) to make sure it works, and (from `main`) puts the download on the
+**Firebirds Nest staff app** release.
+
+**iPhone:** the same code builds for iPhone (`npx expo run:ios` on a Mac), but Apple only allows installing apps
+through the App Store, TestFlight, or an ad hoc link for registered iPhones, and all three need an Apple Developer
+account. Until then, iPhones use the web app at `/work` (Share → Add to Home Screen).
+
 ### Receipt photos from the store (update 19)
 
 On the **Shopping list**, the dark **At the store?** card has a **Snap receipt** button. On a phone it opens the
