@@ -1,46 +1,39 @@
-import { Platform, useColorScheme } from "react-native";
+import { Platform } from "react-native";
 
 /*
- * The same look as the website's staff pages: a gray-green board, white sheets
- * with ruled lines, ink buttons, Firebirds orange for "you are here" and the
- * discount, green for money and being on the clock. Big numbers use the
- * phone's own condensed face, like a scoreboard.
+ * Night: the app is always dark, like a stadium at a night game. Firebirds
+ * orange = do something; nest teal = you're on the clock, done, money.
  */
-
-const light = {
-  board: "#f1f2ee",
-  paper: "#ffffff",
-  ink: "#17191c",
-  muted: "#60666f",
-  rule: "#e1e3de",
-  input: "#cfd2cb",
-  track: "#ebece8",
+const night = {
+  board: "#101215",
+  paper: "#191c21",
+  raised: "#23272e",
+  ink: "#f3f2ee",
+  muted: "#9aa1ab",
+  rule: "#2a2f37",
+  input: "#383e48",
+  track: "#23272e",
   orange: "#ff5a1f",
-  onOrange: "#000000",
-  green: "#18794e",
-  red: "#c4321c",
-  dark: "#17191c",
-};
-
-const dark: typeof light = {
-  board: "#111213",
-  paper: "#191b1d",
-  ink: "#ecedea",
-  muted: "#9a9fa7",
-  rule: "#2a2d30",
-  input: "#3a3e43",
-  track: "#232528",
-  orange: "#ff5a1f",
-  onOrange: "#000000",
-  green: "#3dd68c",
+  orangeSoft: "#ff9a6e",
+  onOrange: "#0b0b0b",
+  green: "#2fd0c2",
+  teal: "#2fd0c2",
+  tealDeep: "#0f2a28",
   red: "#ff6b57",
-  dark: "#000000",
+  dark: "#191c21",
 };
 
-export type Colors = typeof light;
+export type Colors = typeof night;
 
 export function useColors(): Colors {
-  return useColorScheme() === "dark" ? dark : light;
+  return night;
+}
+
+/** A steady color per person, from their name (same idea as the website's avatars). */
+export function personColor(name: string) {
+  let h = 0;
+  for (const ch of name) h = (h * 31 + ch.charCodeAt(0)) % 360;
+  return `hsl(${h}, 38%, 40%)`;
 }
 
 /** Scoreboard numbers: Roboto Condensed on Android, Avenir Next Condensed on iPhone. */
@@ -49,4 +42,4 @@ export const score = Platform.select({
   default: { fontFamily: "AvenirNextCondensed-Bold", fontWeight: "700" as const },
 });
 
-export const radius = { sheet: 12, control: 8 };
+export const radius = { sheet: 24, card: 18, control: 14 };

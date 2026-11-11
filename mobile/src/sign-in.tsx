@@ -86,7 +86,7 @@ export function SignIn({ onSignedIn }: { onSignedIn: () => Promise<void> }) {
 const styles = StyleSheet.create({
   wrap: { paddingHorizontal: 20 },
   logo: { width: 64, height: 64, borderRadius: 16, marginBottom: 20 },
-  title: { fontSize: 28, fontWeight: "700", letterSpacing: -0.4 },
+  title: { fontSize: 52, lineHeight: 54, fontFamily: score?.fontFamily, fontWeight: "700" },
   lead: { fontSize: 15, lineHeight: 21, marginTop: 6, marginBottom: 24 },
   sheet: { borderWidth: StyleSheet.hairlineWidth, borderRadius: radius.sheet, padding: 20 },
   label: { fontSize: 13, fontWeight: "500", marginBottom: 6 },

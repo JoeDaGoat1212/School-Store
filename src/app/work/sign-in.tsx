@@ -35,12 +35,12 @@ export function SignIn({ manager }: { manager: boolean }) {
     <div className="grid gap-5">
       {!manager && (
         <div className="px-1 pt-2">
-          <h1 className="text-[1.75rem] leading-tight font-bold">Your shift, on your phone</h1>
+          <h1 className="font-heading text-5xl leading-[0.9] font-bold">Your shift,<br />on your phone</h1>
           <p className="mt-1.5 text-[0.9375rem] text-muted-foreground">Clock in and out, see your discount, store credit and schedule.</p>
         </div>
       )}
 
-      <form onSubmit={submit} className="grid gap-4 rounded-xl border bg-card p-5">
+      <form onSubmit={submit} className="grid gap-4 rounded-3xl bg-card p-5 ring-1 ring-border">
         <div>
           <h2 className="text-lg font-semibold">{manager ? "Also work a shift?" : "Sign in"}</h2>
           <p className="mt-1 text-sm text-muted-foreground">Use your name and the PIN you clock in with. You stay signed in on this phone.</p>
