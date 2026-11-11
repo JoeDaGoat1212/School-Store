@@ -69,24 +69,12 @@ export function TasksTab({ c, restock, onRestock }: { c: Colors; restock?: "none
   return (
     <View style={{ gap: 10 }}>
       {/* Scoreboard: how many done today */}
-      <View style={[s.sheet, { borderColor: allDone ? "rgba(47,208,194,0.4)" : "rgba(255,255,255,0.1)", borderWidth: 1, padding: 20, overflow: "hidden" }]}>
-        <LinearGradient
-          colors={allDone ? ["#0f3b39", "#08191c"] : ["#2a1a1d", "#16161d", "#111218"]}
-          start={{ x: 1, y: 0 }}
-          end={{ x: 0, y: 1 }}
-          style={StyleSheet.absoluteFill}
-        />
-        <LinearGradient
-          colors={allDone ? ["rgba(47,208,194,0.35)", "rgba(47,208,194,0)"] : ["rgba(255,90,31,0.28)", "rgba(255,90,31,0)"]}
-          start={{ x: 1, y: 0 }}
-          end={{ x: 0.3, y: 0.7 }}
-          style={StyleSheet.absoluteFill}
-        />
+      <View style={[s.sheet, { backgroundColor: allDone ? "#0f2a28" : "#17191e", borderColor: allDone ? c.teal : "#262a31", borderWidth: allDone ? 1.5 : 1, padding: 20 }]}>
         <View style={{ flexDirection: "row", alignItems: "flex-end", justifyContent: "space-between" }}>
           <View>
             <Text style={{ color: "rgba(255,255,255,0.6)", fontSize: 13, fontWeight: "800", letterSpacing: 2.5 }}>TODAY'S TASKS</Text>
             <Text style={[score, { fontSize: 72, lineHeight: 74, color: c.ink }]}>
-              <Text style={{ color: allDone ? NEST[0] : "#ff7a45", textShadowColor: allDone ? "rgba(47,208,194,0.6)" : "rgba(255,90,31,0.6)", textShadowRadius: 16 }}>{done}</Text>
+              <Text style={{ color: allDone ? NEST[0] : "#ff5a1f" }}>{done}</Text>
               <Text style={{ color: c.muted }}>/{total}</Text>
             </Text>
           </View>
@@ -110,11 +98,11 @@ export function TasksTab({ c, restock, onRestock }: { c: Colors; restock?: "none
             s.taskCard,
             restock === "done"
               ? [glass, { opacity: 0.7 }]
-              : { backgroundColor: "rgba(255,90,31,0.10)", borderColor: "rgba(255,90,31,0.45)" },
+              : { backgroundColor: "#17191e", borderColor: "#ff5a1f", borderWidth: 1.5 },
             { transform: [{ scale: pressed ? 0.98 : 1 }] },
           ]}
         >
-          <View style={[s.check, { borderColor: restock === "done" ? NEST[0] : "#ffb020" }]}>
+          <View style={[s.check, { borderColor: restock === "done" ? NEST[0] : "#ff5a1f" }]}>
             {restock === "done" ? <LinearGradient colors={[...NEST]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={StyleSheet.absoluteFill} /> : <LinearGradient colors={[...EMBER]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={StyleSheet.absoluteFill} />}
             <Text style={{ color: "#000", fontWeight: "900", fontSize: 15 }}>{restock === "done" ? "✓" : "📷"}</Text>
           </View>
@@ -312,7 +300,7 @@ export function ChatTab({ c, openChat, onOpenChat, onUnread }: { c: Colors; open
     <>
       <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
         <Text style={[s.h2, { color: c.ink, fontSize: 20 }]}>Messages</Text>
-        <Pressable onPress={() => setMaking(true)} style={[s.small, { borderColor: "#ffb020", borderRadius: 999, paddingHorizontal: 16, overflow: "hidden" }]}>
+        <Pressable onPress={() => setMaking(true)} style={[s.small, { borderColor: "#ff5a1f", borderRadius: 999, paddingHorizontal: 16, overflow: "hidden" }]}>
           <LinearGradient colors={[...EMBER]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={StyleSheet.absoluteFill} />
           <Text style={{ color: "#000", fontWeight: "800" }}>+ New</Text>
         </Pressable>

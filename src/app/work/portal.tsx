@@ -252,7 +252,7 @@ export function Portal({ initial, initialTab = "today", initialChat = null }: { 
 
       {/* ---- App tab bar ---- */}
       <nav aria-label="App sections" className="fixed inset-x-0 bottom-0 z-40 px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
-        <div className="mx-auto grid max-w-xl grid-cols-6 gap-0.5 rounded-[1.4rem] border border-white/10 bg-[#101218]/75 p-1.5 shadow-[0_20px_50px_-12px_rgba(0,0,0,0.9)] backdrop-blur-2xl">
+        <div className="mx-auto grid max-w-xl grid-cols-6 gap-0.5 rounded-[1.4rem] border border-white/10 bg-[#101218]/75 p-1.5 backdrop-blur-xl">
           {TABS.map((t) => (
             <button
               key={t.id}
@@ -264,10 +264,10 @@ export function Portal({ initial, initialTab = "today", initialChat = null }: { 
               aria-current={tab === t.id ? "page" : undefined}
               className={`relative flex flex-col items-center gap-0.5 rounded-2xl py-2 text-[0.7rem] font-bold transition-all duration-300 ${tab === t.id ? "tab-on text-white" : "text-white/50 hover:text-white/80"}`}
             >
-              <t.icon className={`size-5.5 transition-transform duration-300 ${tab === t.id ? "scale-110 text-[#ffb347] drop-shadow-[0_0_8px_rgba(255,122,26,0.9)]" : ""}`} />
+              <t.icon className={`size-5.5 transition-transform duration-300 ${tab === t.id ? "text-[#0b0b0b]" : ""}`} />
               {t.label}
               {t.id === "restock" && restockInfo.state === "due" && (
-                <span aria-label="Restock check to do" className="absolute top-1.5 right-[calc(50%-1rem)] size-2.5 rounded-full bg-[#ff5a1f] shadow-[0_0_10px_#ff5a1f] ring-2 ring-[#101218] motion-safe:animate-pulse" />
+                <span aria-label="Restock check to do" className="absolute top-1.5 right-[calc(50%-1rem)] size-2.5 rounded-full bg-[#ff5a1f] ring-2 ring-[#101218]" />
               )}
               {t.id === "messages" && unread > 0 && (
                 <span className="ember absolute top-1 right-[calc(50%-1.4rem)] grid h-4.5 min-w-4.5 place-items-center rounded-full px-1 text-[0.65rem] font-bold">
@@ -319,7 +319,7 @@ function ClockCard({
     <section
       key={pop}
       aria-label="Time clock"
-      className={`relative overflow-hidden rounded-[1.75rem] p-5 ${pop ? "punch-pop" : ""} ${on ? "on-clock breathe" : "off-clock"}`}
+      className={`relative overflow-hidden rounded-[1.75rem] p-5 ${pop ? "punch-pop" : ""} ${on ? "on-clock" : "off-clock"}`}
     >
       {/* status */}
       <div className="flex items-center justify-between gap-3">
@@ -342,7 +342,7 @@ function ClockCard({
         {on ? (
           <>
             <div className="flex items-end gap-2">
-              <span suppressHydrationWarning className="font-heading text-[5.75rem] leading-[0.8] font-bold tabular-nums drop-shadow-[0_0_24px_rgba(47,208,194,0.35)]">
+              <span suppressHydrationWarning className="font-heading text-[5.75rem] leading-[0.8] font-bold tabular-nums">
                 {h}:{m}
               </span>
               <span suppressHydrationWarning className="text-nest mb-1 font-heading text-4xl leading-none font-bold tabular-nums">{sec}</span>
@@ -401,26 +401,18 @@ function ShiftRing({ progress }: { progress: number }) {
   const c = 2 * Math.PI * r;
   return (
     <svg viewBox="0 0 84 84" className="size-[5.25rem] shrink-0 -rotate-90" role="img" aria-label={`${Math.round(progress * 100)}% of the shift`}>
-      <defs>
-        <linearGradient id="ring-g" x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0%" stopColor="#a7fff3" />
-          <stop offset="55%" stopColor="#2fd0c2" />
-          <stop offset="100%" stopColor="#12a3ff" />
-        </linearGradient>
-      </defs>
       <circle cx="42" cy="42" r={r} fill="none" stroke="rgba(255,255,255,0.08)" strokeWidth="8" />
       <circle
         cx="42"
         cy="42"
         r={r}
         fill="none"
-        stroke="url(#ring-g)"
+        stroke="#2fd0c2"
         strokeWidth="8"
         strokeLinecap="round"
         strokeDasharray={c}
         strokeDashoffset={c * (1 - progress)}
         className="transition-[stroke-dashoffset] duration-1000 ease-linear"
-        style={{ filter: "drop-shadow(0 0 6px rgba(47,208,194,0.8))" }}
       />
     </svg>
   );
@@ -432,26 +424,26 @@ function CreditPass({ name, credit, now }: { name: string; credit: number; now: 
   return (
     <section aria-labelledby="pass" className="holo float-in rounded-[1.75rem] p-5">
       {/* big flame watermark */}
-      <svg aria-hidden viewBox="0 0 64 64" className="pointer-events-none absolute -right-6 -bottom-8 -z-10 size-48 opacity-25">
+      <svg aria-hidden viewBox="0 0 64 64" className="pointer-events-none absolute -right-6 -bottom-8 -z-10 size-48 opacity-[0.12]">
         <path
-          fill="#fff"
+          fill="#000"
           d="M33 4c3 9-1 14-5 19-3 4-5 8-3 13 1-6 5-9 8-11 0 7 6 9 6 16 0 6-5 11-11 11S16 47 16 40c0-9 6-14 9-20 3-5 5-10 8-16Zm10 20c5 6 8 11 8 18 0 11-9 18-19 18 9-4 13-11 12-19 0-6-3-10-1-17Z"
         />
       </svg>
       <div className="flex items-center justify-between">
-        <p id="pass" className="text-xs font-extrabold tracking-[0.25em] text-white/85">
+        <p id="pass" className="text-xs font-extrabold tracking-[0.25em]">
           FIREBIRD PASS
         </p>
-        <span className="rounded-full bg-white/20 px-2.5 py-0.5 text-[0.7rem] font-bold backdrop-blur-sm">Employee</span>
+        <span className="rounded-full bg-black px-2.5 py-0.5 text-[0.7rem] font-bold text-[#ff5a1f]">Employee</span>
       </div>
-      <p className="mt-4 text-sm font-semibold text-white/80">Store credit</p>
-      <p className="font-heading text-[5.5rem] leading-[0.85] font-bold tabular-nums drop-shadow-[0_6px_24px_rgba(0,0,0,0.25)]">{formatCents(credit)}</p>
-      <div className="mt-5 flex items-end justify-between gap-3 border-t border-white/25 pt-3">
+      <p className="mt-4 text-sm font-semibold">Store credit</p>
+      <p className="font-heading text-[5.5rem] leading-[0.85] font-bold tabular-nums">{formatCents(credit)}</p>
+      <div className="mt-5 flex items-end justify-between gap-3 border-t border-black/20 pt-3">
         <div>
           <p className="text-lg font-bold">{name}</p>
-          <p className="text-xs font-medium text-white/80">Show this at the window to use your credit</p>
+          <p className="text-xs font-medium opacity-75">Show this at the window to use your credit</p>
         </div>
-        <p className="shrink-0 rounded-lg bg-black/20 px-2 py-1 font-mono text-sm font-bold whitespace-nowrap tabular-nums backdrop-blur-sm" suppressHydrationWarning>
+        <p className="shrink-0 rounded-lg bg-black px-2 py-1 font-mono text-sm font-bold whitespace-nowrap text-[#ff5a1f] tabular-nums" suppressHydrationWarning>
           {d.toLocaleTimeString("en-US", { timeZone: STORE_TIMEZONE, hour: "numeric", minute: "2-digit", second: "2-digit" })}
         </p>
       </div>
@@ -509,7 +501,7 @@ function RestockTab({ info, error, opening, onStart }: { info: RestockInfo; erro
   if (info.state === "done") {
     return (
       <section className="on-clock float-in grid justify-items-center gap-3 rounded-[1.75rem] px-5 py-10 text-center">
-        <span className="check-pop grid size-16 place-items-center rounded-full bg-gradient-to-br from-[#a7fff3] to-[#12a3ff] text-black shadow-[0_0_40px_rgba(47,208,194,0.8)]">
+        <span className="check-pop grid size-16 place-items-center rounded-full bg-[var(--nest)] text-black">
           <CheckIcon className="size-7" strokeWidth={3} />
         </span>
         <h2 className="text-nest font-heading text-5xl leading-none font-bold">Restock done</h2>
@@ -530,7 +522,7 @@ function RestockTab({ info, error, opening, onStart }: { info: RestockInfo; erro
   }
   const due = info.state === "due";
   return (
-    <section aria-labelledby="restock-title" className="glass glow-edge float-in grid gap-4 rounded-[1.75rem] p-5">
+    <section aria-labelledby="restock-title" className="glass float-in grid gap-4 rounded-[1.75rem] p-5">
       <div className="flex items-start justify-between gap-3">
         <div>
           <h2 id="restock-title" className="font-heading text-5xl leading-none font-bold">
@@ -554,7 +546,7 @@ function RestockTab({ info, error, opening, onStart }: { info: RestockInfo; erro
       </ol>
       {error && <p role="alert" className="text-sm font-semibold text-destructive">{error}</p>}
       {due && (
-        <button type="button" onClick={onStart} disabled={opening} className="ember shine flex h-16 items-center justify-center gap-2.5 rounded-2xl text-lg font-extrabold disabled:opacity-70">
+        <button type="button" onClick={onStart} disabled={opening} className="ember flex h-16 items-center justify-center gap-2.5 rounded-2xl text-lg font-extrabold disabled:opacity-70">
           {opening ? <Loader2Icon className="size-5 animate-spin" /> : <CameraIcon className="size-5" />} Start the restock check
         </button>
       )}
@@ -632,7 +624,7 @@ function MoneyTab({ data }: { data: PortalData }) {
         <p id="credit" className="text-sm font-medium text-white/65">
           Store credit
         </p>
-        <p className="text-nest mt-2 font-heading text-8xl leading-[0.85] font-bold tabular-nums drop-shadow-[0_0_30px_rgba(47,208,194,0.45)]">{formatCents(data.creditCents)}</p>
+        <p className="text-nest mt-2 font-heading text-8xl leading-[0.85] font-bold tabular-nums">{formatCents(data.creditCents)}</p>
         <p className="mt-3 text-sm text-white/65">
           Earned {formatCents(data.earnedCents)} so far, {formatMinutes(data.workedMinutes)} worked in all
         </p>
