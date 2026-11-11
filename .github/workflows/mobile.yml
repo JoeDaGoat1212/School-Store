@@ -127,12 +127,10 @@ jobs:
             sleep 2
             adb shell input swipe 540 700 540 2000 300
             sleep 2
-            adb shell input tap 540 840
+            # Press and hold (1.2 s) the "Hold to clock in" button.
+            adb shell input swipe 540 960 540 960 1200
             sleep 5
             adb exec-out screencap -p > shot-8-clocked-in.png
-            adb shell input tap 540 880
-            sleep 6
-            adb exec-out screencap -p > shot-9-restock.png
             adb shell input tap 972 2275
             sleep 3
             adb exec-out screencap -p > shot-10-credit.png
