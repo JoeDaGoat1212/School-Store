@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "744064578330",
+    "project_id": "firebird-store",
+    "storage_bucket": "firebird-store.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:744064578330:android:d502b0950635dfbf9972a3",
+        "android_client_info": {
+          "package_name": "com.firebirdsnest.staff"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDlbIF-HVOvychaLnv6rM_QsUGMf3KMp8w"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
