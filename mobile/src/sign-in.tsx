@@ -3,6 +3,8 @@ import { ActivityIndicator, Image, KeyboardAvoidingView, Platform, Pressable, Sc
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { signIn } from "./api";
 import { radius, score, useColors } from "./theme";
+import { EMBER, glass, Shine } from "./fx";
+import { LinearGradient } from "expo-linear-gradient";
 
 export function SignIn({ onSignedIn }: { onSignedIn: () => Promise<void> }) {
   const c = useColors();
@@ -29,16 +31,19 @@ export function SignIn({ onSignedIn }: { onSignedIn: () => Promise<void> }) {
     }
   };
 
-  const field = [styles.field, { borderColor: c.input, backgroundColor: c.paper, color: c.ink }];
+  const field = [styles.field, { borderColor: "rgba(255,255,255,0.14)", backgroundColor: "rgba(0,0,0,0.25)", color: c.ink }];
 
   return (
     <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : undefined}>
       <ScrollView contentContainerStyle={[styles.wrap, { paddingTop: insets.top + 48, paddingBottom: insets.bottom + 24 }]} keyboardShouldPersistTaps="handled">
         <Image source={require("../assets/icon.png")} style={styles.logo} />
-        <Text style={[styles.title, { color: c.ink }]}>Firebirds Nest</Text>
-        <Text style={[styles.lead, { color: c.muted }]}>Clock in and out, and see your discount, store credit and schedule.</Text>
+        <Text style={[styles.title, { color: c.ink }]}>
+          Firebirds{"\n"}
+          <Text style={{ color: "#ff7a45", textShadowColor: "rgba(255,90,31,0.7)", textShadowRadius: 22 }}>Nest</Text>
+        </Text>
+        <Text style={[styles.lead, { color: "rgba(255,255,255,0.65)" }]}>Clock in and out, and see your store credit and schedule.</Text>
 
-        <View style={[styles.sheet, { backgroundColor: c.paper, borderColor: c.rule }]}>
+        <View style={[styles.sheet, glass]}>
           <Text style={[styles.label, { color: c.muted }]}>Your name</Text>
           <TextInput
             style={field}
@@ -72,9 +77,11 @@ export function SignIn({ onSignedIn }: { onSignedIn: () => Promise<void> }) {
           <Pressable
             onPress={submit}
             disabled={!ready}
-            style={({ pressed }) => [styles.button, { backgroundColor: c.ink, opacity: ready ? (pressed ? 0.85 : 1) : 0.35 }]}
+            style={({ pressed }) => [styles.button, { opacity: ready ? (pressed ? 0.9 : 1) : 0.4, transform: [{ scale: pressed ? 0.985 : 1 }] }]}
           >
-            {busy ? <ActivityIndicator color={c.paper} /> : <Text style={[styles.buttonText, { color: c.paper }]}>Sign in</Text>}
+            <LinearGradient colors={[...EMBER]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={StyleSheet.absoluteFill} />
+            {ready && !busy && <Shine />}
+            {busy ? <ActivityIndicator color="#000" /> : <Text style={[styles.buttonText, { color: "#140a07", fontWeight: "900" }]}>Sign in</Text>}
           </Pressable>
         </View>
         <Text style={[styles.hint, { color: c.muted, textAlign: "center", marginTop: 16 }]}>You stay signed in on this phone.</Text>
@@ -86,7 +93,7 @@ export function SignIn({ onSignedIn }: { onSignedIn: () => Promise<void> }) {
 const styles = StyleSheet.create({
   wrap: { paddingHorizontal: 20 },
   logo: { width: 64, height: 64, borderRadius: 16, marginBottom: 20 },
-  title: { fontSize: 52, lineHeight: 54, fontFamily: score?.fontFamily, fontWeight: "700" },
+  title: { fontSize: 64, lineHeight: 64, fontFamily: score?.fontFamily, fontWeight: "700" },
   lead: { fontSize: 15, lineHeight: 21, marginTop: 6, marginBottom: 24 },
   sheet: { borderWidth: StyleSheet.hairlineWidth, borderRadius: radius.sheet, padding: 20 },
   label: { fontSize: 13, fontWeight: "500", marginBottom: 6 },
@@ -94,6 +101,6 @@ const styles = StyleSheet.create({
   pin: { fontSize: 30, letterSpacing: 18, textAlign: "center", width: 180, height: 60 },
   hint: { fontSize: 13, marginTop: 8 },
   error: { fontSize: 14, fontWeight: "600", marginTop: 14 },
-  button: { height: 54, borderRadius: radius.control, alignItems: "center", justifyContent: "center", marginTop: 20 },
+  button: { height: 58, borderRadius: radius.control, alignItems: "center", justifyContent: "center", marginTop: 20, overflow: "hidden" },
   buttonText: { fontSize: 17, fontWeight: "600" },
 });

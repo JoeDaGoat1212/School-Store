@@ -94,7 +94,6 @@ export function EmployeeList({ employees, signupApproval }: { employees: Person[
                     <th className="p-3">PIN</th>
                     <th className="p-3">Badge (student ID)</th>
                     <th className="p-3 text-right">This week</th>
-                    <th className="p-3 text-right">Discount</th>
                     <th className="p-3 text-right">Store credit</th>
                     <th className="p-3" />
                   </tr>
@@ -183,7 +182,6 @@ function ActiveRow({ person: p, busy, run }: { person: Person; busy: boolean; ru
       <td className="p-3 font-receipt">{p.pin}</td>
       <td className="p-3 font-receipt text-muted-foreground">{p.badge ?? "—"}</td>
       <td className="p-3 text-right tabular-nums">{formatMinutes(p.weekMinutes)}</td>
-      <td className="p-3 text-right tabular-nums">{p.discountPct > 0 ? `${p.discountPct}%` : "—"}</td>
       <td className="p-3 text-right font-semibold tabular-nums">{formatCents(p.creditCents)}</td>
       <td className="p-3">
         {confirm ? (

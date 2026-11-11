@@ -13,7 +13,7 @@ import { SignIn } from "./sign-in";
 
 export const metadata: Metadata = {
   title: `${brand.name} Work`,
-  description: "Clock in and out, and see your hours, discount and store credit.",
+  description: "Clock in and out, and see your hours, store credit and schedule.",
   manifest: "/work/manifest.webmanifest",
   appleWebApp: { capable: true, title: "FN Work", statusBarStyle: "black-translucent" },
   robots: { index: false },
@@ -28,7 +28,7 @@ export const viewport: Viewport = {
 /**
  * The employee app (Android phones can also download the real app from here).
  *   - Employees sign in with their name and time clock PIN, then clock in
- *     and out, and see their hours, discount, store credit and schedule.
+ *     and out, and see their hours, store credit and schedule.
  *   - The manager (signed in with the admin password) also gets every staff
  *     tool, one tap away.
  */
@@ -41,19 +41,25 @@ export default async function WorkPage(props: PageProps<"/work">) {
   const chat = typeof params.chat === "string" && /^[0-9a-f-]{36}$/.test(params.chat) ? params.chat : null;
 
   return (
-    <div className="dark night min-h-svh bg-background pt-[env(safe-area-inset-top)] pb-[max(1.5rem,env(safe-area-inset-bottom))]">
-      <header className="sticky top-0 z-30 border-b bg-background/90 backdrop-blur-md">
+    <div className="dark night relative isolate min-h-svh bg-background pt-[env(safe-area-inset-top)] pb-[max(1.5rem,env(safe-area-inset-bottom))]">
+      {/* The glowing night sky behind everything. */}
+      <div aria-hidden className="night-sky -z-10">
+        <i />
+        <s />
+        <b />
+      </div>
+      <header className="sticky top-0 z-30 border-b border-white/[0.06] bg-[#0b0c10]/55 backdrop-blur-xl">
         <div className="mx-auto flex max-w-xl items-center gap-3 px-4 py-3">
           <BrandMark size={34} />
           <div className="min-w-0 flex-1 leading-tight">
-            <p className="font-heading text-xl leading-none font-bold">{brand.name}</p>
+            <p className="font-heading text-xl leading-none font-bold tracking-wide">{brand.name}</p>
             <p className="text-xs text-muted-foreground">{admin ? "Manager" : "Employee app"}</p>
           </div>
           <InstallButton />
         </div>
       </header>
 
-      <main className="mx-auto grid max-w-xl gap-5 px-4 pt-5">
+      <main className="relative mx-auto grid max-w-xl gap-5 px-4 pt-5">
         {error && (
           <p role="alert" className="rounded-2xl border border-destructive/40 bg-destructive/5 p-4 text-sm font-semibold text-destructive">
             {error}

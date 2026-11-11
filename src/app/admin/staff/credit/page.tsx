@@ -10,8 +10,7 @@ import { CreditBoard } from "./credit-board";
 export const metadata: Metadata = { title: "Store credit" };
 
 /**
- * Employee perks: a discount that grows with this week's hours, and store
- * credit for every hour (up to a weekly limit). Record credit they spend at the window here;
+ * Employee perk: store credit for every hour (up to a weekly limit). Record credit they spend at the window here;
  * the balance can't go below $0.
  */
 export default async function StoreCreditPage() {

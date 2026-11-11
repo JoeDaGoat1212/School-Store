@@ -40,7 +40,7 @@ export async function loadTeamToday(supabase: Supabase, today: string): Promise<
     todayMinutes: (todayShifts.data ?? []).reduce((t, sh) => t + minutesBetween(sh.clock_in, sh.clock_out, now), 0),
     weekMinutes: b.reduce((t, x) => t + (x.week_minutes ?? 0), 0),
     creditCents: b.reduce((t, x) => t + Math.max(0, x.balance_cents), 0),
-    discounted: b.filter((x) => (x.discount_pct ?? 0) > 0).length,
+    discounted: (open.data ?? []).length, // shown as "On the clock"
   };
 
   const people = new Map((staff.data ?? []).map((s) => [s.id, s]));
@@ -83,7 +83,7 @@ export function TeamToday({ team }: { team: TeamToday }) {
           { label: "Worked today", value: formatMinutes(team.totals.todayMinutes), href: "/admin/staff/hours?range=today" },
           { label: "Team this week", value: formatMinutes(team.totals.weekMinutes), href: "/admin/staff/hours" },
           { label: "Unspent credit", value: formatCents(team.totals.creditCents), href: "/admin/staff/credit" },
-          { label: "With a discount", value: `${team.totals.discounted} ${team.totals.discounted === 1 ? "person" : "people"}`, href: "/admin/staff/credit" },
+          { label: "On the clock", value: `${team.totals.discounted} ${team.totals.discounted === 1 ? "person" : "people"}`, href: "/admin/staff" },
         ].map((t) => (
           <Link
             key={t.label}

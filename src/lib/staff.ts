@@ -2,12 +2,10 @@
  * Student employees: the time clock (/clock), the schedule and store credit.
  * The database side is supabase/migrations/20261106000015_staff_time_clock.sql.
  *
- * Employee perks, counted each week (Monday–Sunday, Arizona time):
- *   - every hour worked earns $1 of store credit, counted to the minute, up
- *     to $10 a week (database update 22); credit stays until it's spent;
- *   - every whole hour worked this week adds 10% off everything, up to 50%
- *     at 5 hours (the discount starts over each Monday).
- * The $1, $10, 10% and 5 hours are settings on Admin → Store credit.
+ * Employee perk: every hour worked earns $1 of store credit, counted to the
+ * minute, up to $10 a week (Monday–Sunday, Arizona time; database update 22).
+ * Credit stays until it's spent. The $1 and $10 are settings on Admin → Store
+ * credit. (The old percent-off discount is no longer shown or used.)
  */
 
 import { STORE_TIMEZONE } from "@/lib/format";
@@ -123,20 +121,14 @@ export function shortMoney(cents: number) {
   return cents % 100 === 0 ? `$${cents / 100}` : `$${(cents / 100).toFixed(2)}`;
 }
 
-/** "$1 store credit for every hour worked, up to $10 a week, plus 10% off for every hour (up to 50% at 5 hours). Starts over each Monday." */
+/** "$1 store credit for every hour worked, up to $10 a week. Starts over each Monday." */
 export function creditRuleText(rule: CreditRule) {
-  return `${shortMoney(rule.cents)} store credit for every hour worked, up to ${shortMoney(capOf(rule))} a week, plus ${rule.pct}% off for every hour (up to ${rule.pct * rule.afterHours}% at ${rule.afterHours} hours). Starts over each Monday.`;
+  return `${shortMoney(rule.cents)} store credit for every hour worked, up to ${shortMoney(capOf(rule))} a week. Starts over each Monday.`;
 }
 
 /** What working one more hour gets them, given minutes worked this week. */
 export function nextReward(weekMinutes: number, rule: CreditRule) {
-  const hours = Math.floor(weekMinutes / 60);
-  const credit = weekCredit(weekMinutes, rule) < capOf(rule);
-  const off = hours < rule.afterHours;
-  if (credit && off) return `+${shortMoney(rule.cents)} credit and ${rule.pct}% off`;
-  if (credit) return `+${shortMoney(rule.cents)} credit`;
-  if (off) return `+${rule.pct}% off`;
-  return "nothing more this week (maxed out)";
+  return weekCredit(weekMinutes, rule) < capOf(rule) ? `+${shortMoney(rule.cents)} credit` : "nothing more this week (maxed out)";
 }
 
 /** The employee portal (/work), from the staff_portal() database function. */

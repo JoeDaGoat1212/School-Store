@@ -5,12 +5,13 @@ import { SafeAreaProvider } from "react-native-safe-area-context";
 import { getToken, loadPortal, type Portal, SignedOut } from "./src/api";
 import { Home } from "./src/home";
 import { setUpNotifications } from "./src/notify";
+import { NightSky } from "./src/fx";
 import { SignIn } from "./src/sign-in";
 import { useColors } from "./src/theme";
 
 /*
  * Firebirds Nest staff app. Employees sign in once with their name and time
- * clock PIN, then clock in and out, see their discount, store credit and
+ * clock PIN, then clock in and out, see their store credit and
  * schedule. Everything comes from the school store website's phone API.
  */
 export default function App() {
@@ -61,6 +62,7 @@ export default function App() {
     <SafeAreaProvider>
       <StatusBar style="light" />
       <View style={[styles.fill, { backgroundColor: c.board }]}>
+        <NightSky />
         {phase === "loading" ? (
           <View style={[styles.fill, styles.center]}>
             <ActivityIndicator color={c.muted} />

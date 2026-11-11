@@ -173,7 +173,6 @@ export function TimeClock({
         } else {
           const stats = [
             { label: "This week", value: formatMinutes(r.weekMinutes) },
-            { label: "Discount", value: `${r.discountPct ?? 0}% off` },
             { label: "Store credit", value: formatCents(r.creditCents) },
           ];
           const next = r.next ? `Next shift: ${relativeDay(r.next.date)}, ${r.next.label} (${formatClock(r.next.startsAt)})` : null;

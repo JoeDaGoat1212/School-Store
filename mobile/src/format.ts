@@ -79,9 +79,9 @@ export function greeting() {
 
 const money = (c: number) => formatCents(c).replace(".00", "");
 
-/** "$1 store credit for every hour worked, up to $10 a week, plus 10% off for every hour (up to 50% at 5 hours)." */
-export function ruleText(r: { pct: number; afterHours: number; cents: number; capCents?: number }) {
-  return `${money(r.cents)} store credit for every hour worked, up to ${money(r.capCents ?? 1000)} a week, plus ${r.pct}% off for every hour (up to ${r.pct * r.afterHours}% at ${r.afterHours} hours). Starts over each Monday.`;
+/** "$1 store credit for every hour worked, up to $10 a week. Starts over each Monday." */
+export function ruleText(r: { cents: number; capCents?: number }) {
+  return `${money(r.cents)} store credit for every hour worked, up to ${money(r.capCents ?? 1000)} a week. Starts over each Monday.`;
 }
 
 /** Credit earned this week: $1 an hour, to the minute, up to the weekly limit. */

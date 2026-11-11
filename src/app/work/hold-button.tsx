@@ -92,17 +92,17 @@ export function HoldButton({ on, busy, onComplete }: { on: boolean; busy: boolea
       onKeyUp={stop}
       onContextMenu={(e) => e.preventDefault()}
       aria-label={on ? "Hold to clock out" : "Hold to clock in"}
-      className={`relative isolate h-16 w-full touch-none overflow-hidden rounded-2xl text-lg font-semibold select-none transition-transform active:scale-[0.99] disabled:opacity-80 ${
-        on ? "bg-white/10 text-white ring-1 ring-white/15" : "bg-primary text-primary-foreground"
+      className={`relative isolate h-[4.5rem] w-full touch-none overflow-hidden rounded-2xl text-lg font-bold tracking-wide select-none transition-transform active:scale-[0.985] disabled:opacity-80 ${
+        on ? "bg-white/[0.08] text-white ring-1 ring-white/20 backdrop-blur-md" : `ember ${progress === 0 && !busy ? "shine" : ""}`
       }`}
     >
       {/* the fill */}
       <span
         aria-hidden
-        className={`absolute inset-y-0 left-0 -z-10 ${on ? "bg-white" : "bg-[color-mix(in_oklab,var(--brand)_60%,white)]"}`}
-        style={{ width: `${progress * 100}%` }}
+        className={`absolute inset-y-0 left-0 -z-10 ${on ? "bg-gradient-to-r from-white to-[#a7fff3]" : "bg-gradient-to-r from-[#fff1d6] to-white"}`}
+        style={{ width: `${progress * 100}%`, boxShadow: progress > 0 ? "0 0 30px rgba(255,255,255,0.6)" : undefined }}
       />
-      <span className={`flex items-center justify-center gap-2.5 ${on && progress > 0.5 ? "text-black" : ""}`}>
+      <span className={`relative z-[2] flex items-center justify-center gap-2.5 ${on && progress > 0.5 ? "text-black" : ""}`}>
         {busy ? <Loader2Icon className="size-5 animate-spin" /> : <TimerIcon className="size-5" />}
         {label}
       </span>

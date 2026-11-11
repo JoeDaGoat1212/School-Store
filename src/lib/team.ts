@@ -324,7 +324,7 @@ function storeMinutes(at = Date.now()) {
 
 /** The class period going on at a moment ("3rd hour"): the last period that had started by then. */
 export async function periodAt(at = Date.now()): Promise<string | null> {
-  const { data } = await createSecretClient().from("pickup_windows").select("label, starts_at").eq("active", true).order("starts_at");
+  const { data } = await createSecretClient().from("pickup_windows").select("label, starts_at").eq("active", true).eq("kind", "class").order("starts_at");
   const now = storeMinutes(at);
   let label: string | null = null;
   for (const w of data ?? []) {
