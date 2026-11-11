@@ -75,6 +75,9 @@ export default async function AdminLayout({ children }: LayoutProps<"/admin">) {
   // Update 20 (messages, restock photos, absences, tasks, notifications) adds chat_threads.
   const { error: teamMissing } = await supabase.from("chat_threads").select("id", { count: "exact", head: true }).limit(1);
 
+  // Update 21 (spending counted as 35% of sales) adds a setting.
+  const { error: costMissing } = await supabase.from("settings").select("cost_percent").eq("id", 1).maybeSingle();
+
   // Database updates that haven't been run yet (their tables are missing).
   const missing = [
     ...(teachersMissing ? [{ file: "20261028000011_teachers_room_service.sql", what: "teachers, room service and combos" }] : []),
@@ -86,6 +89,7 @@ export default async function AdminLayout({ children }: LayoutProps<"/admin">) {
     ...(kioskMissing ? [{ file: "20261109000018_kiosk_lock.sql", what: "locking the store tablet on the time clock" }] : []),
     ...(receiptsMissing ? [{ file: "20261110000019_receipt_inbox.sql", what: "snapping receipt photos from the shopping list" }] : []),
     ...(teamMissing ? [{ file: "20261110000020_team_tools.sql", what: "messages, restock photos, absences, daily tasks and notifications" }] : []),
+    ...(costMissing ? [{ file: "20261111000021_cost_percent.sql", what: "counting spending as 35% of sales (a 65% margin)" }] : []),
   ];
 
   // Remember whether the sidebar was collapsed last time.

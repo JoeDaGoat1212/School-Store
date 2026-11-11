@@ -7,7 +7,7 @@ import { EmptyState, PageHeader } from "@/components/staff/page-header";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { requireAdmin } from "@/lib/auth";
-import { formatCents, formatDay, storeToday } from "@/lib/format";
+import { addDays, formatCents, formatDay, storeToday } from "@/lib/format";
 import { RECEIPT_BUCKET } from "@/lib/photos";
 import { type InboxReceipt, ReceiptInbox } from "./receipt-inbox";
 
@@ -68,6 +68,10 @@ export default async function ExpensesPage(props: PageProps<"/admin/expenses">) 
     note: r.note,
     shoppedOn: r.shopped_on,
   }));
+
+  // Days with sales but no shopping receipt dated that day, over the last year (empty until database update 21).
+  const { data: noReceiptDays } = await supabase.rpc("days_without_receipts", { p_from: addDays(storeToday(), -365), p_to: storeToday() });
+  const gaps = noReceiptDays ?? [];
 
   return (
     <>
@@ -165,6 +169,27 @@ export default async function ExpensesPage(props: PageProps<"/admin/expenses">) 
             </TableBody>
           </Table>
         </div>
+      )}
+
+      {gaps.length > 0 && (
+        <details className="mt-6 rounded-xl border bg-card">
+          <summary className="flex cursor-pointer flex-wrap items-baseline justify-between gap-2 px-4 py-3">
+            <span className="font-semibold">
+              {gaps.length} sale day{gaps.length === 1 ? "" : "s"} with no receipt
+            </span>
+            <span className="text-sm text-muted-foreground">
+              Last 12 months. Profit counts spending as 35% of sales either way.
+            </span>
+          </summary>
+          <ul className="divide-y border-t text-sm">
+            {gaps.map((d) => (
+              <li key={d.sale_date} className="flex justify-between px-4 py-2">
+                <span>{formatDay(d.sale_date, { weekday: "short" })}</span>
+                <span className="tabular-nums text-muted-foreground">sold {formatCents(d.revenue_cents)}</span>
+              </li>
+            ))}
+          </ul>
+        </details>
       )}
     </>
   );

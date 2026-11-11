@@ -588,6 +588,7 @@ export type Database = {
           staff_max_shift_minutes: number;
           kiosk_pin_salt: string | null;
           kiosk_pin_hash: string | null;
+          cost_percent: number;
           restock_areas: string[];
         };
         ComputedFields: never;
@@ -622,6 +623,7 @@ export type Database = {
           staff_max_shift_minutes?: number;
           kiosk_pin_salt?: string | null;
           kiosk_pin_hash?: string | null;
+          cost_percent?: number;
           restock_areas?: string[];
         };
         Update: {
@@ -655,6 +657,7 @@ export type Database = {
           staff_max_shift_minutes?: number;
           kiosk_pin_salt?: string | null;
           kiosk_pin_hash?: string | null;
+          cost_percent?: number;
           restock_areas?: string[];
         };
         Relationships: [];
@@ -1454,6 +1457,7 @@ export type Database = {
       };
       get_store_info: { Args: Record<PropertyKey, never>; Returns: Json };
       import_sales: { Args: { p: Json }; Returns: Json };
+      days_without_receipts: { Args: { p_from: string; p_to: string }; Returns: { sale_date: string; revenue_cents: number }[] };
       insights: { Args: { p_bucket?: string; p_from: string; p_to: string }; Returns: Json };
       inventory_snapshot: { Args: Record<PropertyKey, never>; Returns: Json };
       is_admin: { Args: Record<PropertyKey, never>; Returns: boolean };

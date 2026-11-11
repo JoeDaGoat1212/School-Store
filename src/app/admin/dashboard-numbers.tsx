@@ -102,7 +102,7 @@ export function DashboardNumbers({
       </div>
       <div className="grid grid-cols-2 lg:grid-cols-4">
         <StatCell label="Sales" value={now.sales} last={before.sales} vs={vs} href="/admin/insights" />
-        <StatCell label="Spent" value={now.spending} last={before.spending} vs={vs} upIsBad href="/admin/expenses" />
+        <StatCell label="Spent (35% of sales)" value={now.spending} last={before.spending} vs={vs} upIsBad href="/admin/expenses" />
         <StatCell label="Profit" value={now.profit} last={before.profit} vs={vs} tone href="/admin/insights" />
         <Link href="/admin/inventory/shopping-list" className={CELL}>
           <span className="text-sm font-medium text-muted-foreground">Need restocking</span>
