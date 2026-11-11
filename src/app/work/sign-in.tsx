@@ -40,7 +40,7 @@ export function SignIn({ manager }: { manager: boolean }) {
         </div>
       )}
 
-      <form onSubmit={submit} className="glass glow-edge float-in grid gap-4 rounded-[1.75rem] p-5">
+      <form onSubmit={submit} className="glass float-in grid gap-4 rounded-[1.75rem] p-5">
         <div>
           <h2 className="text-lg font-semibold">{manager ? "Also work a shift?" : "Sign in"}</h2>
           <p className="mt-1 text-sm text-muted-foreground">Use your name and the PIN you clock in with. You stay signed in on this phone.</p>
@@ -70,7 +70,7 @@ export function SignIn({ manager }: { manager: boolean }) {
         <button
           type="submit"
           disabled={pending}
-          className="ember shine flex h-14 items-center justify-center gap-2 rounded-2xl text-lg font-extrabold transition active:scale-[0.985] disabled:opacity-60"
+          className="ember flex h-14 items-center justify-center gap-2 rounded-2xl text-lg font-extrabold transition active:scale-[0.985] disabled:opacity-60"
         >
           {pending && <Loader2Icon className="size-5 animate-spin" />} Sign in
         </button>

@@ -3,7 +3,7 @@ import { ActivityIndicator, Image, KeyboardAvoidingView, Platform, Pressable, Sc
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { signIn } from "./api";
 import { radius, score, useColors } from "./theme";
-import { EMBER, glass, Shine } from "./fx";
+import { EMBER, glass } from "./fx";
 import { LinearGradient } from "expo-linear-gradient";
 
 export function SignIn({ onSignedIn }: { onSignedIn: () => Promise<void> }) {
@@ -39,7 +39,7 @@ export function SignIn({ onSignedIn }: { onSignedIn: () => Promise<void> }) {
         <Image source={require("../assets/icon.png")} style={styles.logo} />
         <Text style={[styles.title, { color: c.ink }]}>
           Firebirds{"\n"}
-          <Text style={{ color: "#ff7a45", textShadowColor: "rgba(255,90,31,0.7)", textShadowRadius: 22 }}>Nest</Text>
+          <Text style={{ color: "#ff5a1f" }}>Nest</Text>
         </Text>
         <Text style={[styles.lead, { color: "rgba(255,255,255,0.65)" }]}>Clock in and out, and see your store credit and schedule.</Text>
 
@@ -80,7 +80,6 @@ export function SignIn({ onSignedIn }: { onSignedIn: () => Promise<void> }) {
             style={({ pressed }) => [styles.button, { opacity: ready ? (pressed ? 0.9 : 1) : 0.4, transform: [{ scale: pressed ? 0.985 : 1 }] }]}
           >
             <LinearGradient colors={[...EMBER]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={StyleSheet.absoluteFill} />
-            {ready && !busy && <Shine />}
             {busy ? <ActivityIndicator color="#000" /> : <Text style={[styles.buttonText, { color: "#140a07", fontWeight: "900" }]}>Sign in</Text>}
           </Pressable>
         </View>

@@ -49,7 +49,7 @@ function RestockTodo({ state, onOpen }: { state: "due" | "done"; onOpen: () => v
     <button
       type="button"
       onClick={onOpen}
-      className={`flex w-full items-center gap-4 rounded-2xl px-4 py-4 text-left ${done ? "glass opacity-70" : "glow-edge bg-gradient-to-r from-[#ff5a1f]/20 via-[#ff2d6f]/10 to-transparent shadow-[0_16px_40px_-20px_rgba(255,90,31,0.8)]"}`}
+      className={`flex w-full items-center gap-4 rounded-2xl px-4 py-4 text-left ${done ? "glass opacity-70" : "glass glow-edge"}`}
     >
       <span aria-hidden className={`grid size-9 shrink-0 place-items-center rounded-xl ${done ? "bg-[var(--nest)] text-black" : "ember"}`}>
         {done ? <CheckIcon className="size-5" strokeWidth={3} /> : <CameraIcon className="size-4.5" />}
@@ -99,7 +99,7 @@ export function WorkTasks({ restock, onRestock }: { restock?: "none" | "due" | "
   return (
     <section aria-labelledby="tasks-title" className="grid gap-3">
       {/* Scoreboard: how many done today */}
-      <div className={`rounded-[1.75rem] p-5 ${allDone ? "on-clock breathe" : "off-clock"}`}>
+      <div className={`rounded-[1.75rem] p-5 ${allDone ? "on-clock" : "off-clock"}`}>
         <div className="flex items-end justify-between gap-3">
           <div>
             <h2 id="tasks-title" className="text-sm font-bold tracking-[0.18em] text-white/60 uppercase">
@@ -142,7 +142,7 @@ export function WorkTasks({ restock, onRestock }: { restock?: "none" | "due" | "
                 <span
                   aria-hidden
                   key={String(t.done)}
-                  className={`grid size-9 shrink-0 place-items-center rounded-full ${t.done ? "check-pop bg-gradient-to-br from-[#a7fff3] to-[#2fd0c2] text-black shadow-[0_0_18px_rgba(47,208,194,0.7)]" : "ring-2 ring-white/25"}`}
+                  className={`grid size-9 shrink-0 place-items-center rounded-full ${t.done ? "check-pop bg-[var(--nest)] text-black" : "ring-2 ring-white/25"}`}
                 >
                   {t.done && <CheckIcon className="size-5" strokeWidth={3} />}
                 </span>

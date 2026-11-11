@@ -5,7 +5,7 @@ import * as ImagePicker from "expo-image-picker";
 import { type Restock, type RestockState, restockPhoto, skipRestock } from "./api";
 import { formatTime } from "./format";
 import { radius, score, type Colors } from "./theme";
-import { EMBER, glass, NEST, Shine } from "./fx";
+import { EMBER, glass, NEST } from "./fx";
 import { LinearGradient } from "expo-linear-gradient";
 
 const STEPS = ["Drinks", "Snacks (right half)", "Snacks (left half)", "Spicy chips", "Regular chips", "Ramen"];
@@ -21,12 +21,12 @@ const capital = (t: string) => t.charAt(0).toUpperCase() + t.slice(1);
 export function RestockTab({ info, c, busy, error, onStart }: { info: RestockState; c: Colors; busy: boolean; error: string | null; onStart: () => void }) {
   if (info.state === "done") {
     return (
-      <View style={[styles.card, { backgroundColor: "rgba(15,59,57,0.85)", borderColor: "rgba(47,208,194,0.45)", alignItems: "center", paddingVertical: 36 }]}>
+      <View style={[styles.card, { backgroundColor: "#0f2a28", borderColor: "#2fd0c2", borderWidth: 1.5, alignItems: "center", paddingVertical: 36 }]}>
         <View style={styles.check}>
           <LinearGradient colors={[...NEST]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={StyleSheet.absoluteFill} />
           <Text style={{ fontSize: 26, fontWeight: "900", color: "#000" }}>✓</Text>
         </View>
-        <Text style={[score, { fontSize: 48, lineHeight: 50, color: NEST[0], textShadowColor: "rgba(47,208,194,0.6)", textShadowRadius: 18 }]}>Restock done</Text>
+        <Text style={[score, { fontSize: 48, lineHeight: 50, color: NEST[0] }]}>Restock done</Text>
         <Text style={{ color: c.muted, textAlign: "center", fontSize: 15 }}>
           Photos sent at {formatTime(info.at)}
           {info.period ? `, stamped ${info.period}` : ""}. The manager will check them.
@@ -74,7 +74,6 @@ export function RestockTab({ info, c, busy, error, onStart }: { info: RestockSta
       {due && (
         <Pressable onPress={onStart} disabled={busy} style={({ pressed }) => [styles.button, { height: 62, opacity: busy ? 0.6 : pressed ? 0.9 : 1, transform: [{ scale: pressed ? 0.985 : 1 }] }]}>
           <LinearGradient colors={[...EMBER]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={StyleSheet.absoluteFill} />
-          {!busy && <Shine />}
           {busy ? <ActivityIndicator color="#000" /> : <Text style={[styles.buttonText, { color: "#000" }]}>Start the restock check</Text>}
         </Pressable>
       )}
