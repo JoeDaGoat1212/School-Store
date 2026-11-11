@@ -401,7 +401,7 @@ credit, schedule and shifts. It talks to this website through `src/app/api/app/[
 employee sessions as the web app (`src/lib/work-session.ts`, database update 16).
 
 **Getting it:** on an Android phone, open
-`https://github.com/JoeDaGoat1212/School-Store/releases/latest/download/firebirds-nest-staff.apk` (the web app at
+the **Download app** button on the employee page, which opens `/work/download` with install steps (the file itself is `https://github.com/JoeDaGoat1212/School-Store/releases/download/staff-app/firebirds-nest-staff.apk`) (the web app at
 `/work` shows a "Get the Android app" link on Android phones). Open the download and tap **Install**; the first time,
 Android asks to allow installs from the browser. New versions install over the old one.
 
