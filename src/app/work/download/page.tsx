@@ -25,7 +25,7 @@ export default function DownloadPage() {
         <s />
         <b />
       </div>
-      <main className="mx-auto grid max-w-md gap-5">
+      <main className="relative mx-auto grid max-w-md gap-5">
         <Link href="/work" className="inline-flex w-fit items-center gap-1.5 text-sm font-semibold text-muted-foreground hover:text-foreground">
           <ArrowLeftIcon className="size-4" /> Back
         </Link>
