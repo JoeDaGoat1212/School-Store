@@ -38,8 +38,6 @@ export function CreditBoard({
   const [amount, setAmount] = useState("");
   const [note, setNote] = useState("");
   const [confirm, setConfirm] = useState<string | null>(null);
-  const [pct, setPct] = useState(String(rule.pct));
-  const [afterHours, setAfterHours] = useState(String(rule.afterHours));
   const [dollars, setDollars] = useState((rule.cents / 100).toFixed(2));
   const [capDollars, setCapDollars] = useState(((rule.capCents ?? 1000) / 100).toFixed(2));
 
@@ -80,7 +78,6 @@ export function CreditBoard({
                   <tr className="border-b text-left text-xs font-medium text-muted-foreground">
                     <th className="p-3">Employee</th>
                     <th className="p-3 text-right">This week</th>
-                    <th className="p-3 text-right">Discount now</th>
                     <th className="p-3 text-right">Credit earned</th>
                     <th className="p-3 text-right">Used / added</th>
                     <th className="p-3 text-right">Credit left</th>
@@ -100,7 +97,6 @@ export function CreditBoard({
                       <td className="p-3 text-right tabular-nums" title={`${hoursDecimal(p.workedMinutes)} hours worked in all`}>
                         {formatMinutes(p.weekMinutes)}
                       </td>
-                      <td className="p-3 text-right font-semibold tabular-nums">{p.discountPct > 0 ? `${p.discountPct}% off` : "—"}</td>
                       <td className="p-3 text-right tabular-nums">{formatCents(p.earnedCents)}</td>
                       <td className={`p-3 text-right tabular-nums ${p.adjustCents < 0 ? "text-destructive" : p.adjustCents > 0 ? "text-success" : "text-muted-foreground"}`}>
                         {p.adjustCents === 0 ? "—" : `${p.adjustCents > 0 ? "+" : "−"}${formatCents(Math.abs(p.adjustCents))}`}
@@ -116,7 +112,7 @@ export function CreditBoard({
             </div>
           )}
           <p className="mt-2 text-xs text-muted-foreground">
-            Tap a row to record credit for that person. The discount counts the shift they&apos;re on now; credit dollars are added when they clock out.
+            Tap a row to record credit for that person. Credit is added when they clock out.
             Hours start over each Monday.
           </p>
         </section>
@@ -222,9 +218,9 @@ export function CreditBoard({
           onSubmit={(e) => {
             e.preventDefault();
             start(async () => {
-              const r = await saveCreditRule(pct, afterHours, dollars, capDollars);
+              const r = await saveCreditRule(dollars, capDollars);
               if (r.error) toast.error(r.error);
-              else toast.success("Saved. Everyone's credit and discount were recounted.");
+              else toast.success("Saved. Everyone's credit was recounted.");
             });
           }}
         >
@@ -240,13 +236,6 @@ export function CreditBoard({
               <Input aria-label="Most credit per week" inputMode="decimal" value={capDollars} onChange={(e) => setCapDollars(e.target.value)} className="h-10 pl-7" />
             </div>
             a week
-          </div>
-          <div className="flex flex-wrap items-center gap-2 text-sm">
-            plus
-            <Input aria-label="Percent off per hour" inputMode="numeric" value={pct} onChange={(e) => setPct(e.target.value.replace(/\D/g, ""))} className="h-10 w-16" />
-            % off for every hour, for the first
-            <Input aria-label="Hours" inputMode="numeric" value={afterHours} onChange={(e) => setAfterHours(e.target.value.replace(/\D/g, ""))} className="h-10 w-16" />
-            hours
           </div>
           <p className="text-xs text-muted-foreground">Now: {creditRuleText(rule)} Credit is counted to the minute. Changing it recounts credit from the week of Nov 9 on.</p>
           <Button type="submit" variant="outline" disabled={busy}>

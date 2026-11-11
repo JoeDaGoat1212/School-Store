@@ -624,6 +624,124 @@ body:has(.backroom) {
   @keyframes bubble-in { from { opacity: 0; transform: translateY(6px) scale(0.98); } to { opacity: 1; transform: none; } }
 }
 
+/* ---- Night, turned up: aurora sky, grain, glass, holo pass, ember buttons ---- */
+@property --holo-angle { syntax: "<angle>"; inherits: false; initial-value: 0deg; }
+
+/* The sky behind the whole app: slow ember, violet and teal glows, plus film grain. */
+.night-sky { position: fixed; inset: 0; z-index: 0; pointer-events: none; overflow: hidden; background: #0b0c10; }
+.night-sky::before, .night-sky::after, .night-sky > i {
+  content: ""; position: absolute; border-radius: 9999px; filter: blur(70px); opacity: 0.55; will-change: transform;
+}
+.night-sky::before { width: 70vmax; height: 70vmax; left: -30vmax; top: -35vmax; background: radial-gradient(closest-side, #ff5a1f, transparent 70%); }
+.night-sky::after { width: 60vmax; height: 60vmax; right: -28vmax; top: 25vh; background: radial-gradient(closest-side, #7c3aed, transparent 70%); opacity: 0.4; }
+.night-sky > i { width: 55vmax; height: 55vmax; left: -10vmax; bottom: -35vmax; background: radial-gradient(closest-side, #12b5a6, transparent 70%); opacity: 0.35; }
+.night-sky > b {
+  position: absolute; inset: 0; opacity: 0.09; mix-blend-mode: overlay;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+.night-sky > s {
+  position: absolute; inset: 0; opacity: 0.35;
+  background-image: radial-gradient(rgba(255,255,255,0.09) 1px, transparent 1px); background-size: 22px 22px;
+  mask-image: radial-gradient(ellipse at 50% 0%, black, transparent 70%);
+}
+
+/* Frosted glass cards with a lit top edge. */
+.night .glass {
+  background: linear-gradient(180deg, rgba(255,255,255,0.07), rgba(255,255,255,0.025));
+  border: 1px solid rgba(255,255,255,0.09);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.08), 0 24px 48px -24px rgba(0,0,0,0.7);
+  backdrop-filter: blur(18px) saturate(140%);
+  -webkit-backdrop-filter: blur(18px) saturate(140%);
+}
+
+/* A glowing gradient outline (put on a relative, rounded element). */
+.night .glow-edge { position: relative; }
+.night .glow-edge::before {
+  content: ""; position: absolute; inset: 0; border-radius: inherit; padding: 1px; pointer-events: none;
+  background: linear-gradient(135deg, rgba(255,122,26,0.9), rgba(124,58,237,0.5) 45%, rgba(47,208,194,0.8));
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor; mask-composite: exclude;
+}
+
+/* Gradient type. */
+.night .text-ember { background: linear-gradient(100deg, #ffb347, #ff5a1f 45%, #ff2d6f); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.night .text-nest { background: linear-gradient(100deg, #a7fff3, #2fd0c2 50%, #12a3ff); -webkit-background-clip: text; background-clip: text; color: transparent; }
+
+/* The ember button: hot gradient, glow underneath, a shine that sweeps across. */
+.night .ember {
+  background: linear-gradient(120deg, #ffb020 0%, #ff5a1f 40%, #ff2d6f 100%);
+  box-shadow: 0 14px 34px -12px rgba(255,90,31,0.75), inset 0 1px 0 rgba(255,255,255,0.35);
+  color: #120a06;
+}
+.night .shine { position: relative; overflow: hidden; isolation: isolate; }
+.night .shine::after {
+  content: ""; position: absolute; inset: -40% auto -40% -60%; width: 40%; z-index: 1; pointer-events: none;
+  background: linear-gradient(100deg, transparent, rgba(255,255,255,0.45), transparent); transform: skewX(-18deg);
+}
+
+/* On the clock: a deep teal card that breathes. */
+.night .on-clock {
+  background:
+    radial-gradient(120% 90% at 100% 0%, rgba(47,208,194,0.35), transparent 55%),
+    radial-gradient(90% 80% at 0% 100%, rgba(18,163,255,0.22), transparent 60%),
+    linear-gradient(160deg, #0d2b2a, #08171a);
+  border: 1px solid rgba(47,208,194,0.35);
+  box-shadow: 0 0 0 1px rgba(47,208,194,0.08), 0 30px 60px -30px rgba(47,208,194,0.55);
+}
+.night .off-clock {
+  background:
+    radial-gradient(120% 90% at 100% 0%, rgba(255,90,31,0.22), transparent 55%),
+    radial-gradient(90% 80% at 0% 100%, rgba(124,58,237,0.18), transparent 60%),
+    linear-gradient(160deg, #1b1d24, #121318);
+  border: 1px solid rgba(255,255,255,0.09);
+}
+
+/* The Firebird Pass: a holographic card that shifts color. */
+.night .holo {
+  position: relative; isolation: isolate; overflow: hidden; color: #fff;
+  background:
+    radial-gradient(130% 120% at 0% 0%, rgba(255,176,32,0.95), transparent 45%),
+    radial-gradient(120% 120% at 100% 100%, rgba(124,58,237,0.95), transparent 50%),
+    linear-gradient(135deg, #ff5a1f, #ff2d6f 55%, #7c3aed);
+  box-shadow: 0 30px 60px -28px rgba(255,45,111,0.7), inset 0 1px 0 rgba(255,255,255,0.4);
+}
+.night .holo::before {
+  content: ""; position: absolute; inset: -50%; z-index: -1; opacity: 0.45; mix-blend-mode: soft-light;
+  background: conic-gradient(from var(--holo-angle), #fff0 0deg, #ffffffaa 40deg, #fff0 80deg, #2fd0c2aa 160deg, #fff0 220deg, #ffe08aaa 300deg, #fff0 360deg);
+}
+.night .holo::after {
+  content: ""; position: absolute; inset: 0; z-index: -1; opacity: 0.18;
+  background-image: repeating-linear-gradient(115deg, rgba(255,255,255,0.6) 0 1px, transparent 1px 9px);
+}
+
+/* Glowing teal bars (week credit). */
+.night .bar-fill { background: linear-gradient(180deg, #a7fff3, #2fd0c2 40%, #0e8f86); box-shadow: 0 0 18px rgba(47,208,194,0.55); }
+
+/* Chat in the employee app: hot gradient bubbles for yours, frosted for theirs. */
+.night .bubble-mine { background: linear-gradient(135deg, #ffb020, #ff5a1f 45%, #ff2d6f); color: #140a07; box-shadow: 0 10px 24px -12px rgba(255,45,111,0.85); }
+.night .bubble-theirs { background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.08); backdrop-filter: blur(10px); }
+.night .send-btn { background: linear-gradient(135deg, #ffb020, #ff5a1f 50%, #ff2d6f); box-shadow: 0 8px 22px -8px rgba(255,90,31,0.9); }
+
+/* The tab bar's active tab. */
+.night .tab-on { background: linear-gradient(135deg, rgba(255,122,26,0.28), rgba(255,45,111,0.22)); box-shadow: inset 0 0 0 1px rgba(255,122,26,0.45), 0 8px 24px -10px rgba(255,90,31,0.8); }
+
+@media (prefers-reduced-motion: no-preference) {
+  .night-sky::before { animation: sky-a 22s ease-in-out infinite alternate; }
+  .night-sky::after { animation: sky-b 28s ease-in-out infinite alternate; }
+  .night-sky > i { animation: sky-c 26s ease-in-out infinite alternate; }
+  @keyframes sky-a { to { transform: translate(18vmax, 14vmax) scale(1.15); } }
+  @keyframes sky-b { to { transform: translate(-16vmax, -10vmax) scale(1.2); } }
+  @keyframes sky-c { to { transform: translate(14vmax, -12vmax) scale(0.9); } }
+  .night .shine::after { animation: shine 3.8s ease-in-out infinite; }
+  @keyframes shine { 0%, 55% { left: -60%; } 100% { left: 130%; } }
+  .night .holo::before { animation: holo-spin 9s linear infinite; }
+  @keyframes holo-spin { to { --holo-angle: 360deg; } }
+  .night .breathe { animation: breathe 3.2s ease-in-out infinite; }
+  @keyframes breathe { 50% { box-shadow: 0 0 0 1px rgba(47,208,194,0.12), 0 30px 70px -24px rgba(47,208,194,0.85); } }
+  .night .float-in { animation: float-in 520ms cubic-bezier(0.2, 0.8, 0.2, 1) both; }
+  @keyframes float-in { from { opacity: 0; transform: translateY(14px) scale(0.985); } to { opacity: 1; transform: none; } }
+}
+
 /* Handwriting and receipt type helpers. */
 .font-hand { font-family: var(--font-hand), cursive; }
 .font-receipt { font-family: var(--font-receipt), ui-monospace, monospace; }

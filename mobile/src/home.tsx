@@ -25,6 +25,8 @@ import {
   weekdayShort,
 } from "./format";
 import { type Colors, radius, score, useColors } from "./theme";
+import { LinearGradient } from "expo-linear-gradient";
+import { Breathe, Flame, Foil, glass, HOLO, NEST, Shine, ShiftRing } from "./fx";
 
 type Tab = "today" | "tasks" | "restock" | "chat" | "schedule" | "money";
 type Note = { tone: "in" | "out" | "auto" | "error"; text: string; undo?: { id: string; token: string } } | null;
@@ -107,7 +109,7 @@ export function Home({
     return () => clearInterval(t);
   }, [tab]);
 
-  // One tick a second for the timers and the live discount pass.
+  // One tick a second for the timers and the live credit pass.
   useEffect(() => {
     const t = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(t);
@@ -149,11 +151,12 @@ export function Home({
         <View style={styles.header}>
           <View style={{ flex: 1 }}>
             <Text style={[styles.small, { color: c.muted }]}>{greeting()}</Text>
-            <Text style={[styles.name, { color: c.ink }]} numberOfLines={1}>
-              {data?.name ?? " "}
+            <Text style={styles.name} numberOfLines={1}>
+              <Text style={{ color: "#ff7a45", textShadowColor: "rgba(255,90,31,0.6)", textShadowRadius: 16 }}>{data?.name.split(" ")[0] ?? " "}</Text>
+              <Text style={{ color: c.ink }}>{data && data.name.includes(" ") ? ` ${data.name.split(" ").slice(1).join(" ")}` : ""}</Text>
             </Text>
           </View>
-          <Pressable onPress={askSignOut} hitSlop={8} style={[styles.ghost, { borderColor: c.rule, backgroundColor: c.paper }]}>
+          <Pressable onPress={askSignOut} hitSlop={8} style={[styles.ghost, glass]}>
             <Text style={[styles.ghostText, { color: c.muted }]}>Sign out</Text>
           </Pressable>
         </View>
@@ -192,7 +195,7 @@ export function Home({
       </ScrollView>
 
       {/* Keeps the phone's status bar readable over scrolled content. */}
-      <View pointerEvents="none" style={{ position: "absolute", top: 0, left: 0, right: 0, height: insets.top, backgroundColor: c.board }} />
+      <View pointerEvents="none" style={{ position: "absolute", top: 0, left: 0, right: 0, height: insets.top, backgroundColor: "rgba(11,12,16,0.88)" }} />
 
       {restock && (
         <RestockFlow
@@ -206,7 +209,7 @@ export function Home({
       )}
 
       {/* Tab bar */}
-      <View style={[styles.tabs, { bottom: insets.bottom + 10, backgroundColor: "rgba(29,33,39,0.97)", borderColor: "rgba(255,255,255,0.08)" }]}>
+      <View style={[styles.tabs, { bottom: insets.bottom + 10, backgroundColor: "rgba(16,18,24,0.96)", borderColor: "rgba(255,255,255,0.1)", elevation: 16, shadowColor: "#000", shadowOpacity: 0.8, shadowRadius: 20 }]}>
         {(
           [
             ["today", "Today"],
@@ -225,16 +228,27 @@ export function Home({
                 Haptics.selectionAsync().catch(() => undefined);
                 setTab(key);
               }}
-              style={[styles.tab, on && { backgroundColor: "rgba(255,255,255,0.07)" }]}
+              style={[styles.tab, on && { borderWidth: 1, borderColor: "rgba(255,122,26,0.5)" }]}
               accessibilityRole="tab"
               accessibilityState={{ selected: on }}
               accessibilityLabel={key === "chat" && unreadCount > 0 ? `${label}, ${unreadCount} unread` : key === "restock" && restockInfo.state === "due" ? `${label}, to do` : label}
             >
-              <Text style={[styles.tabText, { color: on ? c.ink : c.muted, fontWeight: on ? "800" : "600" }]}>{label}</Text>
+              {on && (
+                <LinearGradient
+                  colors={["rgba(255,122,26,0.35)", "rgba(255,45,111,0.22)"]}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                  style={[StyleSheet.absoluteFill, { borderRadius: 16 }]}
+                />
+              )}
+              <Text style={[styles.tabText, { color: on ? "#fff" : "rgba(255,255,255,0.5)", fontWeight: on ? "900" : "600", textShadowColor: on ? "rgba(255,122,26,0.8)" : "transparent", textShadowRadius: on ? 8 : 0 }]}>{label}</Text>
               <View
                 style={[
                   styles.tabMark,
-                  { backgroundColor: (key === "chat" && unreadCount > 0) || (key === "restock" && restockInfo.state === "due") || on ? c.orange : "transparent" },
+                  {
+                    backgroundColor: (key === "chat" && unreadCount > 0) || (key === "restock" && restockInfo.state === "due") ? c.orange : on ? "#ffb347" : "transparent",
+                    width: on ? 14 : 5,
+                  },
                 ]}
               />
             </Pressable>
@@ -276,8 +290,6 @@ function Today({
   const live = on ? Math.max(0, Math.floor((now - loadedAt.current) / 60000)) : 0;
   const weekMinutes = data.weekMinutes + live;
   const rule = data.rule;
-  const hours = Math.floor(weekMinutes / 60);
-  const discount = Math.min(hours, rule.afterHours) * rule.pct;
   const cap = rule.capCents ?? 1000;
   const earnedWeek = weekCredit(weekMinutes, rule);
   const blocks = Math.max(1, Math.ceil(cap / Math.max(1, rule.cents)));
@@ -336,35 +348,46 @@ function Today({
   return (
     <>
       {/* The time clock */}
-      <View style={[styles.sheet, { backgroundColor: on ? c.tealDeep : c.paper, borderColor: on ? "rgba(47,208,194,0.35)" : c.rule, padding: 20 }]}>
+      <View style={[styles.sheet, { borderColor: on ? "rgba(47,208,194,0.4)" : "rgba(255,255,255,0.1)", padding: 20 }]}>
+        <LinearGradient
+          colors={on ? ["#0f3b39", "#08191c", "#061418"] : ["#2a1a1d", "#16161d", "#111218"]}
+          start={{ x: 1, y: 0 }}
+          end={{ x: 0, y: 1 }}
+          style={StyleSheet.absoluteFill}
+        />
+        <LinearGradient
+          colors={on ? ["rgba(47,208,194,0.35)", "rgba(47,208,194,0)"] : ["rgba(255,90,31,0.28)", "rgba(255,90,31,0)"]}
+          start={{ x: 1, y: 0 }}
+          end={{ x: 0.3, y: 0.6 }}
+          style={StyleSheet.absoluteFill}
+        />
+        {on && <Breathe color={c.teal} radius={radius.sheet} />}
         <View style={[styles.row, { alignItems: "center" }]}>
-          <View style={[styles.chip, { backgroundColor: on ? "rgba(47,208,194,0.15)" : "rgba(255,255,255,0.05)" }]}>
-            <View style={[styles.dot, { backgroundColor: on ? c.teal : "rgba(255,255,255,0.35)" }]} />
-            <Text style={{ color: on ? c.teal : c.muted, fontWeight: "700", fontSize: 14 }}>{on ? "On the clock" : "Off the clock"}</Text>
+          <View style={[styles.chip, { backgroundColor: on ? "rgba(47,208,194,0.15)" : "rgba(255,255,255,0.07)", borderWidth: 1, borderColor: on ? "rgba(47,208,194,0.35)" : "rgba(255,255,255,0.1)" }]}>
+            <View style={[styles.dot, { backgroundColor: on ? c.teal : "rgba(255,255,255,0.4)", shadowColor: c.teal, shadowOpacity: on ? 1 : 0, shadowRadius: 6, elevation: on ? 4 : 0 }]} />
+            <Text style={{ color: on ? c.teal : "rgba(255,255,255,0.7)", fontWeight: "800", fontSize: 14 }}>{on ? "On the clock" : "Off the clock"}</Text>
           </View>
-          <Text style={{ color: c.muted, fontSize: 14 }}>
+          <Text style={{ color: "rgba(255,255,255,0.55)", fontSize: 14 }}>
             {clock.weekday}, {clock.date}
           </Text>
         </View>
         {on ? (
-          <View style={{ flexDirection: "row", alignItems: "flex-end", gap: 6, marginTop: 14 }}>
-            <Text style={[score, styles.timer]}>{timer.slice(0, -3)}</Text>
-            <Text style={[score, { color: c.teal, fontSize: 40, marginBottom: 10 }]}>{timer.slice(-2)}</Text>
+          <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: 12 }}>
+            <View style={{ flexDirection: "row", alignItems: "flex-end", gap: 6 }}>
+              <Text style={[score, styles.timer, { textShadowColor: "rgba(47,208,194,0.6)", textShadowRadius: 22 }]}>{timer.slice(0, -3)}</Text>
+              <Text style={[score, { color: NEST[0], fontSize: 40, marginBottom: 10 }]}>{timer.slice(-2)}</Text>
+            </View>
+            {limit > 0 && <ShiftRing progress={progress} size={86} />}
           </View>
         ) : (
-          <View style={{ flexDirection: "row", alignItems: "flex-end", gap: 8, marginTop: 14 }}>
+          <View style={{ flexDirection: "row", alignItems: "flex-end", gap: 8, marginTop: 12 }}>
             <Text style={[score, styles.timer]}>{clock.time}</Text>
-            <Text style={[score, { color: c.muted, fontSize: 32, marginBottom: 12 }]}>{clock.ampm}</Text>
+            <Text style={[score, { color: "#ff7a45", fontSize: 32, marginBottom: 12 }]}>{clock.ampm}</Text>
           </View>
         )}
-        <Text style={{ color: c.muted, fontSize: 14 }}>
+        <Text style={{ color: "rgba(255,255,255,0.6)", fontSize: 14 }}>
           {on && data.open ? `Since ${formatTime(data.open.in)}${autoOutAt ? ` · ends on its own at ${formatTime(autoOutAt)}` : ""}` : "Hold the button when you get to the store."}
         </Text>
-        {on && limit > 0 && (
-          <View style={[styles.track, { backgroundColor: "rgba(255,255,255,0.1)", marginTop: 14 }]}>
-            <View style={[styles.fill, { width: `${progress * 100}%`, backgroundColor: c.teal }]} />
-          </View>
-        )}
         <View style={{ marginTop: 18 }}>
           <HoldButton on={on} busy={busy} c={c} onComplete={doPunch} />
         </View>
@@ -385,61 +408,44 @@ function Today({
         )}
       </View>
 
-      {/* The discount pass: a ticking clock shows it's live, not a screenshot. */}
-      <View style={[styles.sheet, { backgroundColor: c.orange, borderColor: c.orange, padding: 20 }]}>
-        <Text style={[styles.small, { color: c.onOrange, fontWeight: "600" }]}>Employee discount</Text>
-        <Text style={[score, { color: c.onOrange, fontSize: 96, lineHeight: 96, marginTop: 6 }]}>{discount}%</Text>
-        <Text style={{ color: c.onOrange, fontSize: 18, fontWeight: "600" }}>off everything</Text>
-        <View style={[styles.passFoot, { borderTopColor: "rgba(0,0,0,0.15)" }]}>
-          <View>
-            <Text style={{ color: c.onOrange, fontWeight: "700", fontSize: 15 }}>{data.name}</Text>
-            <Text style={{ color: c.onOrange, opacity: 0.75, fontSize: 12 }}>Show this at the window</Text>
-          </View>
-          <Text style={{ color: c.onOrange, fontWeight: "700", fontVariant: ["tabular-nums"] }}>
-            {clock.date}, {clock.time}:{clock.seconds} {clock.ampm}
-          </Text>
-        </View>
-        {discount === 0 && <Text style={{ color: c.onOrange, marginTop: 8, fontWeight: "500" }}>Work an hour this week to unlock {rule.pct}% off.</Text>}
-      </View>
+      {/* The Firebird Pass: store credit on a holographic card. A ticking clock shows it's live, not a screenshot. */}
+      <Pass name={data.name} credit={data.creditCents} clock={`${clock.time}:${clock.seconds} ${clock.ampm}`} />
 
       {/* This week */}
-      <View style={[styles.sheet, { backgroundColor: c.paper, borderColor: c.rule, padding: 20, gap: 14 }]}>
+      <View style={[styles.sheet, glass, { padding: 20, gap: 14 }]}>
         <View style={styles.row}>
-          <Text style={[styles.h2, { color: c.ink }]}>This week</Text>
-          <Text style={[score, { color: c.ink, fontSize: 38 }]}>{formatMinutes(weekMinutes)}</Text>
+          <Text style={styles.kicker}>THIS WEEK</Text>
+          <Text style={[score, { color: c.ink, fontSize: 32 }]}>{formatMinutes(weekMinutes)}</Text>
         </View>
-        <View style={[styles.row, { alignItems: "baseline" }]}>
-          <Text style={[score, { color: c.teal, fontSize: 52, lineHeight: 54 }]}>{formatCents(earnedWeek)}</Text>
-          <Text style={{ color: c.muted, fontSize: 14 }}>credit earned of {formatCents(cap).replace(".00", "")}</Text>
+        <View style={[styles.row, { alignItems: "flex-end" }]}>
+          <Text style={[score, { color: NEST[0], fontSize: 60, lineHeight: 62, textShadowColor: "rgba(47,208,194,0.6)", textShadowRadius: 18 }]}>{formatCents(earnedWeek)}</Text>
+          <Text style={{ color: "rgba(255,255,255,0.55)", fontSize: 14, marginBottom: 8 }}>earned of {formatCents(cap).replace(".00", "")}</Text>
         </View>
-        {/* One block per $1 this week: each one fills up as you work that hour. */}
-        <View style={{ flexDirection: "row", gap: 5 }}>
+        {/* One bar per $1: each one fills up as you work that hour. */}
+        <View style={{ flexDirection: "row", gap: 5, alignItems: "flex-end" }}>
           {Array.from({ length: blocks }, (_, i) => {
             const fill = Math.min(1, Math.max(0, earnedWeek / rule.cents - i));
             return (
-              <View key={i} style={[styles.block, { height: 40, borderRadius: 9, backgroundColor: "rgba(255,255,255,0.05)" }]}>
-                <View style={{ position: "absolute", left: 0, right: 0, bottom: 0, height: `${fill * 100}%`, backgroundColor: c.teal }} />
+              <View key={i} style={[styles.block, { height: 38 + i * 3, borderRadius: 10, backgroundColor: "rgba(255,255,255,0.05)", borderWidth: 1, borderColor: "rgba(255,255,255,0.06)" }]}>
+                <LinearGradient colors={[NEST[0], NEST[1], "#0e8f86"]} style={{ position: "absolute", left: 0, right: 0, bottom: 0, height: `${fill * 100}%` }} />
               </View>
             );
           })}
         </View>
-        <View style={[styles.row, { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: c.rule, paddingTop: 12 }]}>
-          <Text style={{ color: c.ink, fontSize: 14, flex: 1 }}>
-            {earnedWeek >= cap ? (
-              <Text style={{ fontWeight: "700" }}>Maxed out for this week. Nice work.</Text>
-            ) : (
-              <>
-                Every hour adds <Text style={{ fontWeight: "700" }}>{formatCents(rule.cents).replace(".00", "")}</Text>
-              </>
-            )}
-          </Text>
-          <Text style={{ color: c.muted, fontSize: 14 }}>{discount > 0 ? `${discount}% off now` : `${rule.pct}% off per hour`}</Text>
-        </View>
-        <Text style={{ color: c.muted, fontSize: 12, lineHeight: 17 }}>{ruleText(rule)}</Text>
+        <Text style={{ color: c.ink, fontSize: 14, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: "rgba(255,255,255,0.1)", paddingTop: 12 }}>
+          {earnedWeek >= cap ? (
+            <Text style={{ fontWeight: "800", color: NEST[0] }}>Maxed out for this week. Nice work.</Text>
+          ) : (
+            <>
+              Every hour adds <Text style={{ fontWeight: "800" }}>{formatCents(rule.cents).replace(".00", "")}</Text>. {formatCents(cap - earnedWeek)} left to earn this week.
+            </>
+          )}
+        </Text>
+        <Text style={{ color: "rgba(255,255,255,0.45)", fontSize: 12, lineHeight: 17 }}>{ruleText(rule)}</Text>
       </View>
 
       {data.schedule[0] && (
-        <Pressable onPress={openSchedule} style={[styles.sheet, { backgroundColor: c.paper, borderColor: c.rule, paddingHorizontal: 20, paddingVertical: 16, flexDirection: "row", alignItems: "center", gap: 16 }]}>
+        <Pressable onPress={openSchedule} style={[styles.sheet, glass, { paddingHorizontal: 20, paddingVertical: 16, flexDirection: "row", alignItems: "center", gap: 16 }]}>
           <View style={{ alignItems: "center", width: 48 }}>
             <Text style={{ color: c.orange, fontSize: 12, fontWeight: "700" }}>{weekdayShort(data.schedule[0].date)}</Text>
             <Text style={[score, { color: c.ink, fontSize: 34, lineHeight: 36 }]}>{dayOfMonth(data.schedule[0].date)}</Text>
@@ -457,6 +463,45 @@ function Today({
   );
 }
 
+/* ---------------------------------------------------------------- The pass */
+
+function Pass({ name, credit, clock }: { name: string; credit: number; clock: string }) {
+  const [size, setSize] = useState({ w: 0, h: 0 });
+  return (
+    <View
+      onLayout={(e) => setSize({ w: e.nativeEvent.layout.width, h: e.nativeEvent.layout.height })}
+      style={[styles.sheet, { borderColor: "rgba(255,255,255,0.35)", borderWidth: 1, padding: 20, elevation: 12, shadowColor: "#ff2d6f", shadowOpacity: 0.6, shadowRadius: 24, shadowOffset: { width: 0, height: 14 } }]}
+    >
+      <LinearGradient colors={[...HOLO]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={StyleSheet.absoluteFill} />
+      <LinearGradient colors={["rgba(255,255,255,0.35)", "rgba(255,255,255,0)"]} start={{ x: 0, y: 0 }} end={{ x: 0.6, y: 0.6 }} style={StyleSheet.absoluteFill} />
+      {size.w > 0 && <Foil width={size.w} height={size.h} />}
+      <View style={{ position: "absolute", right: -26, bottom: -34 }}>
+        <Flame size={200} opacity={0.22} />
+      </View>
+      <Shine every={4200} width={110} />
+      <View style={[styles.row, { alignItems: "center" }]}>
+        <Text style={{ color: "rgba(255,255,255,0.9)", fontSize: 12, fontWeight: "900", letterSpacing: 3 }}>FIREBIRD PASS</Text>
+        <View style={{ backgroundColor: "rgba(255,255,255,0.22)", borderRadius: 99, paddingHorizontal: 10, paddingVertical: 3 }}>
+          <Text style={{ color: "#fff", fontSize: 11, fontWeight: "800" }}>Employee</Text>
+        </View>
+      </View>
+      <Text style={{ color: "rgba(255,255,255,0.85)", fontSize: 14, fontWeight: "700", marginTop: 16 }}>Store credit</Text>
+      <Text style={[score, { color: "#fff", fontSize: 92, lineHeight: 94, textShadowColor: "rgba(0,0,0,0.25)", textShadowRadius: 18, textShadowOffset: { width: 0, height: 6 } }]}>
+        {formatCents(credit)}
+      </Text>
+      <View style={[styles.passFoot, { borderTopColor: "rgba(255,255,255,0.3)" }]}>
+        <View style={{ flex: 1 }}>
+          <Text style={{ color: "#fff", fontWeight: "800", fontSize: 17 }}>{name}</Text>
+          <Text style={{ color: "rgba(255,255,255,0.85)", fontSize: 12 }}>Show this at the window to use your credit</Text>
+        </View>
+        <View style={{ backgroundColor: "rgba(0,0,0,0.22)", borderRadius: 10, paddingHorizontal: 9, paddingVertical: 5 }}>
+          <Text style={{ color: "#fff", fontWeight: "800", fontVariant: ["tabular-nums"] }}>{clock}</Text>
+        </View>
+      </View>
+    </View>
+  );
+}
+
 /* ---------------------------------------------------------------- Schedule */
 
 function Schedule({ data, now, c }: { data: Portal; now: number; c: Colors }) {
@@ -466,7 +511,7 @@ function Schedule({ data, now, c }: { data: Portal; now: number; c: Colors }) {
 
   return (
     <>
-      <View style={[styles.sheet, { backgroundColor: c.paper, borderColor: c.rule }]}>
+      <View style={[styles.sheet, glass]}>
         <Text style={[styles.h2, styles.sheetHead, { color: c.ink, borderBottomColor: c.rule }]}>My schedule</Text>
         {byDay.size === 0 ? (
           <Text style={[styles.empty, { color: c.muted }]}>You're not on the schedule yet. Ask your manager.</Text>
@@ -490,7 +535,7 @@ function Schedule({ data, now, c }: { data: Portal; now: number; c: Colors }) {
         )}
       </View>
 
-      <View style={[styles.sheet, { backgroundColor: c.paper, borderColor: c.rule }]}>
+      <View style={[styles.sheet, glass]}>
         <Text style={[styles.h2, styles.sheetHead, { color: c.ink, borderBottomColor: c.rule }]}>My shifts</Text>
         {data.shifts.length === 0 ? (
           <Text style={[styles.empty, { color: c.muted }]}>No shifts yet.</Text>
@@ -516,9 +561,11 @@ function Schedule({ data, now, c }: { data: Portal; now: number; c: Colors }) {
 function Money({ data, c }: { data: Portal; c: Colors }) {
   return (
     <>
-      <View style={[styles.sheet, { backgroundColor: c.tealDeep, borderColor: "rgba(47,208,194,0.35)", padding: 20 }]}>
-        <Text style={[styles.small, { color: "rgba(255,255,255,0.65)", fontWeight: "600" }]}>Store credit</Text>
-        <Text style={[score, { color: "#fff", fontSize: 80, lineHeight: 84, marginTop: 6 }]}>{formatCents(data.creditCents)}</Text>
+      <View style={[styles.sheet, { borderColor: "rgba(47,208,194,0.4)", padding: 20 }]}>
+        <LinearGradient colors={["#0f3b39", "#08191c"]} start={{ x: 1, y: 0 }} end={{ x: 0, y: 1 }} style={StyleSheet.absoluteFill} />
+        <LinearGradient colors={["rgba(47,208,194,0.35)", "rgba(47,208,194,0)"]} start={{ x: 1, y: 0 }} end={{ x: 0.3, y: 0.7 }} style={StyleSheet.absoluteFill} />
+        <Text style={styles.kicker}>STORE CREDIT</Text>
+        <Text style={[score, { color: NEST[0], fontSize: 88, lineHeight: 92, marginTop: 6, textShadowColor: "rgba(47,208,194,0.6)", textShadowRadius: 22 }]}>{formatCents(data.creditCents)}</Text>
         <Text style={{ color: "rgba(255,255,255,0.65)", fontSize: 14, marginTop: 4 }}>
           Earned {formatCents(data.earnedCents)} so far, {formatMinutes(data.workedMinutes)} worked in all
         </Text>
@@ -527,7 +574,7 @@ function Money({ data, c }: { data: Portal; c: Colors }) {
         </Text>
       </View>
 
-      <View style={[styles.sheet, { backgroundColor: c.paper, borderColor: c.rule }]}>
+      <View style={[styles.sheet, glass]}>
         <Text style={[styles.h2, styles.sheetHead, { color: c.ink, borderBottomColor: c.rule }]}>Credit used and added</Text>
         {data.credit.length === 0 ? (
           <Text style={[styles.empty, { color: c.muted }]}>Nothing yet.</Text>
@@ -561,6 +608,7 @@ const styles = StyleSheet.create({
   sheet: { borderRadius: radius.sheet, borderWidth: StyleSheet.hairlineWidth, overflow: "hidden" },
   sheetHead: { paddingHorizontal: 20, paddingVertical: 14, borderBottomWidth: StyleSheet.hairlineWidth },
   h2: { fontSize: 16, fontWeight: "600" },
+  kicker: { color: "rgba(255,255,255,0.6)", fontSize: 13, fontWeight: "800", letterSpacing: 2.5 },
   row: { flexDirection: "row", alignItems: "baseline", justifyContent: "space-between" },
   timer: { color: "#fff", fontSize: 92, lineHeight: 94 },
   chip: { flexDirection: "row", alignItems: "center", gap: 8, borderRadius: 999, paddingHorizontal: 12, paddingVertical: 6 },
@@ -577,7 +625,7 @@ const styles = StyleSheet.create({
   dayRow: { flexDirection: "row", alignItems: "center", gap: 16, paddingHorizontal: 20, paddingVertical: 12 },
   listRow: { flexDirection: "row", alignItems: "center", gap: 10, paddingHorizontal: 20, paddingVertical: 12 },
   tabs: { position: "absolute", left: 12, right: 12, flexDirection: "row", borderWidth: 1, borderRadius: 22, padding: 5 },
-  tab: { flex: 1, alignItems: "center", justifyContent: "center", paddingVertical: 11, borderRadius: 17, gap: 4 },
+  tab: { flex: 1, alignItems: "center", justifyContent: "center", paddingVertical: 11, borderRadius: 17, gap: 4, overflow: "hidden" },
   tabMark: { width: 5, height: 5, borderRadius: 3 },
   tabText: { fontSize: 12 },
 });

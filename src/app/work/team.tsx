@@ -49,9 +49,9 @@ function RestockTodo({ state, onOpen }: { state: "due" | "done"; onOpen: () => v
     <button
       type="button"
       onClick={onOpen}
-      className={`flex w-full items-center gap-4 rounded-2xl px-4 py-4 text-left ring-1 ${done ? "bg-card/60 ring-border/60" : "bg-[var(--brand)]/10 ring-[var(--brand)]/40"}`}
+      className={`flex w-full items-center gap-4 rounded-2xl px-4 py-4 text-left ${done ? "glass opacity-70" : "glow-edge bg-gradient-to-r from-[#ff5a1f]/20 via-[#ff2d6f]/10 to-transparent shadow-[0_16px_40px_-20px_rgba(255,90,31,0.8)]"}`}
     >
-      <span aria-hidden className={`grid size-8 shrink-0 place-items-center rounded-full ${done ? "bg-[var(--nest)] text-black" : "bg-[var(--brand)] text-black"}`}>
+      <span aria-hidden className={`grid size-9 shrink-0 place-items-center rounded-xl ${done ? "bg-[var(--nest)] text-black" : "ember"}`}>
         {done ? <CheckIcon className="size-5" strokeWidth={3} /> : <CameraIcon className="size-4.5" />}
       </span>
       <span className="min-w-0 flex-1">
@@ -99,14 +99,14 @@ export function WorkTasks({ restock, onRestock }: { restock?: "none" | "due" | "
   return (
     <section aria-labelledby="tasks-title" className="grid gap-3">
       {/* Scoreboard: how many done today */}
-      <div className={`rounded-3xl p-5 ring-1 ${allDone ? "bg-[#0f2a28] ring-[color-mix(in_oklab,var(--nest)_35%,transparent)]" : "bg-card ring-border"}`}>
+      <div className={`rounded-[1.75rem] p-5 ${allDone ? "on-clock breathe" : "off-clock"}`}>
         <div className="flex items-end justify-between gap-3">
           <div>
-            <h2 id="tasks-title" className="text-sm font-medium text-muted-foreground">
+            <h2 id="tasks-title" className="text-sm font-bold tracking-[0.18em] text-white/60 uppercase">
               Today&apos;s tasks
             </h2>
-            <p className="mt-1 font-heading text-6xl leading-none font-bold tabular-nums">
-              <span className={allDone ? "text-[var(--nest)]" : ""}>{done}</span>
+            <p className="mt-1 font-heading text-7xl leading-none font-bold tabular-nums">
+              <span className={allDone ? "text-nest" : "text-ember"}>{done}</span>
               <span className="text-muted-foreground">/{total}</span>
             </p>
           </div>
@@ -117,7 +117,7 @@ export function WorkTasks({ restock, onRestock }: { restock?: "none" | "due" | "
         {total > 0 && (
           <div className="mt-4 flex gap-1.5" aria-hidden>
             {tasks!.map((t) => (
-              <span key={t.id} className={`h-1.5 flex-1 rounded-full transition-colors duration-300 ${t.done ? "bg-[var(--nest)]" : "bg-white/10"}`} />
+              <span key={t.id} className={`h-2 flex-1 rounded-full transition-all duration-500 ${t.done ? "bar-fill" : "bg-white/10"}`} />
             ))}
           </div>
         )}
@@ -128,7 +128,7 @@ export function WorkTasks({ restock, onRestock }: { restock?: "none" | "due" | "
       {tasks === null ? (
         <Loader2Icon className="mx-auto my-8 size-5 animate-spin text-muted-foreground" />
       ) : total === 0 ? (
-        <p className="rounded-3xl bg-card px-5 py-8 text-center text-sm text-muted-foreground ring-1 ring-border">No tasks today. Ask the manager if you&apos;re not sure what to do.</p>
+        <p className="glass rounded-[1.75rem] px-5 py-8 text-center text-sm text-muted-foreground">No tasks today. Ask the manager if you&apos;re not sure what to do.</p>
       ) : (
         <ul className="grid gap-2">
           {tasks.map((t) => (
@@ -137,12 +137,12 @@ export function WorkTasks({ restock, onRestock }: { restock?: "none" | "due" | "
                 type="button"
                 onClick={() => toggle(t)}
                 aria-pressed={t.done}
-                className={`flex w-full items-center gap-4 rounded-2xl px-4 py-4 text-left ring-1 transition-colors ${t.done ? "bg-card/60 ring-border/60" : "bg-card ring-border hover:ring-white/20"}`}
+                className={`glass flex w-full items-center gap-4 rounded-2xl px-4 py-4 text-left transition-all duration-300 active:scale-[0.985] ${t.done ? "opacity-60" : "hover:border-white/20"}`}
               >
                 <span
                   aria-hidden
                   key={String(t.done)}
-                  className={`grid size-8 shrink-0 place-items-center rounded-full ${t.done ? "check-pop bg-[var(--nest)] text-black" : "ring-2 ring-white/20"}`}
+                  className={`grid size-9 shrink-0 place-items-center rounded-full ${t.done ? "check-pop bg-gradient-to-br from-[#a7fff3] to-[#2fd0c2] text-black shadow-[0_0_18px_rgba(47,208,194,0.7)]" : "ring-2 ring-white/25"}`}
                 >
                   {t.done && <CheckIcon className="size-5" strokeWidth={3} />}
                 </span>
@@ -208,7 +208,7 @@ export function WorkAbsences({ schedule }: { schedule: PortalData["schedule"] })
 
   if (schedule.length === 0) return null;
   return (
-    <section aria-labelledby="absent-title" className="overflow-hidden rounded-3xl bg-card ring-1 ring-border">
+    <section aria-labelledby="absent-title" className="glass overflow-hidden rounded-[1.75rem]">
       <header className="border-b px-5 py-3.5">
         <h2 id="absent-title" className="text-base font-semibold">
           Can&apos;t make a shift?

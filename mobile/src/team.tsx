@@ -23,6 +23,8 @@ import {
 import { formatClock, relativeDay } from "./format";
 import { markMessagesSeen } from "./notify";
 import { type Colors, personColor, radius, score } from "./theme";
+import { EMBER, glass, NEST } from "./fx";
+import { LinearGradient } from "expo-linear-gradient";
 
 const initialsOf = (name: string) =>
   name
@@ -67,12 +69,24 @@ export function TasksTab({ c, restock, onRestock }: { c: Colors; restock?: "none
   return (
     <View style={{ gap: 10 }}>
       {/* Scoreboard: how many done today */}
-      <View style={[s.sheet, { backgroundColor: allDone ? c.tealDeep : c.paper, borderColor: allDone ? "rgba(47,208,194,0.35)" : c.rule, padding: 20 }]}>
+      <View style={[s.sheet, { borderColor: allDone ? "rgba(47,208,194,0.4)" : "rgba(255,255,255,0.1)", borderWidth: 1, padding: 20, overflow: "hidden" }]}>
+        <LinearGradient
+          colors={allDone ? ["#0f3b39", "#08191c"] : ["#2a1a1d", "#16161d", "#111218"]}
+          start={{ x: 1, y: 0 }}
+          end={{ x: 0, y: 1 }}
+          style={StyleSheet.absoluteFill}
+        />
+        <LinearGradient
+          colors={allDone ? ["rgba(47,208,194,0.35)", "rgba(47,208,194,0)"] : ["rgba(255,90,31,0.28)", "rgba(255,90,31,0)"]}
+          start={{ x: 1, y: 0 }}
+          end={{ x: 0.3, y: 0.7 }}
+          style={StyleSheet.absoluteFill}
+        />
         <View style={{ flexDirection: "row", alignItems: "flex-end", justifyContent: "space-between" }}>
           <View>
-            <Text style={{ color: c.muted, fontSize: 14, fontWeight: "600" }}>Today's tasks</Text>
-            <Text style={[score, { fontSize: 64, lineHeight: 66, color: c.ink }]}>
-              <Text style={{ color: allDone ? c.teal : c.ink }}>{done}</Text>
+            <Text style={{ color: "rgba(255,255,255,0.6)", fontSize: 13, fontWeight: "800", letterSpacing: 2.5 }}>TODAY'S TASKS</Text>
+            <Text style={[score, { fontSize: 72, lineHeight: 74, color: c.ink }]}>
+              <Text style={{ color: allDone ? NEST[0] : "#ff7a45", textShadowColor: allDone ? "rgba(47,208,194,0.6)" : "rgba(255,90,31,0.6)", textShadowRadius: 16 }}>{done}</Text>
               <Text style={{ color: c.muted }}>/{total}</Text>
             </Text>
           </View>
@@ -95,12 +109,13 @@ export function TasksTab({ c, restock, onRestock }: { c: Colors; restock?: "none
           style={({ pressed }) => [
             s.taskCard,
             restock === "done"
-              ? { backgroundColor: c.paper, borderColor: c.rule, opacity: 0.7 }
+              ? [glass, { opacity: 0.7 }]
               : { backgroundColor: "rgba(255,90,31,0.10)", borderColor: "rgba(255,90,31,0.45)" },
             { transform: [{ scale: pressed ? 0.98 : 1 }] },
           ]}
         >
-          <View style={[s.check, { backgroundColor: restock === "done" ? c.teal : c.orange, borderColor: restock === "done" ? c.teal : c.orange }]}>
+          <View style={[s.check, { borderColor: restock === "done" ? NEST[0] : "#ffb020" }]}>
+            {restock === "done" ? <LinearGradient colors={[...NEST]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={StyleSheet.absoluteFill} /> : <LinearGradient colors={[...EMBER]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={StyleSheet.absoluteFill} />}
             <Text style={{ color: "#000", fontWeight: "900", fontSize: 15 }}>{restock === "done" ? "✓" : "📷"}</Text>
           </View>
           <View style={{ flex: 1, gap: 2 }}>
@@ -112,7 +127,7 @@ export function TasksTab({ c, restock, onRestock }: { c: Colors; restock?: "none
       {tasks === null ? (
         <ActivityIndicator style={{ margin: 24 }} color={c.muted} />
       ) : total === 0 ? (
-        <View style={[s.sheet, { backgroundColor: c.paper, borderColor: c.rule }]}>
+        <View style={[s.sheet, glass]}>
           <Text style={[s.empty, { color: c.muted }]}>No tasks today. Ask the manager if you're not sure what to do.</Text>
         </View>
       ) : (
@@ -120,9 +135,10 @@ export function TasksTab({ c, restock, onRestock }: { c: Colors; restock?: "none
           <Pressable
             key={t.id}
             onPress={() => toggle(t)}
-            style={({ pressed }) => [s.taskCard, { backgroundColor: c.paper, borderColor: c.rule, opacity: t.done ? 0.7 : 1, transform: [{ scale: pressed ? 0.98 : 1 }] }]}
+            style={({ pressed }) => [s.taskCard, glass, { opacity: t.done ? 0.65 : 1, transform: [{ scale: pressed ? 0.98 : 1 }] }]}
           >
-            <View style={[s.check, t.done ? { backgroundColor: c.teal, borderColor: c.teal } : { borderColor: "rgba(255,255,255,0.25)" }]}>
+            <View style={[s.check, t.done ? { borderColor: NEST[0] } : { borderColor: "rgba(255,255,255,0.25)" }]}>
+              {t.done && <LinearGradient colors={[...NEST]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={StyleSheet.absoluteFill} />}
               {t.done && <Text style={{ color: "#000", fontWeight: "900", fontSize: 16 }}>✓</Text>}
             </View>
             <View style={{ flex: 1, gap: 2 }}>
@@ -185,7 +201,7 @@ export function AbsencesCard({ data, c, onChanged }: { data: Portal; c: Colors; 
   };
 
   return (
-    <View style={[s.sheet, { backgroundColor: c.paper, borderColor: c.rule }]}>
+    <View style={[s.sheet, glass]}>
       <View style={[s.head, { borderBottomColor: c.rule, flexDirection: "column", alignItems: "flex-start" }]}>
         <Text style={[s.h2, { color: c.ink }]}>Can't make a shift?</Text>
         <Text style={{ color: c.muted, fontSize: 14, marginTop: 2 }}>Let the manager know as early as you can.</Text>
@@ -296,12 +312,13 @@ export function ChatTab({ c, openChat, onOpenChat, onUnread }: { c: Colors; open
     <>
       <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
         <Text style={[s.h2, { color: c.ink, fontSize: 20 }]}>Messages</Text>
-        <Pressable onPress={() => setMaking(true)} style={[s.small, { backgroundColor: c.orange, borderColor: c.orange, borderRadius: 999, paddingHorizontal: 16 }]}>
+        <Pressable onPress={() => setMaking(true)} style={[s.small, { borderColor: "#ffb020", borderRadius: 999, paddingHorizontal: 16, overflow: "hidden" }]}>
+          <LinearGradient colors={[...EMBER]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={StyleSheet.absoluteFill} />
           <Text style={{ color: "#000", fontWeight: "800" }}>+ New</Text>
         </Pressable>
       </View>
       {error && <Text style={[s.error, { color: c.red, paddingHorizontal: 0 }]}>{error}</Text>}
-      <View style={[s.sheet, { backgroundColor: c.paper, borderColor: c.rule }]}>
+      <View style={[s.sheet, glass]}>
         {threads === null ? (
           <ActivityIndicator style={{ margin: 24 }} color={c.muted} />
         ) : (
@@ -354,7 +371,7 @@ function NewChat({ contacts, c, onCancel, onOpened }: { contacts: Contact[]; c: 
   };
 
   return (
-    <View style={[s.sheet, { backgroundColor: c.paper, borderColor: c.rule }]}>
+    <View style={[s.sheet, glass]}>
       <View style={{ flexDirection: "row", borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: c.rule }}>
         {(
           [
@@ -458,7 +475,7 @@ function Conversation({ id, c, onBack }: { id: string; c: Colors; onBack: () => 
   const names = thread?.kind !== "direct";
   return (
     <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined}>
-      <View style={[s.sheet, { backgroundColor: c.paper, borderColor: c.rule }]}>
+      <View style={[s.sheet, glass]}>
         <View style={[s.head, { borderBottomColor: c.rule, gap: 8 }]}>
           <Pressable onPress={onBack} hitSlop={10}>
             <Text style={{ color: c.ink, fontSize: 22 }}>‹</Text>
@@ -500,8 +517,9 @@ function Conversation({ id, c, onBack }: { id: string; c: Colors; onBack: () => 
                   )}
                   <View style={{ maxWidth: "78%", alignItems: m.mine ? "flex-end" : "flex-start" }}>
                     {first && names && !m.mine && <Text style={{ color: c.muted, fontSize: 12, fontWeight: "700", marginBottom: 3, marginLeft: 10 }}>{m.senderName}</Text>}
-                    <View style={[s.bubble, m.mine ? { backgroundColor: c.orange, borderBottomRightRadius: 6 } : { backgroundColor: c.raised, borderBottomLeftRadius: 6 }]}>
-                      <Text style={{ color: m.mine ? "#000" : c.ink, fontSize: 16, lineHeight: 21 }}>{m.body}</Text>
+                    <View style={[s.bubble, m.mine ? { borderBottomRightRadius: 6 } : [glass, { borderBottomLeftRadius: 6 }]]}>
+                      {m.mine && <LinearGradient colors={[...EMBER]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={StyleSheet.absoluteFill} />}
+                      <Text style={{ color: m.mine ? "#140a07" : c.ink, fontSize: 16, lineHeight: 21, fontWeight: m.mine ? "600" : "400" }}>{m.body}</Text>
                     </View>
                   </View>
                 </View>
@@ -524,8 +542,9 @@ function Conversation({ id, c, onBack }: { id: string; c: Colors; onBack: () => 
             onPress={send}
             disabled={sending || !text.trim()}
             accessibilityLabel="Send"
-            style={({ pressed }) => [s.send, { backgroundColor: c.orange, opacity: !text.trim() ? 0.35 : 1, transform: [{ scale: pressed ? 0.9 : 1 }] }]}
+            style={({ pressed }) => [s.send, { opacity: !text.trim() ? 0.35 : 1, transform: [{ scale: pressed ? 0.9 : 1 }] }]}
           >
+            <LinearGradient colors={[...EMBER]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={StyleSheet.absoluteFill} />
             {sending ? <ActivityIndicator color="#000" /> : <Text style={{ color: "#000", fontWeight: "900", fontSize: 20, marginTop: -2 }}>↑</Text>}
           </Pressable>
         </View>
@@ -546,11 +565,11 @@ const s = StyleSheet.create({
   field: { height: 46, borderWidth: 1, borderRadius: radius.control, paddingHorizontal: 12, fontSize: 16 },
   button: { height: 46, borderRadius: radius.control, alignItems: "center", justifyContent: "center" },
   avatar: { width: 48, height: 48, borderRadius: 24, alignItems: "center", justifyContent: "center" },
-  bubble: { borderRadius: 20, paddingHorizontal: 14, paddingVertical: 9 },
+  bubble: { borderRadius: 20, paddingHorizontal: 14, paddingVertical: 9, overflow: "hidden" },
   mini: { width: 28, height: 28, borderRadius: 14, alignItems: "center", justifyContent: "center" },
-  send: { width: 46, height: 46, borderRadius: 23, alignItems: "center", justifyContent: "center" },
+  send: { width: 46, height: 46, borderRadius: 23, alignItems: "center", justifyContent: "center", overflow: "hidden" },
   taskCard: { flexDirection: "row", alignItems: "center", gap: 14, borderRadius: radius.card, borderWidth: StyleSheet.hairlineWidth, paddingHorizontal: 16, paddingVertical: 16 },
-  check: { width: 32, height: 32, borderRadius: 16, borderWidth: 2, alignItems: "center", justifyContent: "center" },
+  check: { width: 34, height: 34, borderRadius: 17, borderWidth: 2, alignItems: "center", justifyContent: "center", overflow: "hidden" },
   pill: { fontSize: 11, fontWeight: "700", borderRadius: 999, paddingHorizontal: 8, paddingVertical: 3, overflow: "hidden" },
   badge: { minWidth: 20, height: 20, borderRadius: 10, paddingHorizontal: 6, alignItems: "center", justifyContent: "center" },
 });

@@ -79,7 +79,7 @@ const allGroups: StaffNavGroup[] = [
       { title: "Schedule", href: "/admin/staff", icon: CalendarClockIcon, blurb: "Who works 1st–7th hour" },
       { title: "Timecards", href: "/admin/staff/hours", icon: TimerIcon, blurb: "Hours worked, fix punches" },
       { title: "Employees", href: "/admin/staff/people", icon: UsersIcon, blurb: "PINs, sign-ups, approvals" },
-      { title: "Store credit", href: "/admin/staff/credit", icon: WalletIcon, blurb: "Discounts and credit" },
+      { title: "Store credit", href: "/admin/staff/credit", icon: WalletIcon, blurb: "Credit for hours worked" },
       { title: "Messages", href: "/admin/staff/messages", icon: MessageCircleIcon, blurb: "Chat with the team" },
       { title: "Tasks", href: "/admin/staff/tasks", icon: ListChecksIcon, blurb: "What to do each day" },
       { title: "Restock checks", href: "/admin/staff/restock", icon: CameraIcon, blurb: "Photos after each shift" },

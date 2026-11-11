@@ -38,6 +38,8 @@ jobs:
         run: |
           if grep -q '"expo"' package.json; then
             npm install --no-audit --no-fund
+            # Graphics libraries (gradients, the shift ring), at the versions that match this Expo.
+            grep -q '"expo-linear-gradient"' package.json || npx expo install expo-linear-gradient react-native-svg
           else
             # First build: pick the newest Expo and the versions that go with it.
             npm install --no-audit --no-fund expo@latest

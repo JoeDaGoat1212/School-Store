@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import { ActivityIndicator, Animated, Easing, Pressable, StyleSheet, Text, View } from "react-native";
 import * as Haptics from "expo-haptics";
+import { LinearGradient } from "expo-linear-gradient";
+import { EMBER, Shine } from "./fx";
 import { type Colors, radius } from "./theme";
 
 const HOLD_MS = 600;
@@ -53,19 +55,21 @@ export function HoldButton({ on, busy, c, onComplete }: { on: boolean; busy: boo
       disabled={busy}
       accessibilityRole="button"
       accessibilityLabel={on ? "Hold to clock out" : "Hold to clock in"}
-      style={[styles.button, { backgroundColor: on ? "rgba(255,255,255,0.08)" : c.orange, borderColor: on ? "rgba(255,255,255,0.15)" : c.orange }]}
+      style={[styles.button, { backgroundColor: on ? "rgba(255,255,255,0.08)" : "transparent", borderColor: on ? "rgba(167,255,243,0.35)" : "rgba(255,255,255,0.35)" }]}
     >
-      <Animated.View style={[StyleSheet.absoluteFill, { width, backgroundColor: on ? "#ffffff" : c.orangeSoft }]} />
+      {!on && <LinearGradient colors={[...EMBER]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={StyleSheet.absoluteFill} />}
+      {!on && !holding && !busy && <Shine every={3600} />}
+      <Animated.View style={[StyleSheet.absoluteFill, { width, backgroundColor: on ? "#e9fffb" : "#fff4e2" }]} />
       <View style={styles.row}>
         {busy && <ActivityIndicator color={on ? "#fff" : "#000"} />}
-        <Text style={[styles.label, { color: on ? (holding ? "#000" : "#fff") : "#000" }]}>{label}</Text>
+        <Text style={[styles.label, { color: on ? (holding ? "#000" : "#fff") : "#140a07" }]}>{label}</Text>
       </View>
     </Pressable>
   );
 }
 
 const styles = StyleSheet.create({
-  button: { height: 64, borderRadius: radius.card, overflow: "hidden", borderWidth: 1, justifyContent: "center" },
+  button: { height: 70, borderRadius: radius.card, overflow: "hidden", borderWidth: 1, justifyContent: "center", elevation: 10, shadowColor: "#ff5a1f", shadowOpacity: 0.6, shadowRadius: 18, shadowOffset: { width: 0, height: 10 } },
   row: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 10 },
-  label: { fontSize: 19, fontWeight: "800", letterSpacing: 0.2 },
+  label: { fontSize: 20, fontWeight: "900", letterSpacing: 0.3 },
 });

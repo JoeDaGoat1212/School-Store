@@ -5,6 +5,8 @@ import * as ImagePicker from "expo-image-picker";
 import { type Restock, type RestockState, restockPhoto, skipRestock } from "./api";
 import { formatTime } from "./format";
 import { radius, score, type Colors } from "./theme";
+import { EMBER, glass, NEST, Shine } from "./fx";
+import { LinearGradient } from "expo-linear-gradient";
 
 const STEPS = ["Drinks", "Snacks (right half)", "Snacks (left half)", "Spicy chips", "Regular chips", "Ramen"];
 
@@ -19,11 +21,12 @@ const capital = (t: string) => t.charAt(0).toUpperCase() + t.slice(1);
 export function RestockTab({ info, c, busy, error, onStart }: { info: RestockState; c: Colors; busy: boolean; error: string | null; onStart: () => void }) {
   if (info.state === "done") {
     return (
-      <View style={[styles.card, { backgroundColor: c.tealDeep, borderColor: "rgba(47,208,194,0.35)", alignItems: "center", paddingVertical: 36 }]}>
-        <View style={[styles.check, { backgroundColor: c.teal }]}>
+      <View style={[styles.card, { backgroundColor: "rgba(15,59,57,0.85)", borderColor: "rgba(47,208,194,0.45)", alignItems: "center", paddingVertical: 36 }]}>
+        <View style={styles.check}>
+          <LinearGradient colors={[...NEST]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={StyleSheet.absoluteFill} />
           <Text style={{ fontSize: 26, fontWeight: "900", color: "#000" }}>✓</Text>
         </View>
-        <Text style={[score, { fontSize: 40, lineHeight: 42, color: c.ink }]}>Restock done</Text>
+        <Text style={[score, { fontSize: 48, lineHeight: 50, color: NEST[0], textShadowColor: "rgba(47,208,194,0.6)", textShadowRadius: 18 }]}>Restock done</Text>
         <Text style={{ color: c.muted, textAlign: "center", fontSize: 15 }}>
           Photos sent at {formatTime(info.at)}
           {info.period ? `, stamped ${info.period}` : ""}. The manager will check them.
@@ -33,7 +36,7 @@ export function RestockTab({ info, c, busy, error, onStart }: { info: RestockSta
   }
   if (info.state === "skipped") {
     return (
-      <View style={[styles.card, { backgroundColor: c.paper, borderColor: c.rule }]}>
+      <View style={[styles.card, glass]}>
         <Text style={{ color: c.ink, fontSize: 17, fontWeight: "700" }}>Restock check skipped</Text>
         <Text style={{ color: c.muted, fontSize: 15 }}>You told the manager: “{info.note}”</Text>
       </View>
@@ -41,11 +44,12 @@ export function RestockTab({ info, c, busy, error, onStart }: { info: RestockSta
   }
   const due = info.state === "due";
   return (
-    <View style={[styles.card, { backgroundColor: c.paper, borderColor: c.rule }]}>
+    <View style={[styles.card, glass]}>
       <View style={{ flexDirection: "row", alignItems: "flex-start", gap: 10 }}>
-        <Text style={[score, { flex: 1, fontSize: 40, lineHeight: 42, color: c.ink }]}>Restock check</Text>
+        <Text style={[score, { flex: 1, fontSize: 48, lineHeight: 50, color: c.ink }]}>Restock check</Text>
         {due && (
-          <View style={{ backgroundColor: c.orange, borderRadius: 99, paddingHorizontal: 10, paddingVertical: 4 }}>
+          <View style={{ borderRadius: 99, paddingHorizontal: 10, paddingVertical: 4, overflow: "hidden" }}>
+            <LinearGradient colors={[...EMBER]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={StyleSheet.absoluteFill} />
             <Text style={{ color: "#000", fontWeight: "800", fontSize: 12 }}>To do</Text>
           </View>
         )}
@@ -58,8 +62,9 @@ export function RestockTab({ info, c, busy, error, onStart }: { info: RestockSta
       <View style={{ gap: 6 }}>
         {STEPS.map((a, i) => (
           <View key={a} style={[styles.step, { backgroundColor: "rgba(255,255,255,0.03)" }]}>
-            <View style={[styles.num, { backgroundColor: "rgba(255,255,255,0.07)" }]}>
-              <Text style={[score, { fontSize: 16, color: c.ink }]}>{i + 1}</Text>
+            <View style={styles.num}>
+              <LinearGradient colors={[...EMBER]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={StyleSheet.absoluteFill} />
+              <Text style={[score, { fontSize: 18, color: "#140a07" }]}>{i + 1}</Text>
             </View>
             <Text style={{ color: c.ink, fontSize: 15 }}>{capital(areaPhrase(a))}</Text>
           </View>
@@ -67,7 +72,9 @@ export function RestockTab({ info, c, busy, error, onStart }: { info: RestockSta
       </View>
       {error && <Text style={{ color: c.red, fontWeight: "600" }}>{error}</Text>}
       {due && (
-        <Pressable onPress={onStart} disabled={busy} style={({ pressed }) => [styles.button, { backgroundColor: c.orange, height: 58, opacity: busy ? 0.6 : pressed ? 0.9 : 1 }]}>
+        <Pressable onPress={onStart} disabled={busy} style={({ pressed }) => [styles.button, { height: 62, opacity: busy ? 0.6 : pressed ? 0.9 : 1, transform: [{ scale: pressed ? 0.985 : 1 }] }]}>
+          <LinearGradient colors={[...EMBER]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={StyleSheet.absoluteFill} />
+          {!busy && <Shine />}
           {busy ? <ActivityIndicator color="#000" /> : <Text style={[styles.buttonText, { color: "#000" }]}>Start the restock check</Text>}
         </Pressable>
       )}
@@ -172,7 +179,8 @@ export function RestockFlow({ session, c, onClose }: { session: Restock; c: Colo
               </View>
               {preview && <Image source={{ uri: preview }} style={styles.preview} />}
               {error && <Text style={{ color: "#ff6b57", fontWeight: "600" }}>{error}</Text>}
-              <Pressable onPress={snap} disabled={busy} style={({ pressed }) => [styles.button, { backgroundColor: c.orange, height: 64, opacity: busy ? 0.6 : pressed ? 0.9 : 1 }]}>
+              <Pressable onPress={snap} disabled={busy} style={({ pressed }) => [styles.button, { height: 64, opacity: busy ? 0.6 : pressed ? 0.9 : 1 }]}>
+                <LinearGradient colors={[...EMBER]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={StyleSheet.absoluteFill} />
                 {busy ? <ActivityIndicator color="#000" /> : <Text style={[styles.buttonText, { color: "#000", fontSize: 19 }]}>{error ? "Try again" : `Photo of the ${areaPhrase(area)}`}</Text>}
               </Pressable>
               <Pressable onPress={() => setSkipping(true)} style={{ alignItems: "center", padding: 6 }}>
@@ -195,11 +203,11 @@ const styles = StyleSheet.create({
   big: { color: "#fff", fontSize: 34, fontWeight: "700", marginTop: 2 },
   sub: { color: "rgba(255,255,255,0.65)", fontSize: 15, lineHeight: 20 },
   input: { borderWidth: 1, borderColor: "rgba(255,255,255,0.15)", borderRadius: radius.control, color: "#fff", padding: 12, minHeight: 80, fontSize: 16, textAlignVertical: "top" },
-  button: { height: 54, borderRadius: radius.control, alignItems: "center", justifyContent: "center" },
+  button: { height: 54, borderRadius: radius.control, alignItems: "center", justifyContent: "center", overflow: "hidden" },
   buttonText: { fontSize: 17, fontWeight: "700" },
   preview: { height: 180, borderRadius: radius.control, opacity: 0.7 },
   card: { borderWidth: 1, borderRadius: radius.sheet, padding: 20, gap: 14 },
-  check: { width: 56, height: 56, borderRadius: 28, alignItems: "center", justifyContent: "center" },
+  check: { width: 64, height: 64, borderRadius: 32, alignItems: "center", justifyContent: "center", overflow: "hidden" },
   step: { flexDirection: "row", alignItems: "center", gap: 12, borderRadius: 12, paddingHorizontal: 12, paddingVertical: 10 },
-  num: { width: 28, height: 28, borderRadius: 14, alignItems: "center", justifyContent: "center" },
+  num: { width: 32, height: 32, borderRadius: 10, alignItems: "center", justifyContent: "center", overflow: "hidden" },
 });

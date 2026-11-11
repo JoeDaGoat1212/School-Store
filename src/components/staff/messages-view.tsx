@@ -369,8 +369,8 @@ function Conversation({ id, actions, onBack, onChanged, showBack }: { id: string
                     <div
                       className={`px-3.5 py-2 text-[0.9375rem] leading-snug whitespace-pre-wrap break-words ${
                         m.mine
-                          ? `bg-[var(--brand)] text-black ${lastOfRun ? "rounded-[20px] rounded-br-md" : "rounded-[20px]"}`
-                          : `bg-muted ${lastOfRun ? "rounded-[20px] rounded-bl-md" : "rounded-[20px]"}`
+                          ? `bubble-mine bg-[var(--brand)] text-black ${lastOfRun ? "rounded-[20px] rounded-br-md" : "rounded-[20px]"}`
+                          : `bubble-theirs bg-muted ${lastOfRun ? "rounded-[20px] rounded-bl-md" : "rounded-[20px]"}`
                       }`}
                       title={new Date(m.at).toLocaleString("en-US", { timeZone: TZ })}
                     >
@@ -408,7 +408,7 @@ function Conversation({ id, actions, onBack, onChanged, showBack }: { id: string
           placeholder="Message"
           className="max-h-32 min-h-11 flex-1 resize-none rounded-[22px] bg-muted px-4 py-2.5 text-base placeholder:text-muted-foreground focus-visible:ring-2 focus-visible:ring-[var(--brand)]/50 focus-visible:outline-none"
         />
-        <button type="submit" disabled={sending || !text.trim()} aria-label="Send" className="grid size-11 shrink-0 place-items-center rounded-full bg-[var(--brand)] text-black transition active:scale-90 disabled:opacity-30">
+        <button type="submit" disabled={sending || !text.trim()} aria-label="Send" className="send-btn grid size-11 shrink-0 place-items-center rounded-full bg-[var(--brand)] text-black transition active:scale-90 disabled:opacity-30">
           {sending ? <Loader2Icon className="size-5 animate-spin" /> : <ArrowUpIcon className="size-5" strokeWidth={2.75} />}
         </button>
       </form>

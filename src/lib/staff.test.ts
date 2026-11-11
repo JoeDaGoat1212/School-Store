@@ -22,12 +22,12 @@ describe("employee time helpers", () => {
     expect(fromLocalInput("not a time")).toBeNull();
   });
 
-  it("describes the weekly credit and discount rule", () => {
+  it("describes the weekly credit rule", () => {
     const rule = { pct: 10, afterHours: 5, cents: 100, capCents: 1000 };
     expect(creditRuleText(rule)).toBe(
-      "$1 store credit for every hour worked, up to $10 a week, plus 10% off for every hour (up to 50% at 5 hours). Starts over each Monday.",
+      "$1 store credit for every hour worked, up to $10 a week. Starts over each Monday.",
     );
-    expect(nextReward(4 * 60 + 59, rule)).toBe("+$1 credit and 10% off");
+    expect(nextReward(4 * 60 + 59, rule)).toBe("+$1 credit");
     expect(nextReward(5 * 60, rule)).toBe("+$1 credit");
     expect(nextReward(10 * 60, rule)).toBe("nothing more this week (maxed out)");
     expect(weekCredit(55, rule)).toBe(91);

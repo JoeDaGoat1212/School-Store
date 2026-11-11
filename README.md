@@ -434,7 +434,7 @@ The person shopping has to be signed in with the admin login on their phone. Cod
 
 Run `supabase/sql-editor/20261111000022_credit_restock_reminders.sql` once in the SQL Editor, then have Android employees download the new app (version 1.5).
 
-- **Store credit:** every hour worked earns $1, counted to the minute, up to $10 a week, starting the week of Nov 9. Earlier weeks keep the old rule. The 10%-off-per-hour discount is unchanged. Change the numbers on Team → Store credit.
+- **Store credit:** every hour worked earns $1, counted to the minute, up to $10 a week, starting the week of Nov 9. Earlier weeks keep the old rule. The old percent-off employee discount is gone. Change the numbers on Team → Store credit.
 - **Restock button:** the employee app has a **Restock** tab. While someone is clocked in (and for 45 minutes after they clock out) it shows a dot, and "Restock check" shows up at the top of Tasks. It walks them through 6 photos: drinks, right half of the snacks, left half of the snacks, spicy chips, regular chips, ramen. Each check is stamped with the class period it was taken in, shown on Team → Restock checks.
 - **Reminders:** "time to clock in" goes out 5 minutes before a scheduled period, and "still clocked in" goes out after someone has been clocked in for an hour.
 

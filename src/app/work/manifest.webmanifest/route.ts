@@ -10,7 +10,7 @@ export function GET() {
     {
       name: `${brand.name} Work`,
       short_name: "FN Work",
-      description: "Clock in and out, and see your hours, discount and store credit.",
+      description: "Clock in and out, and see your hours, store credit and schedule.",
       id: "/work",
       start_url: "/work",
       scope: "/",
