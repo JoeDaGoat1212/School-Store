@@ -1,7 +1,7 @@
 # Builds the Firebirds Nest staff app (mobile/, Expo / React Native) for
 # Android whenever it changes, checks that it opens on an Android emulator,
 # and (from main) puts the download on the "Firebirds Nest staff app" release:
-#   https://github.com/JoeDaGoat1212/School-Store/releases/latest/download/firebirds-nest-staff.apk
+#   https://github.com/JoeDaGoat1212/School-Store/releases/download/staff-app/firebirds-nest-staff.apk
 name: Phone app
 
 on:

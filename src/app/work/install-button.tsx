@@ -2,10 +2,10 @@
 
 import { useState, useSyncExternalStore } from "react";
 import { DownloadIcon, XIcon } from "lucide-react";
-import { ANDROID_APP_URL } from "./android-app";
+import Link from "next/link";
 
 /*
- * The header's "Download app" button: the real Android app (an .apk), not
+ * The header's "Download app" button: opens /work/download (the real Android app, an .apk, with install steps), not
  * "Add to Home Screen". Chrome's own "install this website" prompt is turned
  * off so employees only ever see the real download.
  */
@@ -23,9 +23,9 @@ export function InstallButton() {
 
   if (kind === "android") {
     return (
-      <a href={ANDROID_APP_URL} className={pill}>
+      <Link href="/work/download" className={pill}>
         <DownloadIcon className="size-4" /> Download app
-      </a>
+      </Link>
     );
   }
   if (kind !== "iphone") return null;
