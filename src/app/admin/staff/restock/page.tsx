@@ -36,6 +36,9 @@ export default async function RestockPage(props: PageProps<"/admin/staff/restock
   }
 
   const ids = (checks.data ?? []).map((c) => c.id);
+  // Which class period each check was taken in (database update 22; none before it's run).
+  const { data: periods } = ids.length ? await supabase.from("restock_checks").select("id, period_label").in("id", ids) : { data: [] };
+  const periodOf = new Map((periods ?? []).map((p) => [p.id, p.period_label]));
   const { data: photos } = ids.length ? await supabase.from("restock_photos").select("check_id, area, path").in("check_id", ids) : { data: [] };
   const paths = (photos ?? []).map((p) => p.path);
   const { data: signed } = paths.length ? await supabase.storage.from("restock").createSignedUrls(paths, 3600) : { data: [] };
@@ -45,6 +48,7 @@ export default async function RestockPage(props: PageProps<"/admin/staff/restock
     id: c.id,
     name: c.staff_name,
     at: c.created_at,
+    period: periodOf.get(c.id) ?? null,
     reviewed: c.reviewed,
     skipped: c.skipped_note,
     complete: Boolean(c.completed_at),
@@ -58,11 +62,11 @@ export default async function RestockPage(props: PageProps<"/admin/staff/restock
     <>
       <PageHeader
         title="Restock checks"
-        description="Photos employees take after each shift, one per area, fully stocked. Look them over and mark them checked."
+        description="Photos employees take each shift from the Restock button in their app, one per spot, fully stocked, stamped with the class period. Look them over and mark them checked."
       />
       <StaffTabs />
       <RestockReview checks={list} showAll={showAll} />
-      <RestockAreas areas={settings.data?.restock_areas ?? ["Fridge", "Snacks", "Ramen", "Chips"]} />
+      <RestockAreas areas={settings.data?.restock_areas ?? ["Drinks", "Snacks (right half)", "Snacks (left half)", "Spicy chips", "Regular chips", "Ramen"]} />
     </>
   );
 }

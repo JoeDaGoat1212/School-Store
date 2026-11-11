@@ -11,6 +11,8 @@ type Check = {
   id: string;
   name: string;
   at: string;
+  /** The class period it was taken in ("3rd hour"), from database update 22. */
+  period?: string | null;
   reviewed: boolean;
   skipped: string | null;
   complete: boolean;
@@ -37,7 +39,7 @@ export function RestockReview({ checks, showAll }: { checks: Check[]; showAll: b
 
       {checks.length === 0 ? (
         <p className="rounded-xl border border-dashed px-5 py-12 text-center text-sm text-muted-foreground">
-          {showAll ? "No restock checks yet. They start the next time someone clocks out." : "All caught up. Every restock check has been looked at."}
+          {showAll ? "No restock checks yet. They start the next time someone does the restock check." : "All caught up. Every restock check has been looked at."}
         </p>
       ) : (
         <ul className="grid gap-4">
@@ -48,7 +50,10 @@ export function RestockReview({ checks, showAll }: { checks: Check[]; showAll: b
                 <header className="flex flex-wrap items-center gap-x-4 gap-y-2 border-b px-4 py-3 sm:px-5">
                   <div className="min-w-0 flex-1">
                     <p className="font-semibold">{c.name}</p>
-                    <p className="text-xs text-muted-foreground">{when(c.at)}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {when(c.at)}
+                      {c.period && <span className="ml-2 rounded-full bg-muted px-2 py-0.5 font-semibold text-foreground">{c.period}</span>}
+                    </p>
                   </div>
                   <span className={`text-sm font-medium ${c.complete ? "text-success" : "text-destructive"}`}>
                     {c.complete ? "All photos" : c.skipped ? "Skipped" : `${missing} missing`}

@@ -2,13 +2,12 @@
  * Student employees: the time clock (/clock), the schedule and store credit.
  * The database side is supabase/migrations/20261106000015_staff_time_clock.sql.
  *
- * Employee perks, counted each week (Monday–Sunday, Arizona time; database
- * update 16):
+ * Employee perks, counted each week (Monday–Sunday, Arizona time):
+ *   - every hour worked earns $1 of store credit, counted to the minute, up
+ *     to $10 a week (database update 22); credit stays until it's spent;
  *   - every whole hour worked this week adds 10% off everything, up to 50%
- *     at 5 hours (the discount starts over each Monday);
- *   - every whole hour after the first 5 adds $1 of store credit, which stays
- *     until it's spent.
- * The 10%, 5 hours and $1 are settings on Admin → Store credit.
+ *     at 5 hours (the discount starts over each Monday).
+ * The $1, $10, 10% and 5 hours are settings on Admin → Store credit.
  */
 
 import { STORE_TIMEZONE } from "@/lib/format";
@@ -109,22 +108,35 @@ export function fromLocalInput(value: string) {
   return Number.isNaN(d.getTime()) ? null : d.toISOString();
 }
 
-export type CreditRule = { pct: number; afterHours: number; cents: number };
+/** pct/afterHours: the discount (10% per hour, up to 5 hours). cents/capCents: credit per hour and the most per week. */
+export type CreditRule = { pct: number; afterHours: number; cents: number; capCents?: number };
+
+const capOf = (rule: CreditRule) => rule.capCents ?? 1000;
+
+/** Credit earned this week so far: $1 an hour, to the minute, up to the weekly cap. */
+export function weekCredit(weekMinutes: number, rule: CreditRule) {
+  return Math.min(capOf(rule), Math.floor((Math.max(0, weekMinutes) * rule.cents) / 60));
+}
 
 /** "$1" or "$1.50" */
 export function shortMoney(cents: number) {
   return cents % 100 === 0 ? `$${cents / 100}` : `$${(cents / 100).toFixed(2)}`;
 }
 
-/** "10% off for every hour worked (up to 50% at 5 hours), then $1 credit for every hour after 5. Starts over each Monday." */
+/** "$1 store credit for every hour worked, up to $10 a week, plus 10% off for every hour (up to 50% at 5 hours). Starts over each Monday." */
 export function creditRuleText(rule: CreditRule) {
-  return `${rule.pct}% off for every hour worked (up to ${rule.pct * rule.afterHours}% at ${rule.afterHours} hours), then ${shortMoney(rule.cents)} store credit for every hour after ${rule.afterHours}. Starts over each Monday.`;
+  return `${shortMoney(rule.cents)} store credit for every hour worked, up to ${shortMoney(capOf(rule))} a week, plus ${rule.pct}% off for every hour (up to ${rule.pct * rule.afterHours}% at ${rule.afterHours} hours). Starts over each Monday.`;
 }
 
 /** What working one more hour gets them, given minutes worked this week. */
 export function nextReward(weekMinutes: number, rule: CreditRule) {
   const hours = Math.floor(weekMinutes / 60);
-  return hours < rule.afterHours ? `+${rule.pct}% off` : `+${shortMoney(rule.cents)} credit`;
+  const credit = weekCredit(weekMinutes, rule) < capOf(rule);
+  const off = hours < rule.afterHours;
+  if (credit && off) return `+${shortMoney(rule.cents)} credit and ${rule.pct}% off`;
+  if (credit) return `+${shortMoney(rule.cents)} credit`;
+  if (off) return `+${rule.pct}% off`;
+  return "nothing more this week (maxed out)";
 }
 
 /** The employee portal (/work), from the staff_portal() database function. */

@@ -29,13 +29,22 @@ export function deviceHashFrom(h: Headers, kind: string) {
 export async function portalFor(token: string): Promise<{ data: PortalData | null; error?: string }> {
   const db = createSecretClient();
   await db.rpc("staff_auto_clock_out");
-  const [{ data, error }, { data: settings }] = await Promise.all([
+  const [{ data, error }, { data: settings }, { data: cap }] = await Promise.all([
     db.rpc("staff_portal", { p_token_hash: hashToken(token) }),
     db.from("settings").select("staff_max_shift_minutes").eq("id", 1).maybeSingle(),
+    // The weekly credit cap (database update 22; $10 until it's run).
+    db.from("settings").select("staff_credit_week_cap_cents").eq("id", 1).maybeSingle(),
   ]);
   if (error) return { data: null, error: notSetUp(error.message) ? NOT_READY : OFFLINE };
   const portal = data as unknown as Omit<PortalData, "maxShiftMinutes"> | null;
-  return { data: portal ? { ...portal, maxShiftMinutes: settings?.staff_max_shift_minutes ?? 0 } : null };
+  if (!portal) return { data: null };
+  return {
+    data: {
+      ...portal,
+      rule: { ...portal.rule, capCents: cap?.staff_credit_week_cap_cents ?? 1000 },
+      maxShiftMinutes: settings?.staff_max_shift_minutes ?? 0,
+    },
+  };
 }
 
 /** Name + PIN → a new session token (or why not). */

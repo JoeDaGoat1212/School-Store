@@ -26,13 +26,13 @@ export const viewport: Viewport = {
 };
 
 /**
- * The employee app. Install it from here (phone: "Add to Home Screen").
+ * The employee app (Android phones can also download the real app from here).
  *   - Employees sign in with their name and time clock PIN, then clock in
  *     and out, and see their hours, discount, store credit and schedule.
  *   - The manager (signed in with the admin password) also gets every staff
  *     tool, one tap away.
  */
-const TABS = ["today", "tasks", "messages", "schedule", "money"] as const;
+const TABS = ["today", "tasks", "restock", "messages", "schedule", "money"] as const;
 
 export default async function WorkPage(props: PageProps<"/work">) {
   const [{ data: portal, error }, admin, params] = await Promise.all([loadPortal(), isAdmin(), props.searchParams]);

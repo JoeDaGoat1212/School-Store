@@ -1,12 +1,12 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { ActivityIndicator, Alert, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from "react-native";
 import * as Haptics from "expo-haptics";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { type Absence, loadAbsences, type Portal, punch, type Restock, signOut, SignedOut, startRestock, undo } from "./api";
+import { type Absence, loadAbsences, openRestock, type Portal, punch, type Restock, restockState, type RestockState, signOut, SignedOut, undo } from "./api";
 import * as Notifications from "expo-notifications";
 import { checkMessages, planShiftReminders } from "./notify";
 import { HoldButton } from "./hold-button";
-import { RestockFlow } from "./restock";
+import { RestockFlow, RestockTab } from "./restock";
 import { AbsencesCard, ChatTab, TasksTab } from "./team";
 import {
   dayOfMonth,
@@ -21,11 +21,12 @@ import {
   relativeDay,
   ruleText,
   storeDay,
+  weekCredit,
   weekdayShort,
 } from "./format";
 import { type Colors, radius, score, useColors } from "./theme";
 
-type Tab = "today" | "tasks" | "chat" | "schedule" | "money";
+type Tab = "today" | "tasks" | "restock" | "chat" | "schedule" | "money";
 type Note = { tone: "in" | "out" | "auto" | "error"; text: string; undo?: { id: string; token: string } } | null;
 
 export function Home({
@@ -53,7 +54,7 @@ export function Home({
       if (d.chat) {
         setTab("chat");
         setOpenChat(d.chat);
-      } else if (d.tab === "today" || d.tab === "schedule") setTab(d.tab);
+      } else if (d.tab === "today" || d.tab === "schedule" || d.tab === "restock") setTab(d.tab);
       else if (d.tab === "messages") setTab("chat");
     };
     Notifications.getLastNotificationResponseAsync().then(go, () => undefined);
@@ -62,6 +63,30 @@ export function Home({
   }, []);
   const [unreadCount, setUnreadCount] = useState(0);
   const [restock, setRestock] = useState<Restock | null>(null);
+  const [restockInfo, setRestockInfo] = useState<RestockState>({ state: "none" });
+  const [restockBusy, setRestockBusy] = useState(false);
+  const [restockError, setRestockError] = useState<string | null>(null);
+
+  // Is a restock check on my list? (A dot on the Restock tab and a to-do in Tasks.)
+  const checkRestock = useCallback(() => void restockState().then(setRestockInfo, () => undefined), []);
+  useEffect(() => {
+    checkRestock();
+    const t = setInterval(checkRestock, 30000);
+    return () => clearInterval(t);
+  }, [checkRestock, data?.open?.id]);
+
+  const startRestockCheck = async () => {
+    setRestockError(null);
+    setRestockBusy(true);
+    try {
+      setRestock(await openRestock());
+    } catch (e) {
+      if (e instanceof SignedOut) return onSignedOut();
+      setRestockError(e instanceof Error ? e.message : "Couldn't start the restock check.");
+    } finally {
+      setRestockBusy(false);
+    }
+  };
   const [absences, setAbsences] = useState<Absence[] | null>(null);
 
   useEffect(() => {
@@ -142,9 +167,18 @@ export function Home({
         {!data ? (
           <ActivityIndicator style={{ marginTop: 48 }} color={c.muted} />
         ) : tab === "today" ? (
-          <Today data={data} now={now} c={c} onRefresh={onRefresh} onSignedOut={onSignedOut} openSchedule={() => setTab("schedule")} onRestock={setRestock} />
+          <Today data={data} now={now} c={c} onRefresh={onRefresh} onSignedOut={onSignedOut} openSchedule={() => setTab("schedule")} onClockedOut={checkRestock} />
         ) : tab === "tasks" ? (
-          <TasksTab c={c} />
+          <TasksTab
+            c={c}
+            restock={restockInfo.state}
+            onRestock={() => {
+              setTab("restock");
+              if (restockInfo.state === "due") void startRestockCheck();
+            }}
+          />
+        ) : tab === "restock" ? (
+          <RestockTab info={restockInfo} c={c} busy={restockBusy} error={restockError} onStart={() => void startRestockCheck()} />
         ) : tab === "chat" ? (
           <ChatTab c={c} openChat={openChat} onOpenChat={setOpenChat} onUnread={setUnreadCount} />
         ) : tab === "schedule" ? (
@@ -160,7 +194,16 @@ export function Home({
       {/* Keeps the phone's status bar readable over scrolled content. */}
       <View pointerEvents="none" style={{ position: "absolute", top: 0, left: 0, right: 0, height: insets.top, backgroundColor: c.board }} />
 
-      {restock && <RestockFlow session={restock} c={c} onClose={() => setRestock(null)} />}
+      {restock && (
+        <RestockFlow
+          session={restock}
+          c={c}
+          onClose={() => {
+            setRestock(null);
+            checkRestock();
+          }}
+        />
+      )}
 
       {/* Tab bar */}
       <View style={[styles.tabs, { bottom: insets.bottom + 10, backgroundColor: "rgba(29,33,39,0.97)", borderColor: "rgba(255,255,255,0.08)" }]}>
@@ -168,8 +211,9 @@ export function Home({
           [
             ["today", "Today"],
             ["tasks", "Tasks"],
+            ["restock", "Restock"],
             ["chat", "Chat"],
-            ["schedule", "Schedule"],
+            ["schedule", "Shifts"],
             ["money", "Credit"],
           ] as const
         ).map(([key, label]) => {
@@ -184,10 +228,15 @@ export function Home({
               style={[styles.tab, on && { backgroundColor: "rgba(255,255,255,0.07)" }]}
               accessibilityRole="tab"
               accessibilityState={{ selected: on }}
-              accessibilityLabel={key === "chat" && unreadCount > 0 ? `${label}, ${unreadCount} unread` : label}
+              accessibilityLabel={key === "chat" && unreadCount > 0 ? `${label}, ${unreadCount} unread` : key === "restock" && restockInfo.state === "due" ? `${label}, to do` : label}
             >
               <Text style={[styles.tabText, { color: on ? c.ink : c.muted, fontWeight: on ? "800" : "600" }]}>{label}</Text>
-              <View style={[styles.tabMark, { backgroundColor: key === "chat" && unreadCount > 0 ? c.orange : on ? c.orange : "transparent" }]} />
+              <View
+                style={[
+                  styles.tabMark,
+                  { backgroundColor: (key === "chat" && unreadCount > 0) || (key === "restock" && restockInfo.state === "due") || on ? c.orange : "transparent" },
+                ]}
+              />
             </Pressable>
           );
         })}
@@ -205,7 +254,7 @@ function Today({
   onRefresh,
   onSignedOut,
   openSchedule,
-  onRestock,
+  onClockedOut,
 }: {
   data: Portal;
   now: number;
@@ -213,7 +262,7 @@ function Today({
   onRefresh: () => Promise<void>;
   onSignedOut: () => void;
   openSchedule: () => void;
-  onRestock: (r: Restock) => void;
+  onClockedOut: () => void;
 }) {
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState<Note>(null);
@@ -229,7 +278,9 @@ function Today({
   const rule = data.rule;
   const hours = Math.floor(weekMinutes / 60);
   const discount = Math.min(hours, rule.afterHours) * rule.pct;
-  const intoHour = weekMinutes % 60;
+  const cap = rule.capCents ?? 1000;
+  const earnedWeek = weekCredit(weekMinutes, rule);
+  const blocks = Math.max(1, Math.ceil(cap / Math.max(1, rule.cents)));
 
   const elapsed = data.open ? Math.max(0, Math.floor((now - new Date(data.open.in).getTime()) / 1000)) : 0;
   const timer = `${Math.floor(elapsed / 3600)}:${String(Math.floor((elapsed % 3600) / 60)).padStart(2, "0")}:${String(elapsed % 60).padStart(2, "0")}`;
@@ -255,8 +306,8 @@ function Today({
               : `Clocked out. You worked ${formatMinutes(minutesBetween(r.in, r.out))}.`,
           undo: { id: r.id, token: r.undo },
         });
-        // After every shift: the restock photos.
-        if (r.status === "out") startRestock(r.id, r.undo).then(onRestock, () => undefined);
+        // After a shift, the restock check waits on the Restock tab.
+        if (r.status === "out") onClockedOut();
       }
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => undefined);
       await onRefresh();
@@ -357,25 +408,32 @@ function Today({
           <Text style={[styles.h2, { color: c.ink }]}>This week</Text>
           <Text style={[score, { color: c.ink, fontSize: 38 }]}>{formatMinutes(weekMinutes)}</Text>
         </View>
-        {/* One block per hour this week: each one fills up as you work it. */}
-        <View style={{ flexDirection: "row", gap: 8 }}>
-          {Array.from({ length: rule.afterHours }, (_, i) => {
-            const done = hours > i;
-            const current = hours === i;
+        <View style={[styles.row, { alignItems: "baseline" }]}>
+          <Text style={[score, { color: c.teal, fontSize: 52, lineHeight: 54 }]}>{formatCents(earnedWeek)}</Text>
+          <Text style={{ color: c.muted, fontSize: 14 }}>credit earned of {formatCents(cap).replace(".00", "")}</Text>
+        </View>
+        {/* One block per $1 this week: each one fills up as you work that hour. */}
+        <View style={{ flexDirection: "row", gap: 5 }}>
+          {Array.from({ length: blocks }, (_, i) => {
+            const fill = Math.min(1, Math.max(0, earnedWeek / rule.cents - i));
             return (
-              <View key={i} style={[styles.block, { backgroundColor: "rgba(255,255,255,0.05)" }]}>
-                <View style={{ position: "absolute", left: 0, right: 0, bottom: 0, height: done ? "100%" : current ? `${(intoHour / 60) * 100}%` : "0%", backgroundColor: c.orange }} />
-                <Text style={[score, { fontSize: 20, color: done ? "#000" : c.muted }]}>{(i + 1) * rule.pct}%</Text>
+              <View key={i} style={[styles.block, { height: 40, borderRadius: 9, backgroundColor: "rgba(255,255,255,0.05)" }]}>
+                <View style={{ position: "absolute", left: 0, right: 0, bottom: 0, height: `${fill * 100}%`, backgroundColor: c.teal }} />
               </View>
             );
           })}
         </View>
-        <View style={[styles.row, { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: c.rule, paddingTop: 12, justifyContent: "flex-start", gap: 8 }]}>
-          <Text style={[score, { color: c.ink, fontSize: 26 }]}>{60 - intoHour}m</Text>
+        <View style={[styles.row, { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: c.rule, paddingTop: 12 }]}>
           <Text style={{ color: c.ink, fontSize: 14, flex: 1 }}>
-            more work for{" "}
-            <Text style={{ fontWeight: "700" }}>{hours < rule.afterHours ? `+${rule.pct}% off` : `+${formatCents(rule.cents).replace(".00", "")} credit`}</Text>
+            {earnedWeek >= cap ? (
+              <Text style={{ fontWeight: "700" }}>Maxed out for this week. Nice work.</Text>
+            ) : (
+              <>
+                Every hour adds <Text style={{ fontWeight: "700" }}>{formatCents(rule.cents).replace(".00", "")}</Text>
+              </>
+            )}
           </Text>
+          <Text style={{ color: c.muted, fontSize: 14 }}>{discount > 0 ? `${discount}% off now` : `${rule.pct}% off per hour`}</Text>
         </View>
         <Text style={{ color: c.muted, fontSize: 12, lineHeight: 17 }}>{ruleText(rule)}</Text>
       </View>
@@ -521,5 +579,5 @@ const styles = StyleSheet.create({
   tabs: { position: "absolute", left: 12, right: 12, flexDirection: "row", borderWidth: 1, borderRadius: 22, padding: 5 },
   tab: { flex: 1, alignItems: "center", justifyContent: "center", paddingVertical: 11, borderRadius: 17, gap: 4 },
   tabMark: { width: 5, height: 5, borderRadius: 3 },
-  tabText: { fontSize: 13 },
+  tabText: { fontSize: 12 },
 });

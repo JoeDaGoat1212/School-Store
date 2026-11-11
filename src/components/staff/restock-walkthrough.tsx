@@ -5,10 +5,16 @@ import { CameraIcon, CheckIcon, Loader2Icon, RotateCcwIcon } from "lucide-react"
 import { restockPhoto, restockSkip } from "@/app/clock/restock-actions";
 import { resizeImage } from "@/lib/resize-image";
 
-export type RestockSession = { checkId: string; token: string; name: string; areas: string[]; done: string[] };
+export type RestockSession = { checkId: string; token: string; name: string; areas: string[]; done: string[]; period?: string | null };
+
+/** "Snacks (right half)" → "right half of the snacks"; "Spicy chips" → "spicy chips". */
+export function areaPhrase(area: string) {
+  const m = area.match(/^(.+?)\s*\((.+)\)$/);
+  return (m ? `${m[2]} of the ${m[1]}` : area).toLowerCase();
+}
 
 /*
- * After clocking out: one area at a time ("1 of 4 · Fridge"), take a photo of
+ * The restock check: one area at a time ("1 of 6 · Drinks"), take a photo of
  * it fully stocked, it uploads, next area. The manager checks the photos on
  * Team → Restock checks. Used on the store tablet and in the web app.
  */
@@ -84,7 +90,9 @@ export function RestockWalkthrough({ session, onClose, dark = false }: { session
             <h2 id="restock-title" className="text-2xl font-semibold">
               Restock photos sent
             </h2>
-            <p className={`text-sm ${sub}`}>Thanks, {session.name.split(" ")[0]}. The manager will check them.</p>
+            <p className={`text-sm ${sub}`}>
+              Thanks, {session.name.split(" ")[0]}. {session.areas.length} photos sent{session.period ? ` and stamped ${session.period}` : ""}. The manager will check them.
+            </p>
             <button type="button" onClick={onClose} className={`mt-2 h-12 rounded-lg px-8 font-semibold ${dark ? "bg-white text-black" : "bg-foreground text-background"}`}>
               Done
             </button>
@@ -121,7 +129,7 @@ export function RestockWalkthrough({ session, onClose, dark = false }: { session
               <h2 id="restock-title" className="mt-1 text-3xl font-semibold">
                 {area}
               </h2>
-              <p className={`mt-2 ${sub}`}>Fill it all the way, then take a photo that shows the whole {area.toLowerCase()}.</p>
+              <p className={`mt-2 ${sub}`}>Fill it all the way, then take a picture of the {areaPhrase(area)}.</p>
             </div>
 
             {preview && busy && (
@@ -137,7 +145,7 @@ export function RestockWalkthrough({ session, onClose, dark = false }: { session
               className="flex h-16 items-center justify-center gap-2.5 rounded-lg bg-primary text-xl font-semibold text-primary-foreground transition active:translate-y-px disabled:opacity-60"
             >
               {busy ? <Loader2Icon className="size-6 animate-spin" /> : error ? <RotateCcwIcon className="size-6" /> : <CameraIcon className="size-6" />}
-              {busy ? "Uploading…" : error ? "Try again" : `Photo of the ${area.toLowerCase()}`}
+              {busy ? "Uploading…" : error ? "Try again" : `Photo of the ${areaPhrase(area)}`}
             </button>
             <button type="button" onClick={() => setSkipping(true)} className={`text-sm underline underline-offset-4 ${sub}`}>
               Can&apos;t finish the restock?

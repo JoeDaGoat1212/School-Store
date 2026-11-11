@@ -53,6 +53,8 @@ export async function loadBalances(supabase: Supabase) {
 
 /** The weekly discount/credit rule and the sign-up setting, from Settings. */
 export async function loadCreditRate(supabase: Supabase) {
+  // The weekly credit cap is from database update 22 ($10 until it's run).
+  const { data: cap } = await supabase.from("settings").select("staff_credit_week_cap_cents").eq("id", 1).maybeSingle();
   const { data } = await supabase
     .from("settings")
     .select("staff_discount_pct_per_hour, staff_credit_after_hours, staff_credit_cents_per_hour, staff_signup_approval")
@@ -63,6 +65,7 @@ export async function loadCreditRate(supabase: Supabase) {
       pct: data?.staff_discount_pct_per_hour ?? 10,
       afterHours: data?.staff_credit_after_hours ?? 5,
       cents: data?.staff_credit_cents_per_hour ?? 100,
+      capCents: cap?.staff_credit_week_cap_cents ?? 1000,
     },
     signupApproval: data?.staff_signup_approval ?? true,
   };

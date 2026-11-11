@@ -5,6 +5,9 @@ import { useRouter } from "next/navigation";
 import {
   AlarmClockOffIcon,
   CalendarClockIcon,
+  CameraIcon,
+  CheckIcon,
+  Loader2Icon,
   ListChecksIcon,
   MessageCircleIcon,
   HomeIcon,
@@ -15,22 +18,23 @@ import {
 } from "lucide-react";
 import { Avatar } from "@/components/staff/avatar";
 import { formatCents, formatClock, formatDay, formatTime, relativeDay, STORE_TIMEZONE, storeToday } from "@/lib/format";
-import { autoOutAt, creditRuleText, formatMinutes, minutesBetween, nextReward, type PortalData, shortMoney } from "@/lib/staff";
-import { type RestockSession, RestockWalkthrough } from "@/components/staff/restock-walkthrough";
-import { restockBegin } from "../clock/restock-actions";
+import { autoOutAt, creditRuleText, formatMinutes, minutesBetween, type PortalData, shortMoney, weekCredit } from "@/lib/staff";
+import { areaPhrase, type RestockSession, RestockWalkthrough } from "@/components/staff/restock-walkthrough";
 import { loadPortal, phonePunch, phoneUndo, signOut } from "./actions";
 import { HoldButton } from "./hold-button";
 import { WorkAbsences, WorkMessages, WorkNotifications, WorkTasks } from "./team";
-import { workUnread } from "./team-actions";
+import { workRestockOpen, workRestockState, workUnread } from "./team-actions";
 
 const weekdayShort = (date: string) => formatDay(date, { weekday: "short", month: undefined, day: undefined });
 
 type Note = { tone: "in" | "out" | "auto" | "error"; text: string; undo?: { id: string; token: string } };
-export type Tab = "today" | "tasks" | "messages" | "schedule" | "money";
+export type Tab = "today" | "tasks" | "restock" | "messages" | "schedule" | "money";
+type RestockInfo = Awaited<ReturnType<typeof workRestockState>>;
 
 const TABS: { id: Tab; label: string; icon: LucideIcon }[] = [
   { id: "today", label: "Today", icon: HomeIcon },
   { id: "tasks", label: "Tasks", icon: ListChecksIcon },
+  { id: "restock", label: "Restock", icon: CameraIcon },
   { id: "messages", label: "Chat", icon: MessageCircleIcon },
   { id: "schedule", label: "Schedule", icon: CalendarClockIcon },
   { id: "money", label: "Credit", icon: WalletIcon },
@@ -44,6 +48,29 @@ export function Portal({ initial, initialTab = "today", initialChat = null }: { 
   const [restock, setRestock] = useState<RestockSession | null>(null);
   const [pop, setPop] = useState(0);
   const [unread, setUnread] = useState(0);
+  const [restockInfo, setRestockInfo] = useState<RestockInfo>({ state: "none" });
+  const [restockError, setRestockError] = useState<string | null>(null);
+  const [opening, setOpening] = useState(false);
+
+  // Is a restock check on their list? (Shows a dot on the Restock tab and a to-do in Tasks.)
+  const checkRestock = useCallback(() => void workRestockState().then(setRestockInfo, () => undefined), []);
+  useEffect(() => {
+    const first = setTimeout(checkRestock, 0);
+    const t = setInterval(checkRestock, 30000);
+    return () => {
+      clearTimeout(first);
+      clearInterval(t);
+    };
+  }, [checkRestock]);
+
+  const openRestock = async () => {
+    setRestockError(null);
+    setOpening(true);
+    const r = await workRestockOpen();
+    setOpening(false);
+    if ("error" in r && r.error) setRestockError(r.error);
+    else if ("checkId" in r) setRestock(r);
+  };
 
   // The Chat tab's unread count (not while reading chats: they mark themselves read).
   useEffect(() => {
@@ -103,8 +130,6 @@ export function Portal({ initial, initialTab = "today", initialChat = null }: { 
   const rule = data.rule;
   const hours = Math.floor(weekMinutes / 60);
   const discount = Math.min(hours, rule.afterHours) * rule.pct;
-  const hoursPast = Math.max(0, hours - rule.afterHours);
-  const intoHour = weekMinutes % 60;
 
   const punch = () =>
     start(async () => {
@@ -129,11 +154,8 @@ export function Portal({ initial, initialTab = "today", initialChat = null }: { 
               : `Clocked out. You worked ${formatMinutes(minutesBetween(r.in, r.out))} (${formatTime(r.in)} – ${formatTime(r.out ?? r.in)}).`,
           undo: { id: r.id, token: r.undo },
         });
-        // After every shift: the restock photos.
-        if (r.status === "out") {
-          const session = await restockBegin(r.id, r.undo);
-          if (!("error" in session)) setRestock(session);
-        }
+        // After a shift, the restock check waits on the Restock tab.
+        checkRestock();
       }
       buzz();
       setPop((n) => n + 1);
@@ -179,7 +201,7 @@ export function Portal({ initial, initialTab = "today", initialChat = null }: { 
         <>
           <ClockCard data={data} now={now} autoOut={autoOut} busy={busy} onPunch={punch} note={note} onUndo={undo} pop={pop} />
           <DiscountPass name={data.name} discount={discount} pct={rule.pct} now={now} />
-          <WeekCard weekMinutes={weekMinutes} rule={rule} hours={hours} hoursPast={hoursPast} intoHour={intoHour} />
+          <WeekCard weekMinutes={weekMinutes} rule={rule} hours={hours} />
           {data.schedule[0] && (
             <button type="button" onClick={() => setTab("schedule")} className="flex items-center gap-4 rounded-3xl bg-card px-5 py-4 text-left ring-1 ring-border">
               <span className="grid w-12 shrink-0 text-center">
@@ -198,7 +220,16 @@ export function Portal({ initial, initialTab = "today", initialChat = null }: { 
         </>
       )}
 
-      {tab === "tasks" && <WorkTasks />}
+      {tab === "tasks" && (
+        <WorkTasks
+          restock={restockInfo.state}
+          onRestock={() => {
+            setTab("restock");
+            if (restockInfo.state === "due") void openRestock();
+          }}
+        />
+      )}
+      {tab === "restock" && <RestockTab info={restockInfo} error={restockError} opening={opening} onStart={() => void openRestock()} />}
       {tab === "messages" && <WorkMessages initialChat={initialChat} />}
       {tab === "schedule" && (
         <>
@@ -208,11 +239,19 @@ export function Portal({ initial, initialTab = "today", initialChat = null }: { 
       )}
       {tab === "money" && <MoneyTab data={data} />}
 
-      {restock && <RestockWalkthrough session={restock} onClose={() => setRestock(null)} />}
+      {restock && (
+        <RestockWalkthrough
+          session={restock}
+          onClose={() => {
+            setRestock(null);
+            checkRestock();
+          }}
+        />
+      )}
 
       {/* ---- App tab bar ---- */}
       <nav aria-label="App sections" className="fixed inset-x-0 bottom-0 z-40 px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
-        <div className="mx-auto grid max-w-xl grid-cols-5 rounded-2xl bg-[#1d2127]/95 p-1 ring-1 ring-white/10 backdrop-blur-md">
+        <div className="mx-auto grid max-w-xl grid-cols-6 rounded-2xl bg-[#1d2127]/95 p-1 ring-1 ring-white/10 backdrop-blur-md">
           {TABS.map((t) => (
             <button
               key={t.id}
@@ -226,6 +265,9 @@ export function Portal({ initial, initialTab = "today", initialChat = null }: { 
             >
               <t.icon className={`size-5.5 ${tab === t.id ? "text-[var(--brand)]" : ""}`} />
               {t.label}
+              {t.id === "restock" && restockInfo.state === "due" && (
+                <span aria-label="Restock check to do" className="absolute top-1.5 right-[calc(50%-1rem)] size-2.5 rounded-full bg-[var(--brand)] ring-2 ring-[#1d2127]" />
+              )}
               {t.id === "messages" && unread > 0 && (
                 <span className="absolute top-1 right-[calc(50%-1.4rem)] grid h-4.5 min-w-4.5 place-items-center rounded-full bg-[var(--brand)] px-1 text-[0.65rem] font-bold text-black">
                   {unread > 9 ? "9+" : unread}
@@ -378,19 +420,12 @@ function DiscountPass({ name, discount, pct, now }: { name: string; discount: nu
   );
 }
 
-function WeekCard({
-  weekMinutes,
-  rule,
-  hours,
-  hoursPast,
-  intoHour,
-}: {
-  weekMinutes: number;
-  rule: PortalData["rule"];
-  hours: number;
-  hoursPast: number;
-  intoHour: number;
-}) {
+function WeekCard({ weekMinutes, rule, hours }: { weekMinutes: number; rule: PortalData["rule"]; hours: number }) {
+  const cap = rule.capCents ?? 1000;
+  const earned = weekCredit(weekMinutes, rule);
+  const blocks = Math.max(1, Math.ceil(cap / Math.max(1, rule.cents)));
+  const maxed = earned >= cap;
+  const discount = Math.min(hours, rule.afterHours) * rule.pct;
   return (
     <section aria-labelledby="week" className="grid gap-4 rounded-3xl bg-card p-5 ring-1 ring-border">
       <div className="flex items-baseline justify-between gap-3">
@@ -399,35 +434,87 @@ function WeekCard({
         </h2>
         <p className="font-heading text-4xl leading-none font-bold tabular-nums">{formatMinutes(weekMinutes)}</p>
       </div>
-      {/* One block per hour this week: each one fills up as you work it. */}
-      <ol className="grid grid-cols-5 gap-2" aria-label={`Discount hours: ${Math.min(hours, rule.afterHours)} of ${rule.afterHours}`}>
-        {Array.from({ length: rule.afterHours }, (_, i) => {
-          const done = hours > i;
-          const current = hours === i;
+      <div className="flex items-baseline justify-between gap-3">
+        <p className="font-heading text-5xl leading-none font-bold text-[var(--nest)] tabular-nums">{formatCents(earned)}</p>
+        <p className="text-sm text-muted-foreground">credit earned of {shortMoney(cap)}</p>
+      </div>
+      {/* One block per $1: each one fills up as you work that hour. */}
+      <ol className="grid grid-cols-10 gap-1.5" aria-label={`Credit this week: ${formatCents(earned)} of ${shortMoney(cap)}`}>
+        {Array.from({ length: blocks }, (_, i) => {
+          const fill = Math.min(1, Math.max(0, earned / rule.cents - i));
           return (
-            <li key={i} className="relative isolate grid h-16 place-items-center overflow-hidden rounded-2xl bg-white/[0.05] ring-1 ring-white/[0.06]">
-              <span
-                aria-hidden
-                className="absolute inset-x-0 bottom-0 -z-10 bg-primary transition-[height] duration-700"
-                style={{ height: done ? "100%" : current ? `${(intoHour / 60) * 100}%` : "0%" }}
-              />
-              <span className={`font-heading text-xl leading-none font-bold tabular-nums ${done ? "text-black" : "text-muted-foreground"}`}>{(i + 1) * rule.pct}%</span>
+            <li key={i} className="relative isolate h-10 overflow-hidden rounded-lg bg-white/[0.05] ring-1 ring-white/[0.06]">
+              <span aria-hidden className="absolute inset-x-0 bottom-0 -z-10 bg-[var(--nest)] transition-[height] duration-700" style={{ height: `${fill * 100}%` }} />
             </li>
           );
         })}
       </ol>
-      <div className="flex items-baseline gap-2 border-t pt-3 text-sm">
-        <span className="font-heading text-2xl leading-none font-bold tabular-nums">{60 - intoHour}m</span>
-        <p>
-          more work for <strong className="font-semibold">{nextReward(weekMinutes, rule)}</strong>
-          {hours >= rule.afterHours && (
-            <span className="block text-muted-foreground">
-              {hoursPast} hour{hoursPast === 1 ? "" : "s"} past {rule.afterHours} this week = {shortMoney(hoursPast * rule.cents)} credit
-            </span>
-          )}
-        </p>
+      <div className="flex items-baseline justify-between gap-2 border-t pt-3 text-sm">
+        <p>{maxed ? <strong className="font-semibold">Maxed out for this week. Nice work.</strong> : <>Every hour adds <strong className="font-semibold">{shortMoney(rule.cents)}</strong></>}</p>
+        <p className="text-muted-foreground">{discount > 0 ? `${discount}% off now` : `${rule.pct}% off per hour`}</p>
       </div>
       <p className="text-xs text-muted-foreground">{creditRuleText(rule)}</p>
+    </section>
+  );
+}
+
+/* ---------------------------------------------------------------- Restock */
+
+const RESTOCK_STEPS = ["Drinks", "Snacks (right half)", "Snacks (left half)", "Spicy chips", "Regular chips", "Ramen"];
+
+function RestockTab({ info, error, opening, onStart }: { info: RestockInfo; error: string | null; opening: boolean; onStart: () => void }) {
+  if (info.state === "done") {
+    return (
+      <section className="grid justify-items-center gap-3 rounded-3xl bg-[#0f2a28] px-5 py-10 text-center ring-1 ring-[color-mix(in_oklab,var(--nest)_35%,transparent)]">
+        <span className="check-pop grid size-14 place-items-center rounded-full bg-[var(--nest)] text-black">
+          <CheckIcon className="size-7" strokeWidth={3} />
+        </span>
+        <h2 className="font-heading text-4xl leading-none font-bold">Restock done</h2>
+        <p className="text-sm text-white/65">
+          Photos sent at {formatTime(info.at)}
+          {info.period ? `, stamped ${info.period}` : ""}. The manager will check them.
+        </p>
+      </section>
+    );
+  }
+  if (info.state === "skipped") {
+    return (
+      <section className="grid gap-2 rounded-3xl bg-card p-5 ring-1 ring-border">
+        <h2 className="text-base font-semibold">Restock check skipped</h2>
+        <p className="text-sm text-muted-foreground">You told the manager: &ldquo;{info.note}&rdquo;</p>
+      </section>
+    );
+  }
+  const due = info.state === "due";
+  return (
+    <section aria-labelledby="restock-title" className="grid gap-4 rounded-3xl bg-card p-5 ring-1 ring-border">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <h2 id="restock-title" className="font-heading text-4xl leading-none font-bold">
+            Restock check
+          </h2>
+          <p className="mt-2 text-sm text-muted-foreground">
+            {due
+              ? `Fill each spot, then take a picture of it. The photos go to the manager together${info.period ? `, stamped ${info.period}` : ""}.`
+              : "Nothing to check right now. This opens when you're clocked in, and stays open for 45 minutes after you clock out."}
+          </p>
+        </div>
+        {due && <span className="shrink-0 rounded-full bg-[var(--brand)] px-2.5 py-1 text-xs font-bold text-black">To do</span>}
+      </div>
+      <ol className="grid gap-1.5">
+        {RESTOCK_STEPS.map((a, i) => (
+          <li key={a} className="flex items-center gap-3 rounded-xl bg-white/[0.03] px-3 py-2.5 text-sm">
+            <span className="grid size-7 shrink-0 place-items-center rounded-full bg-white/[0.07] font-heading text-base font-bold tabular-nums">{i + 1}</span>
+            <span>{areaPhrase(a).replace(/^./, (c) => c.toUpperCase())}</span>
+          </li>
+        ))}
+      </ol>
+      {error && <p role="alert" className="text-sm font-semibold text-destructive">{error}</p>}
+      {due && (
+        <button type="button" onClick={onStart} disabled={opening} className="flex h-14 items-center justify-center gap-2.5 rounded-2xl bg-primary text-lg font-bold text-primary-foreground disabled:opacity-70">
+          {opening ? <Loader2Icon className="size-5 animate-spin" /> : <CameraIcon className="size-5" />} Start the restock check
+        </button>
+      )}
     </section>
   );
 }

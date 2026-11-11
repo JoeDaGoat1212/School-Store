@@ -7,7 +7,7 @@ let open = null;
 const portal = () => ({
   id: "x", name: "Maya R", maxShiftMinutes: 75, open,
   weekMinutes: 220, discountPct: 30, creditCents: 600, earnedCents: 1100, workedMinutes: 1960,
-  rule: { pct: 10, afterHours: 5, cents: 100 },
+  rule: { pct: 10, afterHours: 5, cents: 100, capCents: 1000 },
   schedule: [{ date: day(0), label: "5th hour", startsAt: "11:40:00" }, { date: day(1), label: "3rd hour", startsAt: "09:20:00" }, { date: day(3), label: "6th hour", startsAt: "12:35:00" }],
   shifts: [{ in: iso(1500), out: iso(1440), phone: true }, { in: iso(2950), out: iso(2880), phone: false }],
   credit: [{ cents: -250, note: "Takis and a Gatorade", at: iso(3000) }, { cents: 100, note: "Hour 6 last week", at: iso(9000) }],
@@ -47,6 +47,8 @@ http.createServer((req, res) => {
     { id: "k3", title: "Break down boxes", details: "Recycling bin by the gym", forEveryone: true, repeats: "Every Tuesday", done: false },
   ] });
   if (a === "absences") return send({ absences: [{ id: "ab1", date: day(3), windowId: 6, label: "6th hour", reason: "Dentist" }] });
-  if (a === "restock-start") return send({ checkId: "chk1", token: "tok", name: "Maya R", areas: ["Fridge", "Snacks", "Ramen", "Chips"], done: [] });
+  const areas = ["Drinks", "Snacks (right half)", "Snacks (left half)", "Spicy chips", "Regular chips", "Ramen"];
+  if (a === "restock") return send({ state: "due", period: "5th hour" });
+  if (a === "restock-start" || a === "restock-open") return send({ checkId: "chk1", token: "tok", name: "Maya R", areas, done: [], period: "5th hour" });
   return send({ ok: true });
 }).listen(8787, () => console.log("fake store on :8787"));

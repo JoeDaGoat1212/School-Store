@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { CheckIcon, Loader2Icon, UserXIcon } from "lucide-react";
+import { CameraIcon, CheckIcon, Loader2Icon, UserXIcon } from "lucide-react";
 import { MessagesView, type MessagesActions } from "@/components/staff/messages-view";
 import { NotificationsToggle } from "@/components/staff/notifications-toggle";
 import { formatClock, relativeDay, storeToday } from "@/lib/format";
@@ -42,7 +42,27 @@ export function WorkMessages({ initialChat }: { initialChat?: string | null }) {
 
 type Task = { id: string; title: string; details: string | null; forEveryone: boolean; repeats: string | null; done: boolean; doneBy: string[] };
 
-export function WorkTasks() {
+/** The restock check as a to-do at the top of Tasks (when one is due, or done this shift). */
+function RestockTodo({ state, onOpen }: { state: "due" | "done"; onOpen: () => void }) {
+  const done = state === "done";
+  return (
+    <button
+      type="button"
+      onClick={onOpen}
+      className={`flex w-full items-center gap-4 rounded-2xl px-4 py-4 text-left ring-1 ${done ? "bg-card/60 ring-border/60" : "bg-[var(--brand)]/10 ring-[var(--brand)]/40"}`}
+    >
+      <span aria-hidden className={`grid size-8 shrink-0 place-items-center rounded-full ${done ? "bg-[var(--nest)] text-black" : "bg-[var(--brand)] text-black"}`}>
+        {done ? <CheckIcon className="size-5" strokeWidth={3} /> : <CameraIcon className="size-4.5" />}
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className={`block text-[1.0625rem] font-semibold ${done ? "text-muted-foreground line-through decoration-2" : ""}`}>Restock check</span>
+        <span className="block text-sm text-muted-foreground">{done ? "Photos sent" : "6 photos, about 2 minutes. Tap to start."}</span>
+      </span>
+    </button>
+  );
+}
+
+export function WorkTasks({ restock, onRestock }: { restock?: "none" | "due" | "done" | "skipped"; onRestock?: () => void } = {}) {
   const today = storeToday();
   const [tasks, setTasks] = useState<Task[] | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -104,6 +124,7 @@ export function WorkTasks() {
       </div>
 
       {error && <p className="px-1 text-sm font-semibold text-destructive">{error}</p>}
+      {(restock === "due" || restock === "done") && onRestock && <RestockTodo state={restock} onOpen={onRestock} />}
       {tasks === null ? (
         <Loader2Icon className="mx-auto my-8 size-5 animate-spin text-muted-foreground" />
       ) : total === 0 ? (

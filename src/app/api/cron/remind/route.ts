@@ -4,11 +4,13 @@ import { notify } from "@/lib/push";
 import { createSecretClient } from "@/lib/supabase/server";
 
 /*
- * "Time to clock in" reminders. The database calls this every 5 minutes
- * (pg_cron + pg_net, database update 20) with the password it keeps in
- * app_secrets. Anyone scheduled for an hour starting in the next 10 minutes
- * who isn't clocked in, hasn't said they'll be absent, and hasn't been
- * reminded yet gets one notification.
+ * Shift reminders. The database calls this every 5 minutes (pg_cron +
+ * pg_net, database update 20) with the password it keeps in app_secrets.
+ *   - Clock in: anyone scheduled for a period starting in the next 5 minutes
+ *     who isn't clocked in, hasn't said they'll be absent, and hasn't been
+ *     reminded yet gets one notification.
+ *   - Clock out: anyone who's been clocked in for an hour gets one "Did you
+ *     forget to clock out?" (database update 22).
  */
 
 export const dynamic = "force-dynamic";
@@ -45,7 +47,7 @@ export async function POST(req: Request) {
     if (!w) continue;
     const [h, m] = w.starts_at.split(":").map(Number);
     const startsIn = h * 60 + m - now;
-    if (startsIn < -5 || startsIn > 10) continue;
+    if (startsIn < -5 || startsIn > 5) continue;
     if (onClock.has(s.staff_id) || done.has(`${s.staff_id}:${s.window_id}`)) continue;
     if ((absent ?? []).some((a) => a.staff_id === s.staff_id && (a.window_id === null || a.window_id === s.window_id))) continue;
     const { error } = await db.from("staff_reminders_sent").insert({ staff_id: s.staff_id, work_date: today, window_id: s.window_id });
@@ -59,5 +61,29 @@ export async function POST(req: Request) {
     }, { skipApp: true }); // the Android app schedules its own reminders on the phone
     count += 1;
   }
-  return Response.json({ reminded: count });
+  // ---- Clocked in for an hour: remind them to clock out ----
+  let outCount = 0;
+  const hourAgo = new Date(Date.now() - 60 * 60000).toISOString();
+  const { data: long } = await db
+    .from("staff_shifts")
+    .select("id, staff_id, clock_in")
+    .is("clock_out", null)
+    .is("out_reminded_at", null)
+    .lte("clock_in", hourAgo)
+    .not("staff_id", "is", null);
+  for (const sh of long ?? []) {
+    // Only the run that marks it sends it.
+    const { data: marked } = await db.from("staff_shifts").update({ out_reminded_at: new Date().toISOString() }).eq("id", sh.id).is("out_reminded_at", null).select("id");
+    if (!marked?.length || !sh.staff_id) continue;
+    await notify([sh.staff_id], {
+      title: "Still clocked in",
+      body: "You've been clocked in for an hour. Clock out if your shift is over.",
+      url: "/work",
+      tag: `clockout-${sh.id}`,
+      tab: "today",
+    }); // phones with instant notifications get it from here; the others remind themselves
+    outCount += 1;
+  }
+
+  return Response.json({ reminded: count, clockOut: outCount });
 }

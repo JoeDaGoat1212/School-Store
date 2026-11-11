@@ -2,11 +2,81 @@ import { useState } from "react";
 import { ActivityIndicator, Image, Modal, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 import * as Haptics from "expo-haptics";
 import * as ImagePicker from "expo-image-picker";
-import { type Restock, restockPhoto, skipRestock } from "./api";
-import { radius, type Colors } from "./theme";
+import { type Restock, type RestockState, restockPhoto, skipRestock } from "./api";
+import { formatTime } from "./format";
+import { radius, score, type Colors } from "./theme";
+
+const STEPS = ["Drinks", "Snacks (right half)", "Snacks (left half)", "Spicy chips", "Regular chips", "Ramen"];
+
+/** "Snacks (right half)" → "right half of the snacks"; "Spicy chips" → "spicy chips". */
+export function areaPhrase(area: string) {
+  const m = area.match(/^(.+?)\s*\((.+)\)$/);
+  return (m ? `${m[2]} of the ${m[1]}` : area).toLowerCase();
+}
+const capital = (t: string) => t.charAt(0).toUpperCase() + t.slice(1);
+
+/** The Restock tab: what's on the list, and the button that starts the photos. */
+export function RestockTab({ info, c, busy, error, onStart }: { info: RestockState; c: Colors; busy: boolean; error: string | null; onStart: () => void }) {
+  if (info.state === "done") {
+    return (
+      <View style={[styles.card, { backgroundColor: c.tealDeep, borderColor: "rgba(47,208,194,0.35)", alignItems: "center", paddingVertical: 36 }]}>
+        <View style={[styles.check, { backgroundColor: c.teal }]}>
+          <Text style={{ fontSize: 26, fontWeight: "900", color: "#000" }}>✓</Text>
+        </View>
+        <Text style={[score, { fontSize: 40, lineHeight: 42, color: c.ink }]}>Restock done</Text>
+        <Text style={{ color: c.muted, textAlign: "center", fontSize: 15 }}>
+          Photos sent at {formatTime(info.at)}
+          {info.period ? `, stamped ${info.period}` : ""}. The manager will check them.
+        </Text>
+      </View>
+    );
+  }
+  if (info.state === "skipped") {
+    return (
+      <View style={[styles.card, { backgroundColor: c.paper, borderColor: c.rule }]}>
+        <Text style={{ color: c.ink, fontSize: 17, fontWeight: "700" }}>Restock check skipped</Text>
+        <Text style={{ color: c.muted, fontSize: 15 }}>You told the manager: “{info.note}”</Text>
+      </View>
+    );
+  }
+  const due = info.state === "due";
+  return (
+    <View style={[styles.card, { backgroundColor: c.paper, borderColor: c.rule }]}>
+      <View style={{ flexDirection: "row", alignItems: "flex-start", gap: 10 }}>
+        <Text style={[score, { flex: 1, fontSize: 40, lineHeight: 42, color: c.ink }]}>Restock check</Text>
+        {due && (
+          <View style={{ backgroundColor: c.orange, borderRadius: 99, paddingHorizontal: 10, paddingVertical: 4 }}>
+            <Text style={{ color: "#000", fontWeight: "800", fontSize: 12 }}>To do</Text>
+          </View>
+        )}
+      </View>
+      <Text style={{ color: c.muted, fontSize: 15, lineHeight: 21 }}>
+        {due
+          ? `Fill each spot, then take a picture of it. The photos go to the manager together${info.period ? `, stamped ${info.period}` : ""}.`
+          : "Nothing to check right now. This opens when you're clocked in, and stays open for 45 minutes after you clock out."}
+      </Text>
+      <View style={{ gap: 6 }}>
+        {STEPS.map((a, i) => (
+          <View key={a} style={[styles.step, { backgroundColor: "rgba(255,255,255,0.03)" }]}>
+            <View style={[styles.num, { backgroundColor: "rgba(255,255,255,0.07)" }]}>
+              <Text style={[score, { fontSize: 16, color: c.ink }]}>{i + 1}</Text>
+            </View>
+            <Text style={{ color: c.ink, fontSize: 15 }}>{capital(areaPhrase(a))}</Text>
+          </View>
+        ))}
+      </View>
+      {error && <Text style={{ color: c.red, fontWeight: "600" }}>{error}</Text>}
+      {due && (
+        <Pressable onPress={onStart} disabled={busy} style={({ pressed }) => [styles.button, { backgroundColor: c.orange, height: 58, opacity: busy ? 0.6 : pressed ? 0.9 : 1 }]}>
+          {busy ? <ActivityIndicator color="#000" /> : <Text style={[styles.buttonText, { color: "#000" }]}>Start the restock check</Text>}
+        </Pressable>
+      )}
+    </View>
+  );
+}
 
 /*
- * After clocking out: one area at a time ("2 of 4 · Snacks"), take a photo of
+ * The restock check: one area at a time ("2 of 6 · Snacks (right half)"), take a photo of
  * it fully stocked, it uploads, next area. The manager checks them on the
  * website (Team → Restock checks).
  */
@@ -64,7 +134,9 @@ export function RestockFlow({ session, c, onClose }: { session: Restock; c: Colo
           {!area ? (
             <View style={{ alignItems: "center", gap: 10, paddingVertical: 12 }}>
               <Text style={styles.big}>Restock photos sent</Text>
-              <Text style={styles.sub}>Thanks, {session.name.split(" ")[0]}. The manager will check them.</Text>
+              <Text style={[styles.sub, { textAlign: "center" }]}>
+                Thanks, {session.name.split(" ")[0]}. {session.areas.length} photos sent{session.period ? ` and stamped ${session.period}` : ""}. The manager will check them.
+              </Text>
               <Pressable onPress={onClose} style={[styles.button, { backgroundColor: "#fff", alignSelf: "stretch" }]}>
                 <Text style={[styles.buttonText, { color: "#000" }]}>Done</Text>
               </Pressable>
@@ -96,12 +168,12 @@ export function RestockFlow({ session, c, onClose }: { session: Restock; c: Colo
                   Restock check, {step} of {session.areas.length}
                 </Text>
                 <Text style={styles.big}>{area}</Text>
-                <Text style={[styles.sub, { marginTop: 6 }]}>Fill it all the way, then take a photo that shows the whole {area.toLowerCase()}.</Text>
+                <Text style={[styles.sub, { marginTop: 6 }]}>Fill it all the way, then take a picture of the {areaPhrase(area)}.</Text>
               </View>
               {preview && <Image source={{ uri: preview }} style={styles.preview} />}
               {error && <Text style={{ color: "#ff6b57", fontWeight: "600" }}>{error}</Text>}
               <Pressable onPress={snap} disabled={busy} style={({ pressed }) => [styles.button, { backgroundColor: c.orange, height: 64, opacity: busy ? 0.6 : pressed ? 0.9 : 1 }]}>
-                {busy ? <ActivityIndicator color="#000" /> : <Text style={[styles.buttonText, { color: "#000", fontSize: 19 }]}>{error ? "Try again" : `Photo of the ${area.toLowerCase()}`}</Text>}
+                {busy ? <ActivityIndicator color="#000" /> : <Text style={[styles.buttonText, { color: "#000", fontSize: 19 }]}>{error ? "Try again" : `Photo of the ${areaPhrase(area)}`}</Text>}
               </Pressable>
               <Pressable onPress={() => setSkipping(true)} style={{ alignItems: "center", padding: 6 }}>
                 <Text style={[styles.sub, { textDecorationLine: "underline" }]}>Can't finish the restock?</Text>
@@ -126,4 +198,8 @@ const styles = StyleSheet.create({
   button: { height: 54, borderRadius: radius.control, alignItems: "center", justifyContent: "center" },
   buttonText: { fontSize: 17, fontWeight: "700" },
   preview: { height: 180, borderRadius: radius.control, opacity: 0.7 },
+  card: { borderWidth: 1, borderRadius: radius.sheet, padding: 20, gap: 14 },
+  check: { width: 56, height: 56, borderRadius: 28, alignItems: "center", justifyContent: "center" },
+  step: { flexDirection: "row", alignItems: "center", gap: 12, borderRadius: 12, paddingHorizontal: 12, paddingVertical: 10 },
+  num: { width: 28, height: 28, borderRadius: 14, alignItems: "center", justifyContent: "center" },
 });
