@@ -342,17 +342,17 @@ function ClockCard({
         {on ? (
           <>
             <div className="flex items-end gap-2">
-              <span className="font-heading text-[5.75rem] leading-[0.8] font-bold tabular-nums drop-shadow-[0_0_24px_rgba(47,208,194,0.35)]">
+              <span suppressHydrationWarning className="font-heading text-[5.75rem] leading-[0.8] font-bold tabular-nums drop-shadow-[0_0_24px_rgba(47,208,194,0.35)]">
                 {h}:{m}
               </span>
-              <span className="text-nest mb-1 font-heading text-4xl leading-none font-bold tabular-nums">{sec}</span>
+              <span suppressHydrationWarning className="text-nest mb-1 font-heading text-4xl leading-none font-bold tabular-nums">{sec}</span>
             </div>
             {limitSecs > 0 && <ShiftRing progress={progress} />}
           </>
         ) : (
           <div className="flex items-end gap-2">
-            <span className="font-heading text-[5.75rem] leading-[0.8] font-bold tabular-nums">{hm}</span>
-            <span className="text-ember mb-1 font-heading text-3xl leading-none font-bold">{ampm}</span>
+            <span suppressHydrationWarning className="font-heading text-[5.75rem] leading-[0.8] font-bold tabular-nums">{hm}</span>
+            <span suppressHydrationWarning className="text-ember mb-1 font-heading text-3xl leading-none font-bold">{ampm}</span>
           </div>
         )}
       </div>
