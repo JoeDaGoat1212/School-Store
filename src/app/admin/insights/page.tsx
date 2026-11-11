@@ -45,7 +45,7 @@ export default async function InsightsPage(props: PageProps<"/admin/insights">) 
     <>
       <PageHeader
         title="Insights"
-        description="How the store is doing. Sales come from InTouchPay imports; spending comes from logged shopping trips."
+        description="How the store is doing. Sales come from InTouchPay imports; spending is counted as 35% of sales (a 65% margin)."
         actions={<ExportButton data={ins} label={range.label} />}
       />
 
@@ -83,7 +83,7 @@ export default async function InsightsPage(props: PageProps<"/admin/insights">) 
           {/* ---- Headline numbers ---- */}
           <dl className="score-strip grid grid-cols-2 lg:grid-cols-4">
             <Kpi label="Sales" value={formatCents(t.revenue_cents)} change={percentChange(t.revenue_cents, p.revenue_cents)} vs={prevLabel} />
-            <Kpi label="Spending" value={formatCents(t.spending_cents)} change={percentChange(t.spending_cents, p.spending_cents)} vs={prevLabel} />
+            <Kpi label="Spending (35%)" value={formatCents(t.spending_cents)} change={percentChange(t.spending_cents, p.spending_cents)} vs={prevLabel} />
             <Kpi
               label="Sales − spending"
               value={formatCents(t.revenue_cents - t.spending_cents)}

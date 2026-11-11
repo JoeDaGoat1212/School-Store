@@ -430,6 +430,15 @@ The person shopping has to be signed in with the admin login on their phone. Cod
 `src/app/admin/inventory/shopping-list/`, `src/app/admin/expenses/receipt-*.ts(x)` and
 `supabase/migrations/20261110000019_receipt_inbox.sql`.
 
+### Spending counted as 35% of sales (update 21)
+
+Run `supabase/sql-editor/20261111000021_cost_percent.sql` once in the SQL Editor.
+
+- The dashboard, Insights and the Insights export count **spending as 35% of sales**, a 65% margin: every $1,000 sold counts as $350 spent and $650 profit.
+- Receipts entered under Expenses are kept and still add to stock. They just don't set the profit number any more. The Insights export lists them as "Receipts entered".
+- **Expenses** lists the sale days from the last 12 months that have no shopping receipt dated that day.
+- To use a different share later, change `cost_percent` in the `settings` table (35 = 65% margin).
+
 ### The staff dashboard look
 
 The staff pages, the time clock and the employee app share one look: "scoreboard and clipboard". Money and counts

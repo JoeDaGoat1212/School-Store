@@ -6,6 +6,8 @@ export type Insights = {
   totals: {
     revenue_cents: number;
     spending_cents: number;
+    /** Receipts actually entered under Expenses (database update 21). */
+    receipts_cents?: number;
     gross_profit_cents: number;
     transactions: number;
     units_sold: number;
@@ -20,7 +22,7 @@ export type Insights = {
     gross_profit_cents: number;
     units_sold: number;
   };
-  series: { start: string; revenue_cents: number; spending_cents: number }[];
+  series: { start: string; revenue_cents: number; spending_cents: number; receipts_cents?: number }[];
   payments: Partial<Record<"cash" | "debit" | "other", number>>;
   channels: { online_units: number; total_units: number };
   suppliers: { name: string; cents: number; trips: number }[];
