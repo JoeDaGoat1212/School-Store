@@ -167,7 +167,7 @@ const tables = {
   staff_task_done: [{ task_id: "k1", staff_id: "a", work_date: today }],
   staff_absences: [{ id: "ab1", staff_id: "c", work_date: today, window_id: 6, reason: "Dentist", seen: false }],
   restock_checks: [
-    { id: "rc1", staff_name: "Maya R", areas: ["Fridge", "Snacks", "Ramen", "Chips"], skipped_note: null, completed_at: ago(30), reviewed: false, created_at: ago(35) },
+    { id: "rc1", staff_name: "Maya R", period_label: "5th hour", areas: ["Fridge", "Snacks", "Ramen", "Chips"], skipped_note: null, completed_at: ago(30), reviewed: false, created_at: ago(35) },
     { id: "rc2", staff_name: "Ben K", areas: ["Fridge", "Snacks", "Ramen", "Chips"], skipped_note: "Out of ramen, nothing to restock with", completed_at: null, reviewed: false, created_at: ago(300) },
   ],
   restock_photos: [
@@ -217,7 +217,7 @@ http
         body = paths.map((p, i) => ({ path: p, signedURL: null, signedUrl: `data:image/svg+xml,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="400" height="300"><rect width="400" height="300" fill="${colors[i % 6]}"/><text x="200" y="160" font-size="28" text-anchor="middle" fill="white" font-family="sans-serif">sample photo</text></svg>`)}`, error: null }));
       }
       if (body === undefined && path === "/rest/v1/settings") {
-        body = { staff_max_shift_minutes: 75, kiosk_pin_hash: "x", restock_areas: ["Fridge", "Snacks", "Ramen", "Chips"] };
+        body = { staff_max_shift_minutes: 75, kiosk_pin_hash: "x", staff_credit_week_cap_cents: 1000, restock_areas: ["Drinks", "Snacks (right half)", "Snacks (left half)", "Spicy chips", "Regular chips", "Ramen"] };
         if (!one) body = [body];
       }
       const table = path.startsWith("/rest/v1/") && !path.includes("/rpc/") ? path.slice(9) : null;
@@ -228,6 +228,9 @@ http
           if (v.startsWith("eq.") && !["select", "order", "limit"].includes(k)) rows = rows.filter((r) => String(r[k]) === v.slice(3));
         }
         if (table === "staff_shifts" && !query.get("clock_out")) rows = [];
+        // The signed-in employee's shift today (for the Restock tab).
+        if (table === "staff_shifts" && query.get("staff_id") === "eq.a0000000-0000-0000-0000-00000000000a")
+          rows = [{ id: "s1", staff_id: "a0000000-0000-0000-0000-00000000000a", staff_name: "Maya R", clock_in: ago(52), clock_out: null }];
         body = one ? rows[0] ?? null : rows;
       }
       if (body === undefined) body = path.startsWith("/auth/") ? {} : [];

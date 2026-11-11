@@ -75,6 +75,7 @@ await page("admin-dashboard-phone", "/admin", { width: 390, height: 844 }, { adm
 await page("admin-shopping-phone", "/admin/inventory/shopping-list", { width: 390, height: 844 }, { admin: true });
 const settle = { act: (p) => p.waitForTimeout(2000) };
 await page("work-tasks", "/work?tab=tasks", { width: 390, height: 844 }, { cookie: true, ...settle });
+await page("work-restock", "/work?tab=restock", { width: 390, height: 844 }, { cookie: true, ...settle });
 await page("work-chat", "/work?tab=messages&chat=11111111-1111-1111-1111-111111111111", { width: 390, height: 844 }, { cookie: true, ...settle });
 await browser.close();
 console.log("screenshots done");
