@@ -451,7 +451,7 @@ function CreditPass({ name, credit, now }: { name: string; credit: number; now: 
           <p className="text-lg font-bold">{name}</p>
           <p className="text-xs font-medium text-white/80">Show this at the window to use your credit</p>
         </div>
-        <p className="rounded-lg bg-black/20 px-2 py-1 font-mono text-sm font-bold tabular-nums backdrop-blur-sm" suppressHydrationWarning>
+        <p className="shrink-0 rounded-lg bg-black/20 px-2 py-1 font-mono text-sm font-bold whitespace-nowrap tabular-nums backdrop-blur-sm" suppressHydrationWarning>
           {d.toLocaleTimeString("en-US", { timeZone: STORE_TIMEZONE, hour: "numeric", minute: "2-digit", second: "2-digit" })}
         </p>
       </div>

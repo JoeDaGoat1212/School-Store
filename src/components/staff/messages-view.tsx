@@ -197,7 +197,7 @@ function NewChat({ contacts, actions, onOpened, onCancel }: { contacts: Contact[
   };
 
   return (
-    <div className="overflow-hidden rounded-3xl bg-card ring-1 ring-border">
+    <div className="chat-panel overflow-hidden rounded-3xl bg-card ring-1 ring-border">
       <div className="flex border-b">
         {[
           [false, "Message someone"],
@@ -316,7 +316,7 @@ function Conversation({ id, actions, onBack, onChanged, showBack }: { id: string
   const showNames = thread?.kind !== "direct";
 
   return (
-    <section className="flex min-h-[64vh] flex-col overflow-hidden rounded-3xl bg-card ring-1 ring-border">
+    <section className="chat-panel flex min-h-[64vh] flex-col overflow-hidden rounded-3xl bg-card ring-1 ring-border">
       <header className="flex items-center gap-3 border-b px-3 py-3">
         {showBack && (
           <button type="button" onClick={onBack} aria-label="Back to chats" className="grid size-10 place-items-center rounded-full hover:bg-accent">
