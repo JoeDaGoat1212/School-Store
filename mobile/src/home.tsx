@@ -5,6 +5,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { type Absence, loadAbsences, type Portal, punch, type Restock, signOut, SignedOut, startRestock, undo } from "./api";
 import * as Notifications from "expo-notifications";
 import { checkMessages, planShiftReminders } from "./notify";
+import { HoldButton } from "./hold-button";
 import { RestockFlow } from "./restock";
 import { AbsencesCard, ChatTab, TasksTab } from "./team";
 import {
@@ -162,7 +163,7 @@ export function Home({
       {restock && <RestockFlow session={restock} c={c} onClose={() => setRestock(null)} />}
 
       {/* Tab bar */}
-      <View style={[styles.tabs, { paddingBottom: insets.bottom + 6, backgroundColor: c.paper, borderTopColor: c.rule }]}>
+      <View style={[styles.tabs, { bottom: insets.bottom + 10, backgroundColor: "rgba(29,33,39,0.97)", borderColor: "rgba(255,255,255,0.08)" }]}>
         {(
           [
             ["today", "Today"],
@@ -180,15 +181,13 @@ export function Home({
                 Haptics.selectionAsync().catch(() => undefined);
                 setTab(key);
               }}
-              style={styles.tab}
+              style={[styles.tab, on && { backgroundColor: "rgba(255,255,255,0.07)" }]}
               accessibilityRole="tab"
               accessibilityState={{ selected: on }}
+              accessibilityLabel={key === "chat" && unreadCount > 0 ? `${label}, ${unreadCount} unread` : label}
             >
-              <View style={[styles.tabMark, { backgroundColor: on ? c.orange : "transparent" }]} />
-              <Text style={[styles.tabText, { color: on ? c.ink : c.muted, fontWeight: on ? "700" : "500" }]}>
-                {label}
-                {key === "chat" && unreadCount > 0 ? ` (${unreadCount > 9 ? "9+" : unreadCount})` : ""}
-              </Text>
+              <Text style={[styles.tabText, { color: on ? c.ink : c.muted, fontWeight: on ? "800" : "600" }]}>{label}</Text>
+              <View style={[styles.tabMark, { backgroundColor: key === "chat" && unreadCount > 0 ? c.orange : on ? c.orange : "transparent" }]} />
             </Pressable>
           );
         })}
@@ -286,46 +285,49 @@ function Today({
   return (
     <>
       {/* The time clock */}
-      <View style={[styles.sheet, { backgroundColor: c.dark, borderColor: c.dark, padding: 20 }]}>
-        <Text style={[styles.small, { color: on ? "#3dd68c" : "rgba(255,255,255,0.6)", fontWeight: "600" }]}>{on ? "On the clock" : "Off the clock"}</Text>
+      <View style={[styles.sheet, { backgroundColor: on ? c.tealDeep : c.paper, borderColor: on ? "rgba(47,208,194,0.35)" : c.rule, padding: 20 }]}>
+        <View style={[styles.row, { alignItems: "center" }]}>
+          <View style={[styles.chip, { backgroundColor: on ? "rgba(47,208,194,0.15)" : "rgba(255,255,255,0.05)" }]}>
+            <View style={[styles.dot, { backgroundColor: on ? c.teal : "rgba(255,255,255,0.35)" }]} />
+            <Text style={{ color: on ? c.teal : c.muted, fontWeight: "700", fontSize: 14 }}>{on ? "On the clock" : "Off the clock"}</Text>
+          </View>
+          <Text style={{ color: c.muted, fontSize: 14 }}>
+            {clock.weekday}, {clock.date}
+          </Text>
+        </View>
         {on ? (
-          <Text style={[score, styles.timer]}>{timer}</Text>
+          <View style={{ flexDirection: "row", alignItems: "flex-end", gap: 6, marginTop: 14 }}>
+            <Text style={[score, styles.timer]}>{timer.slice(0, -3)}</Text>
+            <Text style={[score, { color: c.teal, fontSize: 40, marginBottom: 10 }]}>{timer.slice(-2)}</Text>
+          </View>
         ) : (
-          <View style={{ flexDirection: "row", alignItems: "flex-end", gap: 8 }}>
+          <View style={{ flexDirection: "row", alignItems: "flex-end", gap: 8, marginTop: 14 }}>
             <Text style={[score, styles.timer]}>{clock.time}</Text>
-            <Text style={[score, { color: c.orange, fontSize: 30, marginBottom: 10 }]}>{clock.seconds}</Text>
+            <Text style={[score, { color: c.muted, fontSize: 32, marginBottom: 12 }]}>{clock.ampm}</Text>
           </View>
         )}
-        <Text style={{ color: "rgba(255,255,255,0.6)", fontSize: 14 }}>
-          {on && data.open ? `Since ${formatTime(data.open.in)}${autoOutAt ? `. Clocks out on its own at ${formatTime(autoOutAt)}` : ""}` : `${clock.weekday}, ${clock.date}`}
+        <Text style={{ color: c.muted, fontSize: 14 }}>
+          {on && data.open ? `Since ${formatTime(data.open.in)}${autoOutAt ? ` · ends on its own at ${formatTime(autoOutAt)}` : ""}` : "Hold the button when you get to the store."}
         </Text>
         {on && limit > 0 && (
           <View style={[styles.track, { backgroundColor: "rgba(255,255,255,0.1)", marginTop: 14 }]}>
-            <View style={[styles.fill, { width: `${progress * 100}%`, backgroundColor: "#3dd68c" }]} />
+            <View style={[styles.fill, { width: `${progress * 100}%`, backgroundColor: c.teal }]} />
           </View>
         )}
-        <Pressable
-          onPress={doPunch}
-          disabled={busy}
-          style={({ pressed }) => [
-            styles.punch,
-            { backgroundColor: on ? "#ffffff" : c.orange, opacity: busy ? 0.6 : 1, transform: [{ translateY: pressed ? 1 : 0 }] },
-          ]}
-          accessibilityRole="button"
-        >
-          {busy ? <ActivityIndicator color="#000" /> : <Text style={styles.punchText}>{on ? "Clock out" : "Clock in"}</Text>}
-        </Pressable>
+        <View style={{ marginTop: 18 }}>
+          <HoldButton on={on} busy={busy} c={c} onComplete={doPunch} />
+        </View>
         {note && (
           <View
             style={[
               styles.note,
-              { backgroundColor: note.tone === "error" ? "rgba(255,107,87,0.18)" : note.tone === "auto" ? "rgba(242,181,68,0.2)" : "rgba(255,255,255,0.08)" },
+              { backgroundColor: note.tone === "error" ? "rgba(255,107,87,0.18)" : note.tone === "auto" ? "rgba(242,181,68,0.2)" : "rgba(255,255,255,0.07)" },
             ]}
           >
             <Text style={{ color: "#fff", flex: 1, fontSize: 14, lineHeight: 19 }}>{note.text}</Text>
             {note.undo && (
               <Pressable onPress={() => doUndo(note.undo!)} hitSlop={8}>
-                <Text style={{ color: "#fff", fontWeight: "700", textDecorationLine: "underline" }}>Undo</Text>
+                <Text style={{ color: "#fff", fontWeight: "800", textDecorationLine: "underline" }}>Undo</Text>
               </Pressable>
             )}
           </View>
@@ -353,18 +355,17 @@ function Today({
       <View style={[styles.sheet, { backgroundColor: c.paper, borderColor: c.rule, padding: 20, gap: 14 }]}>
         <View style={styles.row}>
           <Text style={[styles.h2, { color: c.ink }]}>This week</Text>
-          <Text style={[score, { color: c.ink, fontSize: 32 }]}>{formatMinutes(weekMinutes)}</Text>
+          <Text style={[score, { color: c.ink, fontSize: 38 }]}>{formatMinutes(weekMinutes)}</Text>
         </View>
+        {/* One block per hour this week: each one fills up as you work it. */}
         <View style={{ flexDirection: "row", gap: 8 }}>
           {Array.from({ length: rule.afterHours }, (_, i) => {
             const done = hours > i;
             const current = hours === i;
             return (
-              <View key={i} style={{ flex: 1, gap: 6, alignItems: "center" }}>
-                <View style={[styles.track, { backgroundColor: c.track, alignSelf: "stretch" }]}>
-                  <View style={[styles.fill, { backgroundColor: c.orange, width: done ? "100%" : current ? `${(intoHour / 60) * 100}%` : "0%" }]} />
-                </View>
-                <Text style={{ fontSize: 12, color: done ? c.ink : c.muted, fontWeight: "500" }}>{(i + 1) * rule.pct}%</Text>
+              <View key={i} style={[styles.block, { backgroundColor: "rgba(255,255,255,0.05)" }]}>
+                <View style={{ position: "absolute", left: 0, right: 0, bottom: 0, height: done ? "100%" : current ? `${(intoHour / 60) * 100}%` : "0%", backgroundColor: c.orange }} />
+                <Text style={[score, { fontSize: 20, color: done ? "#000" : c.muted }]}>{(i + 1) * rule.pct}%</Text>
               </View>
             );
           })}
@@ -380,11 +381,18 @@ function Today({
       </View>
 
       {data.schedule[0] && (
-        <Pressable onPress={openSchedule} style={[styles.sheet, { backgroundColor: c.paper, borderColor: c.rule, paddingHorizontal: 20, paddingVertical: 14 }]}>
-          <Text style={[styles.small, { color: c.muted }]}>Next shift</Text>
-          <Text style={{ color: c.ink, fontSize: 16, fontWeight: "600", marginTop: 2 }}>
-            {relativeDay(data.schedule[0].date)}, {data.schedule[0].label}, {formatClock(data.schedule[0].startsAt)}
-          </Text>
+        <Pressable onPress={openSchedule} style={[styles.sheet, { backgroundColor: c.paper, borderColor: c.rule, paddingHorizontal: 20, paddingVertical: 16, flexDirection: "row", alignItems: "center", gap: 16 }]}>
+          <View style={{ alignItems: "center", width: 48 }}>
+            <Text style={{ color: c.orange, fontSize: 12, fontWeight: "700" }}>{weekdayShort(data.schedule[0].date)}</Text>
+            <Text style={[score, { color: c.ink, fontSize: 34, lineHeight: 36 }]}>{dayOfMonth(data.schedule[0].date)}</Text>
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={[styles.small, { color: c.muted }]}>Next shift</Text>
+            <Text style={{ color: c.ink, fontSize: 18, fontWeight: "700", marginTop: 2 }}>
+              {relativeDay(data.schedule[0].date)}, {data.schedule[0].label}
+            </Text>
+            <Text style={{ color: c.muted, fontSize: 14 }}>{formatClock(data.schedule[0].startsAt)}</Text>
+          </View>
         </Pressable>
       )}
     </>
@@ -450,7 +458,7 @@ function Schedule({ data, now, c }: { data: Portal; now: number; c: Colors }) {
 function Money({ data, c }: { data: Portal; c: Colors }) {
   return (
     <>
-      <View style={[styles.sheet, { backgroundColor: c.dark, borderColor: c.dark, padding: 20 }]}>
+      <View style={[styles.sheet, { backgroundColor: c.tealDeep, borderColor: "rgba(47,208,194,0.35)", padding: 20 }]}>
         <Text style={[styles.small, { color: "rgba(255,255,255,0.65)", fontWeight: "600" }]}>Store credit</Text>
         <Text style={[score, { color: "#fff", fontSize: 80, lineHeight: 84, marginTop: 6 }]}>{formatCents(data.creditCents)}</Text>
         <Text style={{ color: "rgba(255,255,255,0.65)", fontSize: 14, marginTop: 4 }}>
@@ -488,16 +496,19 @@ function Money({ data, c }: { data: Portal; c: Colors }) {
 const styles = StyleSheet.create({
   header: { flexDirection: "row", alignItems: "center", gap: 12, marginBottom: 4 },
   small: { fontSize: 13 },
-  name: { fontSize: 26, fontWeight: "700", letterSpacing: -0.4 },
-  ghost: { borderWidth: StyleSheet.hairlineWidth, borderRadius: radius.control, paddingHorizontal: 12, paddingVertical: 8 },
+  name: { fontSize: 40, lineHeight: 42, fontFamily: score?.fontFamily, fontWeight: "700" },
+  ghost: { borderWidth: StyleSheet.hairlineWidth, borderRadius: 999, paddingHorizontal: 14, paddingVertical: 9 },
   ghostText: { fontSize: 14, fontWeight: "500" },
   banner: { borderLeftWidth: 3, paddingLeft: 12, paddingVertical: 4 },
   sheet: { borderRadius: radius.sheet, borderWidth: StyleSheet.hairlineWidth, overflow: "hidden" },
   sheetHead: { paddingHorizontal: 20, paddingVertical: 14, borderBottomWidth: StyleSheet.hairlineWidth },
   h2: { fontSize: 16, fontWeight: "600" },
   row: { flexDirection: "row", alignItems: "baseline", justifyContent: "space-between" },
-  timer: { color: "#fff", fontSize: 76, lineHeight: 82, marginTop: 4 },
-  track: { height: 5, borderRadius: 3, overflow: "hidden" },
+  timer: { color: "#fff", fontSize: 92, lineHeight: 94 },
+  chip: { flexDirection: "row", alignItems: "center", gap: 8, borderRadius: 999, paddingHorizontal: 12, paddingVertical: 6 },
+  dot: { width: 8, height: 8, borderRadius: 4 },
+  block: { flex: 1, height: 60, borderRadius: radius.control, overflow: "hidden", alignItems: "center", justifyContent: "center" },
+  track: { height: 6, borderRadius: 3, overflow: "hidden" },
   fill: { height: "100%", borderRadius: 3 },
   punch: { height: 56, borderRadius: radius.control, alignItems: "center", justifyContent: "center", marginTop: 18 },
   punchText: { color: "#000", fontSize: 18, fontWeight: "700" },
@@ -507,8 +518,8 @@ const styles = StyleSheet.create({
   empty: { padding: 20, textAlign: "center", fontSize: 14 },
   dayRow: { flexDirection: "row", alignItems: "center", gap: 16, paddingHorizontal: 20, paddingVertical: 12 },
   listRow: { flexDirection: "row", alignItems: "center", gap: 10, paddingHorizontal: 20, paddingVertical: 12 },
-  tabs: { position: "absolute", left: 0, right: 0, bottom: 0, flexDirection: "row", borderTopWidth: StyleSheet.hairlineWidth, paddingTop: 0 },
-  tab: { flex: 1, alignItems: "center", paddingTop: 0, paddingBottom: 8, gap: 8 },
-  tabMark: { height: 2, alignSelf: "stretch", marginHorizontal: 14 },
+  tabs: { position: "absolute", left: 12, right: 12, flexDirection: "row", borderWidth: 1, borderRadius: 22, padding: 5 },
+  tab: { flex: 1, alignItems: "center", justifyContent: "center", paddingVertical: 11, borderRadius: 17, gap: 4 },
+  tabMark: { width: 5, height: 5, borderRadius: 3 },
   tabText: { fontSize: 13 },
 });

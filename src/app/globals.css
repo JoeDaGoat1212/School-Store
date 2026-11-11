@@ -577,6 +577,53 @@ body:has(.backroom) {
 }
 .backroom .receipt .receipt-number { font-family: var(--font-receipt); font-weight: 700; letter-spacing: 0.02em; }
 
+/* =============================================================================
+   Night: the employee app (/work). Always dark, like a stadium at a night game.
+   Firebirds orange = do something; nest teal = you're on the clock / done.
+   Numbers in the scoreboard face (Big Shoulders). Applied with class="dark night".
+   ============================================================================= */
+.night {
+  --background: #101215;
+  --foreground: #f3f2ee;
+  --card: #191c21;
+  --card-foreground: #f3f2ee;
+  --popover: #1f2329;
+  --popover-foreground: #f3f2ee;
+  --primary: var(--brand);
+  --primary-foreground: #0b0b0b;
+  --secondary: #23272e;
+  --secondary-foreground: #f3f2ee;
+  --muted: #23272e;
+  --muted-foreground: #9aa1ab;
+  --accent: #23272e;
+  --accent-foreground: #f3f2ee;
+  --border: #2a2f37;
+  --input: #383e48;
+  --ring: var(--brand);
+  --ember-ink: #ff7a45;
+  --success: #2fd0c2;
+  --nest: #2fd0c2;
+  --destructive: #ff6b57;
+  --shadow-soft: 0 0 #0000;
+  background: var(--background);
+  color: var(--foreground);
+}
+.night .font-heading { font-family: var(--font-display); letter-spacing: 0.01em; }
+
+/* One satisfying moment: the clock card answers a clock-in with a teal pulse. */
+@media (prefers-reduced-motion: no-preference) {
+  .night .punch-pop { animation: punch-pop 700ms cubic-bezier(0.2, 0.9, 0.3, 1.2); }
+  @keyframes punch-pop {
+    0% { transform: scale(1); box-shadow: 0 0 0 0 color-mix(in oklab, var(--nest) 70%, transparent); }
+    40% { transform: scale(1.015); box-shadow: 0 0 0 10px color-mix(in oklab, var(--nest) 25%, transparent); }
+    100% { transform: scale(1); box-shadow: 0 0 0 22px transparent; }
+  }
+  .night .check-pop { animation: check-pop 320ms cubic-bezier(0.2, 0.9, 0.3, 1.4); }
+  @keyframes check-pop { 0% { transform: scale(0.6); } 100% { transform: scale(1); } }
+  .night .bubble-in { animation: bubble-in 220ms ease-out; }
+  @keyframes bubble-in { from { opacity: 0; transform: translateY(6px) scale(0.98); } to { opacity: 1; transform: none; } }
+}
+
 /* Handwriting and receipt type helpers. */
 .font-hand { font-family: var(--font-hand), cursive; }
 .font-receipt { font-family: var(--font-receipt), ui-monospace, monospace; }

@@ -18,6 +18,7 @@ import {
   sendMessage,
   setTaskDone,
   tasksForDay,
+  unreadCount,
 } from "@/lib/team";
 
 /* The employee web app's messages, tasks, absences and notifications (database update 20). */
@@ -110,4 +111,9 @@ export async function workSavePush(sub: { endpoint: string; keys: { p256dh: stri
 export async function workRemovePush(endpoint: string) {
   await removePushSubscription(endpoint);
   return { ok: true as const };
+}
+
+export async function workUnread() {
+  const m = await me();
+  return m ? unreadCount(m) : 0;
 }

@@ -21,7 +21,11 @@ import { autoOutAt, creditRuleText, formatMinutes, minutesBetween, nextReward, t
 import { type RestockSession, RestockWalkthrough } from "@/components/staff/restock-walkthrough";
 import { restockBegin } from "../clock/restock-actions";
 import { loadPortal, phonePunch, phoneUndo, signOut } from "./actions";
+import { HoldButton } from "./hold-button";
 import { WorkAbsences, WorkMessages, WorkNotifications, WorkTasks } from "./team";
+import { workUnread } from "./team-actions";
+
+const weekdayShort = (date: string) => formatDay(date, { weekday: "short", month: undefined, day: undefined });
 
 type Note = { tone: "in" | "out" | "auto" | "error"; text: string; undo?: { id: string; token: string } };
 export type Tab = "today" | "tasks" | "messages" | "schedule" | "money";
@@ -40,6 +44,20 @@ export function Portal({ initial, initialTab = "today", initialChat = null }: { 
   const [data, setData] = useState(initial);
   const [tab, setTab] = useState<Tab>(initialTab);
   const [restock, setRestock] = useState<RestockSession | null>(null);
+  const [pop, setPop] = useState(0);
+  const [unread, setUnread] = useState(0);
+
+  // The Chat tab's unread count (not while reading chats: they mark themselves read).
+  useEffect(() => {
+    if (tab === "messages") return;
+    const check = () => void workUnread().then((n) => setUnread(n), () => undefined);
+    const first = setTimeout(check, 0);
+    const t = setInterval(check, 15000);
+    return () => {
+      clearTimeout(first);
+      clearInterval(t);
+    };
+  }, [tab]);
   const [loadedAt, setLoadedAt] = useState(() => new Date().getTime());
   const [now, setNow] = useState(() => new Date().getTime());
   const [note, setNote] = useState<Note | null>(null);
@@ -120,6 +138,7 @@ export function Portal({ initial, initialTab = "today", initialChat = null }: { 
         }
       }
       buzz();
+      setPop((n) => n + 1);
       await refresh();
     });
 
@@ -133,12 +152,12 @@ export function Portal({ initial, initialTab = "today", initialChat = null }: { 
   return (
     <div className="grid gap-5 pb-24">
       <div className="flex items-center gap-3">
-        <Avatar name={data.name} size={44} ring={data.open ? "on" : undefined} />
+        <Avatar name={data.name} size={48} ring={data.open ? "on" : undefined} />
         <div className="min-w-0 flex-1">
           <p className="text-sm text-muted-foreground" suppressHydrationWarning>
             {greeting(now)}
           </p>
-          <h1 className="truncate font-heading text-2xl font-bold">{data.name}</h1>
+          <h1 className="truncate font-heading text-4xl leading-none font-bold">{data.name}</h1>
         </div>
         <button
           type="button"
@@ -148,9 +167,10 @@ export function Portal({ initial, initialTab = "today", initialChat = null }: { 
               router.refresh();
             })
           }
-          className="inline-flex h-9 items-center gap-1.5 rounded-md border bg-card px-3 text-sm font-medium text-muted-foreground"
+          aria-label="Sign out"
+          className="grid size-10 place-items-center rounded-full bg-card text-muted-foreground ring-1 ring-border hover:text-foreground"
         >
-          <LogOutIcon className="size-4" /> Sign out
+          <LogOutIcon className="size-4" />
         </button>
       </div>
       <div className="-mt-2 flex justify-end empty:hidden">
@@ -159,17 +179,21 @@ export function Portal({ initial, initialTab = "today", initialChat = null }: { 
 
       {tab === "today" && (
         <>
-          <ClockCard data={data} now={now} autoOut={autoOut} busy={busy} onPunch={punch} note={note} onUndo={undo} />
+          <ClockCard data={data} now={now} autoOut={autoOut} busy={busy} onPunch={punch} note={note} onUndo={undo} pop={pop} />
           <DiscountPass name={data.name} discount={discount} pct={rule.pct} now={now} />
           <WeekCard weekMinutes={weekMinutes} rule={rule} hours={hours} hoursPast={hoursPast} intoHour={intoHour} />
           {data.schedule[0] && (
-            <button type="button" onClick={() => setTab("schedule")} className="flex items-center gap-3 rounded-xl border bg-card px-4 py-3.5 text-left">
-              <CalendarClockIcon aria-hidden className="size-5 shrink-0 text-muted-foreground" />
+            <button type="button" onClick={() => setTab("schedule")} className="flex items-center gap-4 rounded-3xl bg-card px-5 py-4 text-left ring-1 ring-border">
+              <span className="grid w-12 shrink-0 text-center">
+                <span className="text-xs font-semibold text-ember-ink">{weekdayShort(data.schedule[0].date)}</span>
+                <span className="font-heading text-3xl leading-none font-bold">{Number(data.schedule[0].date.slice(8))}</span>
+              </span>
               <span className="flex-1">
                 <span className="block text-xs text-muted-foreground">Next shift</span>
-                <span className="block font-medium">
-                  {relativeDay(data.schedule[0].date)}, {data.schedule[0].label}, {formatClock(data.schedule[0].startsAt)}
+                <span className="block text-lg font-semibold">
+                  {relativeDay(data.schedule[0].date)}, {data.schedule[0].label}
                 </span>
+                <span className="block text-sm text-muted-foreground">{formatClock(data.schedule[0].startsAt)}</span>
               </span>
             </button>
           )}
@@ -189,11 +213,8 @@ export function Portal({ initial, initialTab = "today", initialChat = null }: { 
       {restock && <RestockWalkthrough session={restock} onClose={() => setRestock(null)} />}
 
       {/* ---- App tab bar ---- */}
-      <nav
-        aria-label="App sections"
-        className="fixed inset-x-0 bottom-0 z-40 border-t bg-background pb-[env(safe-area-inset-bottom)]"
-      >
-        <div className="mx-auto grid max-w-xl grid-cols-5">
+      <nav aria-label="App sections" className="fixed inset-x-0 bottom-0 z-40 px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+        <div className="mx-auto grid max-w-xl grid-cols-5 rounded-2xl bg-[#1d2127]/95 p-1 ring-1 ring-white/10 backdrop-blur-md">
           {TABS.map((t) => (
             <button
               key={t.id}
@@ -203,11 +224,15 @@ export function Portal({ initial, initialTab = "today", initialChat = null }: { 
                 window.scrollTo({ top: 0, behavior: "smooth" });
               }}
               aria-current={tab === t.id ? "page" : undefined}
-              className={`relative flex flex-col items-center gap-0.5 py-2.5 text-xs font-semibold transition-colors ${tab === t.id ? "text-foreground" : "text-muted-foreground"}`}
+              className={`relative flex flex-col items-center gap-0.5 rounded-xl py-2 text-[0.7rem] font-semibold transition-colors ${tab === t.id ? "bg-white/[0.07] text-foreground" : "text-muted-foreground"}`}
             >
-              {tab === t.id && <span aria-hidden className="absolute top-0 h-0.5 w-10 rounded-full bg-primary" />}
-              <t.icon className={`size-6 ${tab === t.id ? "text-ember-ink" : ""}`} />
+              <t.icon className={`size-5.5 ${tab === t.id ? "text-[var(--brand)]" : ""}`} />
               {t.label}
+              {t.id === "messages" && unread > 0 && (
+                <span className="absolute top-1 right-[calc(50%-1.4rem)] grid h-4.5 min-w-4.5 place-items-center rounded-full bg-[var(--brand)] px-1 text-[0.65rem] font-bold text-black">
+                  {unread > 9 ? "9+" : unread}
+                </span>
+              )}
             </button>
           ))}
         </div>
@@ -228,6 +253,7 @@ function ClockCard({
   onPunch,
   note,
   onUndo,
+  pop,
 }: {
   data: PortalData;
   now: number;
@@ -236,90 +262,94 @@ function ClockCard({
   onPunch: () => void;
   note: Note | null;
   onUndo: (u: { id: string; token: string }) => void;
+  /** Changes on each successful punch: replays the pulse. */
+  pop: number;
 }) {
   const on = Boolean(data.open);
   const elapsed = data.open ? Math.max(0, Math.floor((now - new Date(data.open.in).getTime()) / 1000)) : 0;
-  const timer = `${Math.floor(elapsed / 3600)}:${String(Math.floor((elapsed % 3600) / 60)).padStart(2, "0")}:${String(elapsed % 60).padStart(2, "0")}`;
+  const h = Math.floor(elapsed / 3600);
+  const m = String(Math.floor((elapsed % 3600) / 60)).padStart(2, "0");
+  const sec = String(elapsed % 60).padStart(2, "0");
   const limitSecs = data.maxShiftMinutes * 60;
-  const progress = on && limitSecs > 0 ? Math.min(1, elapsed / limitSecs) : on ? 1 : 0;
-  const R = 92;
-  const C = 2 * Math.PI * R;
+  const progress = on && limitSecs > 0 ? Math.min(1, elapsed / limitSecs) : 0;
+  const clock = new Date(now).toLocaleTimeString("en-US", { timeZone: STORE_TIMEZONE, hour: "numeric", minute: "2-digit" });
+  const [hm, ampm] = clock.split(" ");
 
   return (
-    <section aria-label="Time clock" className="rounded-xl bg-[#17191c] p-6 text-white">
-      <div className="grid justify-items-center gap-5">
-        <div className="relative grid size-56 place-items-center">
-          <svg viewBox="0 0 200 200" className="absolute inset-0 -rotate-90" aria-hidden>
-            <circle cx="100" cy="100" r={R} fill="none" stroke="rgb(255 255 255 / 0.1)" strokeWidth="6" />
-            <circle
-              cx="100"
-              cy="100"
-              r={R}
-              fill="none"
-              stroke={on ? "var(--success)" : "var(--primary)"}
-              strokeWidth="6"
-              strokeLinecap="round"
-              strokeDasharray={C}
-              strokeDashoffset={C * (1 - progress)}
-              className="transition-[stroke-dashoffset] duration-1000 ease-linear"
-            />
-          </svg>
-          <div className="text-center">
-            {on ? (
-              <>
-                <p className="text-sm font-medium text-success">On the clock</p>
-                <p className="mt-1 font-heading text-6xl leading-none font-bold tabular-nums" suppressHydrationWarning>
-                  {timer}
-                </p>
-                <p className="mt-1 text-xs text-white/60">since {formatTime(data.open!.in)}</p>
-              </>
-            ) : (
-              <>
-                <p className="text-sm font-medium text-white/60">Off the clock</p>
-                <p className="mt-1 font-heading text-6xl leading-none font-bold tabular-nums" suppressHydrationWarning>
-                  {new Date(now).toLocaleTimeString("en-US", { timeZone: STORE_TIMEZONE, hour: "numeric", minute: "2-digit" }).replace(/ [AP]M$/, "")}
-                </p>
-                <p className="mt-1 text-xs text-white/60" suppressHydrationWarning>
-                  {new Date(now).toLocaleDateString("en-US", { timeZone: STORE_TIMEZONE, weekday: "long" })}</p>
-              </>
-            )}
-          </div>
-        </div>
+    <section
+      key={pop}
+      aria-label="Time clock"
+      className={`relative overflow-hidden rounded-3xl p-5 ${pop ? "punch-pop" : ""} ${on ? "bg-[#0f2a28]" : "bg-card"} ring-1 ${on ? "ring-[color-mix(in_oklab,var(--nest)_35%,transparent)]" : "ring-border"}`}
+    >
+      {/* status */}
+      <div className="flex items-center justify-between gap-3">
+        <span className={`inline-flex items-center gap-2 rounded-full px-3 py-1 text-sm font-semibold ${on ? "bg-[var(--nest)]/15 text-[var(--nest)]" : "bg-white/5 text-muted-foreground"}`}>
+          <span aria-hidden className={`size-2 rounded-full ${on ? "bg-[var(--nest)] motion-safe:animate-pulse" : "bg-muted-foreground/50"}`} />
+          {on ? "On the clock" : "Off the clock"}
+        </span>
+        <span className="text-sm text-muted-foreground" suppressHydrationWarning>
+          {new Date(now).toLocaleDateString("en-US", { timeZone: STORE_TIMEZONE, weekday: "long", month: "short", day: "numeric" })}
+        </span>
+      </div>
 
-        {on && autoOut && (
-          <p className="flex items-center gap-1.5 text-sm text-white/70">
-            <AlarmClockOffIcon className="size-4" /> Clocks out on its own at {formatTime(autoOut)}
-          </p>
-        )}
-
-        <button
-          type="button"
-          disabled={busy}
-          onClick={onPunch}
-          className={`flex h-14 w-full items-center justify-center gap-2.5 rounded-lg text-lg font-semibold transition active:translate-y-px disabled:opacity-60 ${
-            on ? "bg-white text-neutral-950" : "bg-primary text-primary-foreground"
-          }`}
-        >
-          {busy ? <Loader2Icon className="size-5 animate-spin" /> : <TimerIcon className="size-5" />}
-          {on ? "Clock out" : "Clock in"}
-        </button>
-
-        {note && (
-          <div
-            role="status"
-            className={`flex w-full flex-wrap items-center gap-3 rounded-lg px-4 py-3 text-sm font-medium ${
-              note.tone === "error" ? "bg-destructive/20 text-white" : note.tone === "auto" ? "bg-warning/25 text-white" : "bg-white/10"
-            }`}
-          >
-            <span className="flex-1">{note.text}</span>
-            {note.undo && (
-              <button type="button" onClick={() => onUndo(note.undo!)} className="font-bold underline underline-offset-4">
-                Undo
-              </button>
-            )}
-          </div>
+      {/* the big number: shift timer, or the time */}
+      <div className="mt-4 flex items-end gap-2" suppressHydrationWarning>
+        {on ? (
+          <>
+            <span className="font-heading text-[5.5rem] leading-[0.8] font-bold tabular-nums">
+              {h}:{m}
+            </span>
+            <span className="mb-1 font-heading text-4xl leading-none font-bold text-[var(--nest)] tabular-nums">{sec}</span>
+          </>
+        ) : (
+          <>
+            <span className="font-heading text-[5.5rem] leading-[0.8] font-bold tabular-nums">{hm}</span>
+            <span className="mb-1 font-heading text-3xl leading-none font-bold text-muted-foreground">{ampm}</span>
+          </>
         )}
       </div>
+      <p className="mt-3 text-sm text-muted-foreground">
+        {on && data.open ? (
+          <>
+            Since {formatTime(data.open.in)}
+            {autoOut && (
+              <span className="inline-flex items-center gap-1">
+                {" · "}
+                <AlarmClockOffIcon className="size-3.5" /> ends on its own at {formatTime(autoOut)}
+              </span>
+            )}
+          </>
+        ) : (
+          "Hold the button when you get to the store."
+        )}
+      </p>
+
+      {/* how much of the shift is left before it ends on its own */}
+      {on && limitSecs > 0 && (
+        <div className="mt-4 h-1.5 overflow-hidden rounded-full bg-white/10" role="progressbar" aria-label="Shift progress" aria-valuenow={Math.round(progress * 100)}>
+          <div className="h-full rounded-full bg-[var(--nest)] transition-[width] duration-1000 ease-linear" style={{ width: `${progress * 100}%` }} />
+        </div>
+      )}
+
+      <div className="mt-5">
+        <HoldButton on={on} busy={busy} onComplete={onPunch} />
+      </div>
+
+      {note && (
+        <div
+          role="status"
+          className={`mt-3 flex flex-wrap items-center gap-3 rounded-2xl px-4 py-3 text-sm font-medium ${
+            note.tone === "error" ? "bg-destructive/15 text-white" : note.tone === "auto" ? "bg-warning/20 text-white" : "bg-white/[0.06]"
+          }`}
+        >
+          <span className="flex-1">{note.text}</span>
+          {note.undo && (
+            <button type="button" onClick={() => onUndo(note.undo!)} className="font-bold underline underline-offset-4">
+              Undo
+            </button>
+          )}
+        </div>
+      )}
     </section>
   );
 }
@@ -328,7 +358,7 @@ function ClockCard({
 function DiscountPass({ name, discount, pct, now }: { name: string; discount: number; pct: number; now: number }) {
   const d = new Date(now);
   return (
-    <section aria-labelledby="discount" className="relative isolate overflow-hidden rounded-xl bg-primary p-5 text-primary-foreground">
+    <section aria-labelledby="discount" className="relative isolate overflow-hidden rounded-3xl bg-primary p-5 text-primary-foreground">
       <div aria-hidden className="pointer-events-none absolute inset-0 -z-10 opacity-[0.07] motion-safe:animate-[work-stripes_6s_linear_infinite]" style={stripes} />
       <p id="discount" className="text-sm font-medium">
         Employee discount
@@ -364,26 +394,26 @@ function WeekCard({
   intoHour: number;
 }) {
   return (
-    <section aria-labelledby="week" className="grid gap-4 rounded-xl border bg-card p-5">
+    <section aria-labelledby="week" className="grid gap-4 rounded-3xl bg-card p-5 ring-1 ring-border">
       <div className="flex items-baseline justify-between gap-3">
         <h2 id="week" className="text-base font-semibold">
           This week
         </h2>
-        <p className="font-heading text-3xl leading-none font-bold tabular-nums">{formatMinutes(weekMinutes)}</p>
+        <p className="font-heading text-4xl leading-none font-bold tabular-nums">{formatMinutes(weekMinutes)}</p>
       </div>
+      {/* One block per hour this week: each one fills up as you work it. */}
       <ol className="grid grid-cols-5 gap-2" aria-label={`Discount hours: ${Math.min(hours, rule.afterHours)} of ${rule.afterHours}`}>
         {Array.from({ length: rule.afterHours }, (_, i) => {
           const done = hours > i;
           const current = hours === i;
           return (
-            <li key={i} className="grid gap-1.5 text-center">
-              <span className="relative h-1.5 overflow-hidden rounded-full bg-muted">
-                <span
-                  className="absolute inset-y-0 left-0 rounded-full bg-primary transition-[width] duration-700"
-                  style={{ width: done ? "100%" : current ? `${(intoHour / 60) * 100}%` : "0%" }}
-                />
-              </span>
-              <span className={`text-xs font-medium tabular-nums ${done ? "text-foreground" : "text-muted-foreground"}`}>{(i + 1) * rule.pct}%</span>
+            <li key={i} className="relative isolate grid h-16 place-items-center overflow-hidden rounded-2xl bg-white/[0.05] ring-1 ring-white/[0.06]">
+              <span
+                aria-hidden
+                className="absolute inset-x-0 bottom-0 -z-10 bg-primary transition-[height] duration-700"
+                style={{ height: done ? "100%" : current ? `${(intoHour / 60) * 100}%` : "0%" }}
+              />
+              <span className={`font-heading text-xl leading-none font-bold tabular-nums ${done ? "text-black" : "text-muted-foreground"}`}>{(i + 1) * rule.pct}%</span>
             </li>
           );
         })}
@@ -412,7 +442,7 @@ function ScheduleTab({ data, now }: { data: PortalData; now: number }) {
   for (const s of data.schedule) byDay.set(s.date, [...(byDay.get(s.date) ?? []), s]);
   return (
     <>
-      <section aria-labelledby="schedule" className="grid gap-4 rounded-xl border bg-card p-5">
+      <section aria-labelledby="schedule" className="grid gap-4 rounded-3xl bg-card p-5 ring-1 ring-border">
         <h2 id="schedule" className="text-base font-semibold">
           My schedule
         </h2>
@@ -440,7 +470,7 @@ function ScheduleTab({ data, now }: { data: PortalData; now: number }) {
         )}
       </section>
 
-      <section aria-labelledby="shifts" className="grid gap-3 rounded-xl border bg-card p-5">
+      <section aria-labelledby="shifts" className="grid gap-3 rounded-3xl bg-card p-5 ring-1 ring-border">
         <h2 id="shifts" className="text-base font-semibold">
           My shifts
         </h2>
@@ -470,18 +500,18 @@ function ScheduleTab({ data, now }: { data: PortalData; now: number }) {
 function MoneyTab({ data }: { data: PortalData }) {
   return (
     <>
-      <section aria-labelledby="credit" className="rounded-xl bg-[#17191c] p-6 text-white">
+      <section aria-labelledby="credit" className="rounded-3xl bg-[#0f2a28] p-6 text-white ring-1 ring-[color-mix(in_oklab,var(--nest)_35%,transparent)]">
         <p id="credit" className="text-sm font-medium text-white/65">
           Store credit
         </p>
-        <p className="mt-2 font-heading text-8xl leading-[0.85] font-bold tabular-nums">{formatCents(data.creditCents)}</p>
+        <p className="mt-2 font-heading text-8xl leading-[0.85] font-bold text-[var(--nest)] tabular-nums">{formatCents(data.creditCents)}</p>
         <p className="mt-3 text-sm text-white/65">
           Earned {formatCents(data.earnedCents)} so far, {formatMinutes(data.workedMinutes)} worked in all
         </p>
         <p className="mt-4 border-t border-white/15 pt-3 text-sm">Using credit? Tell the person at the window. They take it off here.</p>
       </section>
 
-      <section aria-labelledby="history" className="grid gap-3 rounded-xl border bg-card p-5">
+      <section aria-labelledby="history" className="grid gap-3 rounded-3xl bg-card p-5 ring-1 ring-border">
         <h2 id="history" className="text-base font-semibold">
           Credit used and added
         </h2>

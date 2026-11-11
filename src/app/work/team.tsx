@@ -73,41 +73,66 @@ export function WorkTasks() {
   };
 
   const done = tasks?.filter((t) => t.done).length ?? 0;
+  const total = tasks?.length ?? 0;
+  const allDone = total > 0 && done === total;
 
   return (
-    <section aria-labelledby="tasks-title" className="overflow-hidden rounded-xl border bg-card">
-      <header className="flex items-baseline justify-between gap-3 border-b px-5 py-3.5">
-        <h2 id="tasks-title" className="text-base font-semibold">
-          Today&apos;s tasks
-        </h2>
-        {tasks && tasks.length > 0 && (
-          <span className="text-sm text-muted-foreground tabular-nums">
-            {done} of {tasks.length} done
-          </span>
+    <section aria-labelledby="tasks-title" className="grid gap-3">
+      {/* Scoreboard: how many done today */}
+      <div className={`rounded-3xl p-5 ring-1 ${allDone ? "bg-[#0f2a28] ring-[color-mix(in_oklab,var(--nest)_35%,transparent)]" : "bg-card ring-border"}`}>
+        <div className="flex items-end justify-between gap-3">
+          <div>
+            <h2 id="tasks-title" className="text-sm font-medium text-muted-foreground">
+              Today&apos;s tasks
+            </h2>
+            <p className="mt-1 font-heading text-6xl leading-none font-bold tabular-nums">
+              <span className={allDone ? "text-[var(--nest)]" : ""}>{done}</span>
+              <span className="text-muted-foreground">/{total}</span>
+            </p>
+          </div>
+          <p className={`pb-1 text-right text-sm font-semibold ${allDone ? "text-[var(--nest)]" : "text-muted-foreground"}`}>
+            {tasks === null ? "" : total === 0 ? "Nothing today" : allDone ? "All done. Nice work." : `${total - done} to go`}
+          </p>
+        </div>
+        {total > 0 && (
+          <div className="mt-4 flex gap-1.5" aria-hidden>
+            {tasks!.map((t) => (
+              <span key={t.id} className={`h-1.5 flex-1 rounded-full transition-colors duration-300 ${t.done ? "bg-[var(--nest)]" : "bg-white/10"}`} />
+            ))}
+          </div>
         )}
-      </header>
-      {error && <p className="px-5 pt-3 text-sm font-semibold text-destructive">{error}</p>}
+      </div>
+
+      {error && <p className="px-1 text-sm font-semibold text-destructive">{error}</p>}
       {tasks === null ? (
         <Loader2Icon className="mx-auto my-8 size-5 animate-spin text-muted-foreground" />
-      ) : tasks.length === 0 ? (
-        <p className="px-5 py-8 text-center text-sm text-muted-foreground">No tasks today. Ask the manager if you&apos;re not sure what to do.</p>
+      ) : total === 0 ? (
+        <p className="rounded-3xl bg-card px-5 py-8 text-center text-sm text-muted-foreground ring-1 ring-border">No tasks today. Ask the manager if you&apos;re not sure what to do.</p>
       ) : (
-        <ul className="divide-y">
+        <ul className="grid gap-2">
           {tasks.map((t) => (
             <li key={t.id}>
-              <button type="button" onClick={() => toggle(t)} aria-pressed={t.done} className="flex w-full items-start gap-3 px-5 py-3.5 text-left hover:bg-accent/50">
+              <button
+                type="button"
+                onClick={() => toggle(t)}
+                aria-pressed={t.done}
+                className={`flex w-full items-center gap-4 rounded-2xl px-4 py-4 text-left ring-1 transition-colors ${t.done ? "bg-card/60 ring-border/60" : "bg-card ring-border hover:ring-white/20"}`}
+              >
                 <span
                   aria-hidden
-                  className={`mt-0.5 grid size-5.5 shrink-0 place-items-center rounded-[6px] border-[1.5px] ${t.done ? "border-success bg-success text-white" : "border-input"}`}
+                  key={String(t.done)}
+                  className={`grid size-8 shrink-0 place-items-center rounded-full ${t.done ? "check-pop bg-[var(--nest)] text-black" : "ring-2 ring-white/20"}`}
                 >
-                  {t.done && <CheckIcon className="size-3.5" strokeWidth={3} />}
+                  {t.done && <CheckIcon className="size-5" strokeWidth={3} />}
                 </span>
                 <span className="min-w-0 flex-1">
-                  <span className={`block font-medium ${t.done ? "text-muted-foreground line-through" : ""}`}>{t.title}</span>
+                  <span className={`block text-[1.0625rem] font-semibold ${t.done ? "text-muted-foreground line-through decoration-2" : ""}`}>{t.title}</span>
                   {t.details && <span className="block text-sm text-muted-foreground">{t.details}</span>}
-                  <span className="block text-xs text-muted-foreground">
-                    {t.forEveryone ? "Whoever's working" : "Just you"}
-                    {t.repeats ? `, ${t.repeats.charAt(0).toLowerCase()}${t.repeats.slice(1)}` : ""}
+                  <span className="mt-1 flex flex-wrap gap-1.5">
+                    <span className={`rounded-full px-2 py-0.5 text-[0.7rem] font-semibold ${t.forEveryone ? "bg-white/[0.06] text-muted-foreground" : "bg-[var(--brand)]/15 text-ember-ink"}`}>
+                      {t.forEveryone ? "Whoever's working" : "Just you"}
+                    </span>
+                    {t.repeats && <span className="rounded-full bg-white/[0.06] px-2 py-0.5 text-[0.7rem] font-semibold text-muted-foreground">{t.repeats}</span>}
                   </span>
                 </span>
               </button>
@@ -162,7 +187,7 @@ export function WorkAbsences({ schedule }: { schedule: PortalData["schedule"] })
 
   if (schedule.length === 0) return null;
   return (
-    <section aria-labelledby="absent-title" className="overflow-hidden rounded-xl border bg-card">
+    <section aria-labelledby="absent-title" className="overflow-hidden rounded-3xl bg-card ring-1 ring-border">
       <header className="border-b px-5 py-3.5">
         <h2 id="absent-title" className="text-base font-semibold">
           Can&apos;t make a shift?

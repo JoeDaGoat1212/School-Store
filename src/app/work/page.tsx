@@ -41,12 +41,12 @@ export default async function WorkPage(props: PageProps<"/work">) {
   const chat = typeof params.chat === "string" && /^[0-9a-f-]{36}$/.test(params.chat) ? params.chat : null;
 
   return (
-    <div className="min-h-svh bg-[#f1f2ee] dark:bg-background pt-[env(safe-area-inset-top)] pb-[max(1.5rem,env(safe-area-inset-bottom))]">
-      <header className="sticky top-0 z-30 border-b bg-[#f1f2ee] dark:bg-background">
+    <div className="dark night min-h-svh bg-background pt-[env(safe-area-inset-top)] pb-[max(1.5rem,env(safe-area-inset-bottom))]">
+      <header className="sticky top-0 z-30 border-b bg-background/90 backdrop-blur-md">
         <div className="mx-auto flex max-w-xl items-center gap-3 px-4 py-3">
           <BrandMark size={34} />
           <div className="min-w-0 flex-1 leading-tight">
-            <p className="text-base font-semibold">{brand.name}</p>
+            <p className="font-heading text-xl leading-none font-bold">{brand.name}</p>
             <p className="text-xs text-muted-foreground">{admin ? "Manager" : "Employee app"}</p>
           </div>
           <InstallButton />

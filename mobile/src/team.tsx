@@ -22,7 +22,15 @@ import {
 } from "./api";
 import { formatClock, relativeDay } from "./format";
 import { markMessagesSeen } from "./notify";
-import { type Colors, radius } from "./theme";
+import { type Colors, personColor, radius, score } from "./theme";
+
+const initialsOf = (name: string) =>
+  name
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((p) => p[0]!.toUpperCase())
+    .join("");
 
 /* ================================================================ Tasks */
 
@@ -54,34 +62,58 @@ export function TasksTab({ c }: { c: Colors }) {
   };
 
   const done = tasks?.filter((t) => t.done).length ?? 0;
+  const total = tasks?.length ?? 0;
+  const allDone = total > 0 && done === total;
   return (
-    <View style={[s.sheet, { backgroundColor: c.paper, borderColor: c.rule }]}>
-      <View style={[s.head, { borderBottomColor: c.rule }]}>
-        <Text style={[s.h2, { color: c.ink }]}>Today's tasks</Text>
-        {tasks && tasks.length > 0 && (
-          <Text style={{ color: c.muted, fontSize: 14 }}>
-            {done} of {tasks.length} done
+    <View style={{ gap: 10 }}>
+      {/* Scoreboard: how many done today */}
+      <View style={[s.sheet, { backgroundColor: allDone ? c.tealDeep : c.paper, borderColor: allDone ? "rgba(47,208,194,0.35)" : c.rule, padding: 20 }]}>
+        <View style={{ flexDirection: "row", alignItems: "flex-end", justifyContent: "space-between" }}>
+          <View>
+            <Text style={{ color: c.muted, fontSize: 14, fontWeight: "600" }}>Today's tasks</Text>
+            <Text style={[score, { fontSize: 64, lineHeight: 66, color: c.ink }]}>
+              <Text style={{ color: allDone ? c.teal : c.ink }}>{done}</Text>
+              <Text style={{ color: c.muted }}>/{total}</Text>
+            </Text>
+          </View>
+          <Text style={{ color: allDone ? c.teal : c.muted, fontWeight: "700", fontSize: 14, marginBottom: 8 }}>
+            {tasks === null ? "" : total === 0 ? "Nothing today" : allDone ? "All done. Nice work." : `${total - done} to go`}
           </Text>
+        </View>
+        {total > 0 && (
+          <View style={{ flexDirection: "row", gap: 6, marginTop: 14 }}>
+            {tasks!.map((t) => (
+              <View key={t.id} style={{ flex: 1, height: 6, borderRadius: 3, backgroundColor: t.done ? c.teal : "rgba(255,255,255,0.1)" }} />
+            ))}
+          </View>
         )}
       </View>
-      {error && <Text style={[s.error, { color: c.red }]}>{error}</Text>}
+      {error && <Text style={[s.error, { color: c.red, paddingHorizontal: 4 }]}>{error}</Text>}
       {tasks === null ? (
         <ActivityIndicator style={{ margin: 24 }} color={c.muted} />
-      ) : tasks.length === 0 ? (
-        <Text style={[s.empty, { color: c.muted }]}>No tasks today. Ask the manager if you're not sure what to do.</Text>
+      ) : total === 0 ? (
+        <View style={[s.sheet, { backgroundColor: c.paper, borderColor: c.rule }]}>
+          <Text style={[s.empty, { color: c.muted }]}>No tasks today. Ask the manager if you're not sure what to do.</Text>
+        </View>
       ) : (
-        tasks.map((t, i) => (
-          <Pressable key={t.id} onPress={() => toggle(t)} style={[s.row, i > 0 && { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: c.rule }]}>
-            <View style={[s.box, { borderColor: t.done ? c.green : c.input, backgroundColor: t.done ? c.green : "transparent" }]}>
-              {t.done && <Text style={{ color: "#fff", fontWeight: "900", fontSize: 13 }}>✓</Text>}
+        tasks.map((t) => (
+          <Pressable
+            key={t.id}
+            onPress={() => toggle(t)}
+            style={({ pressed }) => [s.taskCard, { backgroundColor: c.paper, borderColor: c.rule, opacity: t.done ? 0.7 : 1, transform: [{ scale: pressed ? 0.98 : 1 }] }]}
+          >
+            <View style={[s.check, t.done ? { backgroundColor: c.teal, borderColor: c.teal } : { borderColor: "rgba(255,255,255,0.25)" }]}>
+              {t.done && <Text style={{ color: "#000", fontWeight: "900", fontSize: 16 }}>✓</Text>}
             </View>
-            <View style={{ flex: 1 }}>
-              <Text style={{ color: t.done ? c.muted : c.ink, fontSize: 16, fontWeight: "500", textDecorationLine: t.done ? "line-through" : "none" }}>{t.title}</Text>
-              {t.details && <Text style={{ color: c.muted, fontSize: 14, marginTop: 2 }}>{t.details}</Text>}
-              <Text style={{ color: c.muted, fontSize: 12, marginTop: 2 }}>
-                {t.forEveryone ? "Whoever's working" : "Just you"}
-                {t.repeats ? `, ${t.repeats.charAt(0).toLowerCase()}${t.repeats.slice(1)}` : ""}
-              </Text>
+            <View style={{ flex: 1, gap: 2 }}>
+              <Text style={{ color: t.done ? c.muted : c.ink, fontSize: 17, fontWeight: "700", textDecorationLine: t.done ? "line-through" : "none" }}>{t.title}</Text>
+              {t.details && <Text style={{ color: c.muted, fontSize: 14 }}>{t.details}</Text>}
+              <View style={{ flexDirection: "row", gap: 6, marginTop: 4 }}>
+                <Text style={[s.pill, t.forEveryone ? { color: c.muted, backgroundColor: "rgba(255,255,255,0.06)" } : { color: c.orangeSoft, backgroundColor: "rgba(255,90,31,0.15)" }]}>
+                  {t.forEveryone ? "Whoever's working" : "Just you"}
+                </Text>
+                {t.repeats && <Text style={[s.pill, { color: c.muted, backgroundColor: "rgba(255,255,255,0.06)" }]}>{t.repeats}</Text>}
+              </View>
             </View>
           </Pressable>
         ))
@@ -244,8 +276,8 @@ export function ChatTab({ c, openChat, onOpenChat, onUnread }: { c: Colors; open
     <>
       <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
         <Text style={[s.h2, { color: c.ink, fontSize: 20 }]}>Messages</Text>
-        <Pressable onPress={() => setMaking(true)} style={[s.small, { backgroundColor: c.ink, borderColor: c.ink }]}>
-          <Text style={{ color: c.paper, fontWeight: "700" }}>+ New</Text>
+        <Pressable onPress={() => setMaking(true)} style={[s.small, { backgroundColor: c.orange, borderColor: c.orange, borderRadius: 999, paddingHorizontal: 16 }]}>
+          <Text style={{ color: "#000", fontWeight: "800" }}>+ New</Text>
         </Pressable>
       </View>
       {error && <Text style={[s.error, { color: c.red, paddingHorizontal: 0 }]}>{error}</Text>}
@@ -255,8 +287,8 @@ export function ChatTab({ c, openChat, onOpenChat, onUnread }: { c: Colors; open
         ) : (
           threads.map((t, i) => (
             <Pressable key={t.id} onPress={() => onOpenChat(t.id)} style={[s.row, { alignItems: "center" }, i > 0 && { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: c.rule }]}>
-              <View style={[s.avatar, { backgroundColor: t.kind === "direct" ? c.track : c.ink }]}>
-                <Text style={{ color: t.kind === "direct" ? c.ink : c.paper, fontWeight: "700" }}>{t.kind === "direct" ? t.title.slice(0, 1).toUpperCase() : "#"}</Text>
+              <View style={[s.avatar, { backgroundColor: t.kind === "direct" ? personColor(t.title) : t.kind === "everyone" ? c.orange : c.raised }]}>
+                <Text style={{ color: t.kind === "everyone" ? "#000" : "#fff", fontWeight: "800", fontSize: 16 }}>{t.kind === "direct" ? initialsOf(t.title) : t.kind === "everyone" ? "ALL" : initialsOf(t.title)}</Text>
               </View>
               <View style={{ flex: 1 }}>
                 <View style={{ flexDirection: "row", justifyContent: "space-between", gap: 8 }}>
@@ -436,10 +468,21 @@ function Conversation({ id, c, onBack }: { id: string; c: Colors; onBack: () => 
             messages.map((m, i) => {
               const first = i === 0 || messages[i - 1].sender !== m.sender;
               return (
-                <View key={m.id} style={{ alignItems: m.mine ? "flex-end" : "flex-start", marginTop: first ? 8 : 0 }}>
-                  {first && names && !m.mine && <Text style={{ color: c.muted, fontSize: 12, marginBottom: 2, marginLeft: 4 }}>{m.senderName}</Text>}
-                  <View style={[s.bubble, m.mine ? { backgroundColor: c.ink, borderBottomRightRadius: 6 } : { backgroundColor: c.track, borderBottomLeftRadius: 6 }]}>
-                    <Text style={{ color: m.mine ? c.paper : c.ink, fontSize: 16, lineHeight: 21 }}>{m.body}</Text>
+                <View key={m.id} style={{ flexDirection: "row", alignItems: "flex-end", justifyContent: m.mine ? "flex-end" : "flex-start", gap: 8, marginTop: first ? 10 : 0 }}>
+                  {!m.mine && names && (
+                    <View style={{ width: 28 }}>
+                      {(i === messages.length - 1 || messages[i + 1].sender !== m.sender) && (
+                        <View style={[s.mini, { backgroundColor: personColor(m.senderName) }]}>
+                          <Text style={{ color: "#fff", fontWeight: "800", fontSize: 11 }}>{initialsOf(m.senderName)}</Text>
+                        </View>
+                      )}
+                    </View>
+                  )}
+                  <View style={{ maxWidth: "78%", alignItems: m.mine ? "flex-end" : "flex-start" }}>
+                    {first && names && !m.mine && <Text style={{ color: c.muted, fontSize: 12, fontWeight: "700", marginBottom: 3, marginLeft: 10 }}>{m.senderName}</Text>}
+                    <View style={[s.bubble, m.mine ? { backgroundColor: c.orange, borderBottomRightRadius: 6 } : { backgroundColor: c.raised, borderBottomLeftRadius: 6 }]}>
+                      <Text style={{ color: m.mine ? "#000" : c.ink, fontSize: 16, lineHeight: 21 }}>{m.body}</Text>
+                    </View>
                   </View>
                 </View>
               );
@@ -447,10 +490,23 @@ function Conversation({ id, c, onBack }: { id: string; c: Colors; onBack: () => 
           )}
         </ScrollView>
         {error && <Text style={[s.error, { color: c.red }]}>{error}</Text>}
-        <View style={{ flexDirection: "row", gap: 8, padding: 10, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: c.rule }}>
-          <TextInput value={text} onChangeText={setText} placeholder="Message" placeholderTextColor={c.muted} multiline maxLength={1000} style={[s.field, { flex: 1, borderColor: c.input, color: c.ink, height: undefined, minHeight: 46, maxHeight: 120, paddingTop: 12 }]} />
-          <Pressable onPress={send} disabled={sending || !text.trim()} style={[s.button, { backgroundColor: c.ink, width: 72, opacity: !text.trim() ? 0.4 : 1 }]}>
-            {sending ? <ActivityIndicator color={c.paper} /> : <Text style={{ color: c.paper, fontWeight: "700" }}>Send</Text>}
+        <View style={{ flexDirection: "row", alignItems: "flex-end", gap: 8, padding: 10, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: c.rule }}>
+          <TextInput
+            value={text}
+            onChangeText={setText}
+            placeholder="Message"
+            placeholderTextColor={c.muted}
+            multiline
+            maxLength={1000}
+            style={{ flex: 1, minHeight: 46, maxHeight: 120, borderRadius: 23, backgroundColor: c.raised, color: c.ink, paddingHorizontal: 16, paddingTop: 12, paddingBottom: 12, fontSize: 16 }}
+          />
+          <Pressable
+            onPress={send}
+            disabled={sending || !text.trim()}
+            accessibilityLabel="Send"
+            style={({ pressed }) => [s.send, { backgroundColor: c.orange, opacity: !text.trim() ? 0.35 : 1, transform: [{ scale: pressed ? 0.9 : 1 }] }]}
+          >
+            {sending ? <ActivityIndicator color="#000" /> : <Text style={{ color: "#000", fontWeight: "900", fontSize: 20, marginTop: -2 }}>↑</Text>}
           </Pressable>
         </View>
       </View>
@@ -469,7 +525,12 @@ const s = StyleSheet.create({
   small: { borderWidth: StyleSheet.hairlineWidth, borderRadius: radius.control, paddingHorizontal: 12, paddingVertical: 8 },
   field: { height: 46, borderWidth: 1, borderRadius: radius.control, paddingHorizontal: 12, fontSize: 16 },
   button: { height: 46, borderRadius: radius.control, alignItems: "center", justifyContent: "center" },
-  avatar: { width: 40, height: 40, borderRadius: 20, alignItems: "center", justifyContent: "center" },
-  bubble: { maxWidth: "82%", borderRadius: 18, paddingHorizontal: 14, paddingVertical: 8 },
+  avatar: { width: 48, height: 48, borderRadius: 24, alignItems: "center", justifyContent: "center" },
+  bubble: { borderRadius: 20, paddingHorizontal: 14, paddingVertical: 9 },
+  mini: { width: 28, height: 28, borderRadius: 14, alignItems: "center", justifyContent: "center" },
+  send: { width: 46, height: 46, borderRadius: 23, alignItems: "center", justifyContent: "center" },
+  taskCard: { flexDirection: "row", alignItems: "center", gap: 14, borderRadius: radius.card, borderWidth: StyleSheet.hairlineWidth, paddingHorizontal: 16, paddingVertical: 16 },
+  check: { width: 32, height: 32, borderRadius: 16, borderWidth: 2, alignItems: "center", justifyContent: "center" },
+  pill: { fontSize: 11, fontWeight: "700", borderRadius: 999, paddingHorizontal: 8, paddingVertical: 3, overflow: "hidden" },
   badge: { minWidth: 20, height: 20, borderRadius: 10, paddingHorizontal: 6, alignItems: "center", justifyContent: "center" },
 });

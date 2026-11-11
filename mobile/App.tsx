@@ -59,7 +59,7 @@ export default function App() {
 
   return (
     <SafeAreaProvider>
-      <StatusBar style="auto" />
+      <StatusBar style="light" />
       <View style={[styles.fill, { backgroundColor: c.board }]}>
         {phase === "loading" ? (
           <View style={[styles.fill, styles.center]}>
