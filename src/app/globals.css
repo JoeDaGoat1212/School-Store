@@ -627,7 +627,7 @@ body:has(.backroom) {
 /* ---- Night, turned up: bold, flat, scoreboard. Solid colors only (no glows, no rainbows). ---- */
 
 /* Behind the whole app: flat near-black with a faint dot grid at the top and film grain. */
-.night-sky { position: fixed; inset: 0; z-index: 0; pointer-events: none; overflow: hidden; background: #0e0f12; }
+.night-sky { position: fixed; inset: 0; z-index: -1; pointer-events: none; overflow: hidden; background: #0e0f12; }
 .night-sky > i { display: none; }
 .night-sky > b {
   position: absolute; inset: 0; opacity: 0.06; mix-blend-mode: overlay;
