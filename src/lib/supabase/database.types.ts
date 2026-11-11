@@ -584,6 +584,8 @@ export type Database = {
           staff_signup_approval: boolean;
           staff_discount_pct_per_hour: number;
           staff_credit_after_hours: number;
+          staff_credit_week_cap_cents: number;
+          staff_credit_rule_from: string;
           staff_credit_cents_per_hour: number;
           staff_max_shift_minutes: number;
           kiosk_pin_salt: string | null;
@@ -619,6 +621,8 @@ export type Database = {
           staff_signup_approval?: boolean;
           staff_discount_pct_per_hour?: number;
           staff_credit_after_hours?: number;
+          staff_credit_week_cap_cents?: number;
+          staff_credit_rule_from?: string;
           staff_credit_cents_per_hour?: number;
           staff_max_shift_minutes?: number;
           kiosk_pin_salt?: string | null;
@@ -653,6 +657,8 @@ export type Database = {
           staff_signup_approval?: boolean;
           staff_discount_pct_per_hour?: number;
           staff_credit_after_hours?: number;
+          staff_credit_week_cap_cents?: number;
+          staff_credit_rule_from?: string;
           staff_credit_cents_per_hour?: number;
           staff_max_shift_minutes?: number;
           kiosk_pin_salt?: string | null;
@@ -1169,6 +1175,7 @@ export type Database = {
           source: string;
           out_source: string | null;
           auto_seen: boolean;
+          out_reminded_at: string | null;
           created_at: string;
         };
         ComputedFields: never;
@@ -1191,6 +1198,7 @@ export type Database = {
           undo_token?: string | null;
           undo_kind?: string | null;
           undo_until?: string | null;
+          out_reminded_at?: string | null;
         };
         Relationships: [];
       };
@@ -1241,10 +1249,10 @@ export type Database = {
         Relationships: [];
       };
       restock_checks: {
-        Row: { id: string; staff_id: string | null; staff_name: string; shift_id: string | null; token_hash: string | null; areas: string[]; skipped_note: string | null; completed_at: string | null; reviewed: boolean; created_at: string };
+        Row: { id: string; staff_id: string | null; staff_name: string; shift_id: string | null; token_hash: string | null; areas: string[]; skipped_note: string | null; completed_at: string | null; reviewed: boolean; period_label: string | null; created_at: string };
         ComputedFields: never;
-        Insert: { id?: string; staff_id?: string | null; staff_name: string; shift_id?: string | null; token_hash?: string | null; areas: string[]; skipped_note?: string | null; completed_at?: string | null };
-        Update: { token_hash?: string | null; skipped_note?: string | null; completed_at?: string | null; reviewed?: boolean };
+        Insert: { id?: string; staff_id?: string | null; staff_name: string; shift_id?: string | null; token_hash?: string | null; areas: string[]; skipped_note?: string | null; completed_at?: string | null; period_label?: string | null };
+        Update: { token_hash?: string | null; skipped_note?: string | null; completed_at?: string | null; reviewed?: boolean; period_label?: string | null };
         Relationships: [];
       };
       restock_photos: {

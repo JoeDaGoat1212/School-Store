@@ -93,6 +93,18 @@ export async function planShiftReminders(data: Portal, absences: Absence[]) {
         trigger: { type: Notifications.SchedulableTriggerInputTypes.DATE, date: new Date(at), channelId: "default" },
       });
     }
+    // Clocked in: a reminder to clock out an hour after clocking in (unless the
+    // server sends it instantly; it does when this phone has instant notifications).
+    if (data.open && !(await hasInstantPush())) {
+      const at = new Date(data.open.in).getTime() + 60 * 60000;
+      if (at > now + 30000) {
+        await Notifications.scheduleNotificationAsync({
+          identifier: `shift-out-${data.open.id}`,
+          content: { title: "Still clocked in", body: "You've been clocked in for an hour. Clock out if your shift is over.", data: { tab: "today" } },
+          trigger: { type: Notifications.SchedulableTriggerInputTypes.DATE, date: new Date(at), channelId: "default" },
+        });
+      }
+    }
   } catch {
     // ignore
   }

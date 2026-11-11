@@ -15,6 +15,8 @@ import {
   sendMessage,
   setTaskDone,
   skipRestock,
+  restockState,
+  startMyRestock,
   startRestock,
   tasksForDay,
   latestUnread,
@@ -39,6 +41,7 @@ import { deviceHashFrom, endSession, portalFor, punchFor, startSession, undoPunc
  *   push-token {token}   (this phone's Firebase token, for instant notifications)
  *   tasks, task {id, done}
  *   absences, absent {date, shift, reason}, present {id}
+ *   restock (is a check due now?), restock-open (start the check for the shift they're working)
  *   restock-start {shift, undo}, restock-photo {check, token, area, type, data(base64)}, restock-skip {check, token, note}
  *
  * A missing or expired token answers 401 with { code: "SIGNED_OUT" }.
@@ -147,6 +150,10 @@ async function team(action: string, token: string, req: Request) {
     }
     case "present":
       return reply(await cancelAbsence(me.staffId, str("id")));
+    case "restock":
+      return json(await restockState(me));
+    case "restock-open":
+      return reply(await startMyRestock(me));
     case "restock-start":
       return reply(await startRestock(str("shift"), str("undo")));
     case "restock-photo": {

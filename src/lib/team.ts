@@ -312,7 +312,102 @@ export async function cancelAbsence(staffId: string, id: string) {
 
 /* ================================================================ Restocking */
 
-export type RestockStart = { checkId: string; token: string; name: string; areas: string[]; done: string[] };
+export type RestockStart = { checkId: string; token: string; name: string; areas: string[]; done: string[]; period?: string | null };
+
+const DEFAULT_AREAS = ["Drinks", "Snacks (right half)", "Snacks (left half)", "Spicy chips", "Regular chips", "Ramen"];
+
+/** Store time now as minutes since midnight (Arizona: always UTC−7). */
+function storeMinutes(at = Date.now()) {
+  const d = new Date(at - 7 * 3600000);
+  return d.getUTCHours() * 60 + d.getUTCMinutes();
+}
+
+/** The class period going on at a moment ("3rd hour"): the last period that had started by then. */
+export async function periodAt(at = Date.now()): Promise<string | null> {
+  const { data } = await createSecretClient().from("pickup_windows").select("label, starts_at").eq("active", true).order("starts_at");
+  const now = storeMinutes(at);
+  let label: string | null = null;
+  for (const w of data ?? []) {
+    const [h, m] = w.starts_at.split(":").map(Number);
+    if (h * 60 + m <= now + 2) label = w.label;
+  }
+  return label;
+}
+
+/** Saves which period a check was taken in (needs database update 22; quietly skipped before). */
+async function stampPeriod(checkId: string) {
+  const period = await periodAt();
+  if (period) await createSecretClient().from("restock_checks").update({ period_label: period }).eq("id", checkId);
+  return period;
+}
+
+/**
+ * Starts (or picks up) a check for a shift and hands back a fresh restock
+ * code. The callers have already proven the shift is theirs.
+ */
+async function openForShift(shift: { id: string; staff_id: string | null; staff_name: string }): Promise<RestockStart | { error: string }> {
+  const db = createSecretClient();
+  const { data: settings, error: se } = await db.from("settings").select("restock_areas").eq("id", 1).maybeSingle();
+  if (se) return fail(se.message) as { error: string };
+  const areas = settings?.restock_areas?.length ? settings.restock_areas : DEFAULT_AREAS;
+  const token = randomBytes(24).toString("hex");
+  const { data: existing } = await db.from("restock_checks").select("id, areas").eq("shift_id", shift.id).maybeSingle();
+  let checkId = existing?.id;
+  if (checkId) {
+    await db.from("restock_checks").update({ token_hash: restockHash(token) }).eq("id", checkId);
+  } else {
+    const { data: made, error } = await db
+      .from("restock_checks")
+      .insert({ staff_id: shift.staff_id, staff_name: shift.staff_name, shift_id: shift.id, token_hash: restockHash(token), areas })
+      .select("id")
+      .single();
+    if (error || !made) return fail(error?.message) as { error: string };
+    checkId = made.id;
+  }
+  const period = await stampPeriod(checkId);
+  const { data: photos } = await db.from("restock_photos").select("area").eq("check_id", checkId);
+  return { checkId, token, name: shift.staff_name, areas: existing?.areas ?? areas, done: (photos ?? []).map((p) => p.area), period };
+}
+
+/** The shift a restock check is for right now: on the clock, or clocked out in the last 45 minutes today. */
+async function restockShift(staffId: string) {
+  const { data } = await createSecretClient()
+    .from("staff_shifts")
+    .select("id, staff_id, staff_name, clock_in, clock_out")
+    .eq("staff_id", staffId)
+    .gte("clock_in", new Date(`${storeToday()}T00:00:00-07:00`).toISOString())
+    .order("clock_in", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (!data) return null;
+  if (data.clock_out && Date.now() - new Date(data.clock_out).getTime() > 45 * 60000) return null;
+  return data;
+}
+
+export type RestockState =
+  | { state: "none" } // not working right now
+  | { state: "due"; period: string | null }
+  | { state: "done"; period: string | null; at: string }
+  | { state: "skipped"; note: string };
+
+/** Is a restock check on this employee's to-do list right now? Reads only. */
+export async function restockState(me: Me): Promise<RestockState> {
+  if (!me.staffId) return { state: "none" };
+  const shift = await restockShift(me.staffId);
+  if (!shift) return { state: "none" };
+  const { data: check } = await createSecretClient().from("restock_checks").select("completed_at, skipped_note, period_label").eq("shift_id", shift.id).maybeSingle();
+  if (check?.completed_at) return { state: "done", period: check.period_label ?? null, at: check.completed_at };
+  if (check?.skipped_note) return { state: "skipped", note: check.skipped_note };
+  return { state: "due", period: await periodAt() };
+}
+
+/** Opens the check for the shift they're working (from the Restock tab). */
+export async function startMyRestock(me: Me): Promise<RestockStart | { error: string }> {
+  if (!me.staffId) return { error: "Only employees do restock checks." };
+  const shift = await restockShift(me.staffId);
+  if (!shift) return { error: "Restock checks open when you're clocked in (and for 45 minutes after you clock out)." };
+  return openForShift(shift);
+}
 
 const restockHash = (t: string) => createHash("sha256").update(`restock:${t}`).digest("hex");
 
@@ -327,26 +422,7 @@ export async function startRestock(shiftId: string, undoToken: string): Promise<
   const { data: shift } = await db.from("staff_shifts").select("id, staff_id, staff_name, clock_out, undo_token").eq("id", shiftId).maybeSingle();
   if (!shift || shift.undo_token !== undoToken || !shift.clock_out) return { error: "That shift wasn't found." };
   if (Date.now() - new Date(shift.clock_out).getTime() > 30 * 60000) return { error: "That shift ended a while ago." };
-  const { data: settings, error: se } = await db.from("settings").select("restock_areas").eq("id", 1).maybeSingle();
-  if (se) return fail(se.message) as { error: string };
-  const areas = settings?.restock_areas?.length ? settings.restock_areas : ["Fridge", "Snacks", "Ramen", "Chips"];
-  const token = randomBytes(24).toString("hex");
-
-  const { data: existing } = await db.from("restock_checks").select("id").eq("shift_id", shiftId).maybeSingle();
-  let checkId = existing?.id;
-  if (checkId) {
-    await db.from("restock_checks").update({ token_hash: restockHash(token) }).eq("id", checkId);
-  } else {
-    const { data: made, error } = await db
-      .from("restock_checks")
-      .insert({ staff_id: shift.staff_id, staff_name: shift.staff_name, shift_id: shiftId, token_hash: restockHash(token), areas })
-      .select("id")
-      .single();
-    if (error || !made) return fail(error?.message) as { error: string };
-    checkId = made.id;
-  }
-  const { data: photos } = await db.from("restock_photos").select("area").eq("check_id", checkId);
-  return { checkId, token, name: shift.staff_name, areas, done: (photos ?? []).map((p) => p.area) };
+  return openForShift(shift);
 }
 
 async function openCheck(checkId: string, token: string) {
@@ -359,7 +435,7 @@ async function openCheck(checkId: string, token: string) {
 /** One photo for one area ("Fridge"). Replaces an earlier photo of the same area. */
 export async function addRestockPhoto(checkId: string, token: string, area: string, bytes: Uint8Array, contentType: string) {
   const check = await openCheck(checkId, token);
-  if (!check) return { error: "The restock check timed out. Clock out again to start a new one." };
+  if (!check) return { error: "The restock check timed out. Open Restock again to keep going." };
   if (!check.areas.includes(area)) return { error: "That area isn't on the list." };
   if (bytes.byteLength < 1000 || bytes.byteLength > 8 * 1024 * 1024) return { error: "That photo didn't come through. Try again." };
   if (!/^image\/(webp|jpeg|png)$/.test(contentType)) return { error: "Send a photo (JPEG, PNG or WebP)." };
@@ -378,7 +454,10 @@ export async function addRestockPhoto(checkId: string, token: string, area: stri
   if (old?.path) await db.storage.from("restock").remove([old.path]);
   const { count } = await db.from("restock_photos").select("area", { count: "exact", head: true }).eq("check_id", checkId);
   const complete = (count ?? 0) >= check.areas.length;
-  if (complete) await db.from("restock_checks").update({ completed_at: new Date().toISOString(), skipped_note: null }).eq("id", checkId);
+  if (complete) {
+    await db.from("restock_checks").update({ completed_at: new Date().toISOString(), skipped_note: null }).eq("id", checkId);
+    await stampPeriod(checkId);
+  }
   return { ok: true as const, complete };
 }
 

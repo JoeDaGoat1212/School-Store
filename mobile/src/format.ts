@@ -77,7 +77,14 @@ export function greeting() {
   return h < 12 ? "Good morning" : h < 17 ? "Good afternoon" : "Good evening";
 }
 
-/** "10% off for every hour worked (up to 50% at 5 hours), then $1 store credit for every hour after 5." */
-export function ruleText(r: { pct: number; afterHours: number; cents: number }) {
-  return `${r.pct}% off for every hour worked (up to ${r.pct * r.afterHours}% at ${r.afterHours} hours), then ${formatCents(r.cents).replace(".00", "")} store credit for every hour after ${r.afterHours}. Starts over each Monday.`;
+const money = (c: number) => formatCents(c).replace(".00", "");
+
+/** "$1 store credit for every hour worked, up to $10 a week, plus 10% off for every hour (up to 50% at 5 hours)." */
+export function ruleText(r: { pct: number; afterHours: number; cents: number; capCents?: number }) {
+  return `${money(r.cents)} store credit for every hour worked, up to ${money(r.capCents ?? 1000)} a week, plus ${r.pct}% off for every hour (up to ${r.pct * r.afterHours}% at ${r.afterHours} hours). Starts over each Monday.`;
+}
+
+/** Credit earned this week: $1 an hour, to the minute, up to the weekly limit. */
+export function weekCredit(weekMinutes: number, r: { cents: number; capCents?: number }) {
+  return Math.min(r.capCents ?? 1000, Math.floor((Math.max(0, weekMinutes) * r.cents) / 60));
 }

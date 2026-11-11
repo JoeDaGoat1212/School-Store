@@ -9,7 +9,7 @@ import * as SecureStore from "expo-secure-store";
 const API = ((Constants.expoConfig?.extra as { apiUrl?: string } | undefined)?.apiUrl ?? "https://school-store-steel.vercel.app").replace(/\/$/, "");
 const KEY = "firebirds-nest-token";
 
-export type Rule = { pct: number; afterHours: number; cents: number };
+export type Rule = { pct: number; afterHours: number; cents: number; capCents?: number };
 
 export type Portal = {
   id: string;
@@ -92,7 +92,7 @@ export type Thread = {
 export type ChatMessage = { id: string; sender: string; senderName: string; body: string; at: string; mine: boolean };
 export type Task = { id: string; title: string; details: string | null; forEveryone: boolean; repeats: string | null; done: boolean };
 export type Absence = { id: string; date: string; windowId: number | null; label: string; reason: string | null };
-export type Restock = { checkId: string; token: string; name: string; areas: string[]; done: string[] };
+export type Restock = { checkId: string; token: string; name: string; areas: string[]; done: string[]; period?: string | null };
 
 export const loadThreads = () => call<{ threads: Thread[]; contacts: Contact[] }>("threads");
 export const loadThread = (id: string) => call<{ thread?: Thread; messages: ChatMessage[] }>("thread", { id });
@@ -112,6 +112,15 @@ export const markAbsent = (date: string, shift: string, reason: string) => call<
 export const cancelAbsent = (id: string) => call<{ ok: true }>("present", { id });
 
 export const startRestock = (shift: string, undo: string) => call<Restock>("restock-start", { shift, undo });
+export type RestockState =
+  | { state: "none" }
+  | { state: "due"; period: string | null }
+  | { state: "done"; period: string | null; at: string }
+  | { state: "skipped"; note: string };
+/** Is a restock check on my list right now? */
+export const restockState = () => call<RestockState>("restock");
+/** Starts the restock check for the shift I'm working. */
+export const openRestock = () => call<Restock>("restock-open");
 export const restockPhoto = (r: Restock, area: string, base64: string, type = "image/jpeg") =>
   call<{ ok: true; complete: boolean }>("restock-photo", { check: r.checkId, token: r.token, area, type, data: base64 });
 export const skipRestock = (r: Restock, note: string) => call<{ ok: true }>("restock-skip", { check: r.checkId, token: r.token, note });

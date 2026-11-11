@@ -34,7 +34,7 @@ const initialsOf = (name: string) =>
 
 /* ================================================================ Tasks */
 
-export function TasksTab({ c }: { c: Colors }) {
+export function TasksTab({ c, restock, onRestock }: { c: Colors; restock?: "none" | "due" | "done" | "skipped"; onRestock?: () => void }) {
   const [tasks, setTasks] = useState<Task[] | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -89,6 +89,26 @@ export function TasksTab({ c }: { c: Colors }) {
         )}
       </View>
       {error && <Text style={[s.error, { color: c.red, paddingHorizontal: 4 }]}>{error}</Text>}
+      {(restock === "due" || restock === "done") && onRestock && (
+        <Pressable
+          onPress={onRestock}
+          style={({ pressed }) => [
+            s.taskCard,
+            restock === "done"
+              ? { backgroundColor: c.paper, borderColor: c.rule, opacity: 0.7 }
+              : { backgroundColor: "rgba(255,90,31,0.10)", borderColor: "rgba(255,90,31,0.45)" },
+            { transform: [{ scale: pressed ? 0.98 : 1 }] },
+          ]}
+        >
+          <View style={[s.check, { backgroundColor: restock === "done" ? c.teal : c.orange, borderColor: restock === "done" ? c.teal : c.orange }]}>
+            <Text style={{ color: "#000", fontWeight: "900", fontSize: 15 }}>{restock === "done" ? "✓" : "📷"}</Text>
+          </View>
+          <View style={{ flex: 1, gap: 2 }}>
+            <Text style={{ color: restock === "done" ? c.muted : c.ink, fontSize: 17, fontWeight: "700", textDecorationLine: restock === "done" ? "line-through" : "none" }}>Restock check</Text>
+            <Text style={{ color: c.muted, fontSize: 14 }}>{restock === "done" ? "Photos sent" : "6 photos, about 2 minutes. Tap to start."}</Text>
+          </View>
+        </Pressable>
+      )}
       {tasks === null ? (
         <ActivityIndicator style={{ margin: 24 }} color={c.muted} />
       ) : total === 0 ? (

@@ -15,7 +15,9 @@ import {
   myAbsences,
   openDirect,
   readThread,
+  restockState,
   sendMessage,
+  startMyRestock,
   setTaskDone,
   tasksForDay,
   unreadCount,
@@ -116,4 +118,17 @@ export async function workRemovePush(endpoint: string) {
 export async function workUnread() {
   const m = await me();
   return m ? unreadCount(m) : 0;
+}
+
+/* ---- Restock tab ---- */
+
+export async function workRestockState() {
+  const m = await me();
+  return m ? restockState(m) : ({ state: "none" } as const);
+}
+
+export async function workRestockOpen() {
+  const m = await me();
+  if (!m) return SIGNED_OUT;
+  return startMyRestock(m);
 }

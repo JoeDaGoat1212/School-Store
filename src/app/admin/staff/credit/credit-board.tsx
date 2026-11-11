@@ -41,6 +41,7 @@ export function CreditBoard({
   const [pct, setPct] = useState(String(rule.pct));
   const [afterHours, setAfterHours] = useState(String(rule.afterHours));
   const [dollars, setDollars] = useState((rule.cents / 100).toFixed(2));
+  const [capDollars, setCapDollars] = useState(((rule.capCents ?? 1000) / 100).toFixed(2));
 
   const shown = people.filter((p) => !p.removed || p.balanceCents !== 0);
   const selected = people.find((p) => p.id === who);
@@ -106,7 +107,7 @@ export function CreditBoard({
                       </td>
                       <td className="p-3 text-right font-heading text-base font-bold tabular-nums">{formatCents(p.balanceCents)}</td>
                       <td className="p-3 text-right text-xs text-muted-foreground tabular-nums">
-                        {nextReward(p.weekMinutes, rule)} in {formatMinutes(p.nextMinutes)}
+                        {nextReward(p.weekMinutes, rule).startsWith("nothing") ? "Maxed out this week" : `${nextReward(p.weekMinutes, rule)} in ${formatMinutes(p.nextMinutes)}`}
                       </td>
                     </tr>
                   ))}
@@ -221,28 +222,33 @@ export function CreditBoard({
           onSubmit={(e) => {
             e.preventDefault();
             start(async () => {
-              const r = await saveCreditRule(pct, afterHours, dollars);
+              const r = await saveCreditRule(pct, afterHours, dollars, capDollars);
               if (r.error) toast.error(r.error);
-              else toast.success("Saved. Everyone's discount and credit were recounted.");
+              else toast.success("Saved. Everyone's credit and discount were recounted.");
             });
           }}
         >
           <h2 className="font-heading text-lg font-semibold">What they earn each week</h2>
           <div className="flex flex-wrap items-center gap-2 text-sm">
+            <div className="relative w-24">
+              <span className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-muted-foreground">$</span>
+              <Input aria-label="Dollars of credit per hour" inputMode="decimal" value={dollars} onChange={(e) => setDollars(e.target.value)} className="h-10 pl-7" />
+            </div>
+            store credit for every hour, up to
+            <div className="relative w-24">
+              <span className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-muted-foreground">$</span>
+              <Input aria-label="Most credit per week" inputMode="decimal" value={capDollars} onChange={(e) => setCapDollars(e.target.value)} className="h-10 pl-7" />
+            </div>
+            a week
+          </div>
+          <div className="flex flex-wrap items-center gap-2 text-sm">
+            plus
             <Input aria-label="Percent off per hour" inputMode="numeric" value={pct} onChange={(e) => setPct(e.target.value.replace(/\D/g, ""))} className="h-10 w-16" />
             % off for every hour, for the first
             <Input aria-label="Hours" inputMode="numeric" value={afterHours} onChange={(e) => setAfterHours(e.target.value.replace(/\D/g, ""))} className="h-10 w-16" />
             hours
           </div>
-          <div className="flex flex-wrap items-center gap-2 text-sm">
-            then
-            <div className="relative w-24">
-              <span className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-muted-foreground">$</span>
-              <Input aria-label="Dollars of credit per hour" inputMode="decimal" value={dollars} onChange={(e) => setDollars(e.target.value)} className="h-10 pl-7" />
-            </div>
-            store credit for every hour after that
-          </div>
-          <p className="text-xs text-muted-foreground">Now: {creditRuleText(rule)} Changing it recounts everyone&apos;s credit from all their hours.</p>
+          <p className="text-xs text-muted-foreground">Now: {creditRuleText(rule)} Credit is counted to the minute. Changing it recounts credit from the week of Nov 9 on.</p>
           <Button type="submit" variant="outline" disabled={busy}>
             Save
           </Button>

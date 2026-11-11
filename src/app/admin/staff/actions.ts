@@ -219,19 +219,23 @@ export async function deleteCreditEntry(id: string): Promise<Result> {
   return error ? problem(error.message) : done();
 }
 
-/** "10% off per hour, up to 5 hours, then $1 per hour after that" (each week). */
-export async function saveCreditRule(pct: string, afterHours: string, dollars: string): Promise<Result> {
+/** "$1 credit an hour, up to $10 a week, plus 10% off per hour for the first 5 hours" (each week). */
+export async function saveCreditRule(pct: string, afterHours: string, dollars: string, capDollars: string): Promise<Result> {
   const { supabase } = await requireAdmin();
   const p = Number.parseInt(pct, 10);
   const h = Number.parseInt(afterHours, 10);
   const cents = parseDollarsToCents(dollars);
+  const cap = parseDollarsToCents(capDollars);
   if (!Number.isInteger(p) || p < 0 || p > 100) return { error: "Enter a discount from 0 to 100%." };
   if (!Number.isInteger(h) || h < 0 || h > 40) return { error: "Enter hours from 0 to 40." };
   if (p * h > 100) return { error: `That would be ${p * h}% off at ${h} hours. Keep the top discount at 100% or less.` };
   if (cents === null || cents < 0 || cents > 2000) return { error: "Enter a credit amount from $0 to $20." };
+  if (cap === null || cap < 0 || cap > 100000) return { error: "Enter a weekly limit from $0 to $1,000." };
   const { error } = await supabase
     .from("settings")
     .update({ staff_discount_pct_per_hour: p, staff_credit_after_hours: h, staff_credit_cents_per_hour: cents, updated_at: new Date().toISOString() })
     .eq("id", 1);
-  return error ? problem(error.message) : done();
+  if (error) return problem(error.message);
+  const { error: capError } = await supabase.from("settings").update({ staff_credit_week_cap_cents: cap }).eq("id", 1);
+  return capError ? { error: "Run database update 22 first to set a weekly limit." } : done();
 }
