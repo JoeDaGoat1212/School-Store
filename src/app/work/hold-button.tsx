@@ -23,9 +23,11 @@ export function HoldButton({ on, busy, onComplete }: { on: boolean; busy: boolea
     if (!fired.current) setProgress(0);
   };
 
-  const tick = () => {
+  // `now` comes from requestAnimationFrame; the first frame marks the start.
+  const tick = (now: number) => {
     if (started.current === null) return;
-    const p = Math.min(1, (performance.now() - started.current) / HOLD_MS);
+    if (started.current < 0) started.current = now;
+    const p = Math.min(1, (now - started.current) / HOLD_MS);
     setProgress(p);
     if (p >= 1) {
       fired.current = true;
@@ -44,7 +46,7 @@ export function HoldButton({ on, busy, onComplete }: { on: boolean; busy: boolea
   const begin = () => {
     if (busy || started.current !== null) return;
     fired.current = false;
-    started.current = performance.now();
+    started.current = -1;
     try {
       navigator.vibrate?.(10);
     } catch {

@@ -8,11 +8,9 @@ import {
   ListChecksIcon,
   MessageCircleIcon,
   HomeIcon,
-  Loader2Icon,
   LogOutIcon,
   type LucideIcon,
   SmartphoneIcon,
-  TimerIcon,
   WalletIcon,
 } from "lucide-react";
 import { Avatar } from "@/components/staff/avatar";
