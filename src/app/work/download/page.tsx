@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { ArrowLeftIcon, DownloadIcon } from "lucide-react";
-import { ANDROID_APP_URL, APK_SIZE_MB } from "../android-app";
+import { ANDROID_APP_URL, APK_SIZE_MB } from "../app-link";
 import { CopyLink } from "./copy-link";
 
 export const metadata: Metadata = { title: "Get the Android app" };
