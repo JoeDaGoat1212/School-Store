@@ -3,7 +3,9 @@ import { PageHeader } from "@/components/staff/page-header";
 import { requireAdmin } from "@/lib/auth";
 import { features } from "@/config/features";
 import { storeToday } from "@/lib/format";
+import { adminWho, listManagers } from "@/lib/managers";
 import { ClosedDaysEditor } from "./closed-days-editor";
+import { ManagersEditor } from "./managers-editor";
 import { PickupWindowsEditor } from "./pickup-windows-editor";
 import { InventoryForm, OrderingForm, PasswordForm, StoreInfoForm, type StoreSettings } from "./settings-forms";
 
@@ -18,7 +20,8 @@ const SECTIONS = (
     ["ordering", "Ordering rules", true],
     ["closed", "Closed days", false],
     ["inventory", "Inventory & privacy", false],
-    ["account", "Admin login", false],
+    ["managers", "Managers", false],
+    ["account", "Your login", false],
   ] as const
 ).filter(([, , orders]) => !orders || features.orders);
 
@@ -31,6 +34,9 @@ export default async function SettingsPage() {
   ]);
   if (error) throw new Error(error.message);
   const s = settings as StoreSettings;
+  const who = await adminWho(user.id);
+  const team = who.owner ? await listManagers() : null;
+  const sections = SECTIONS.filter(([id]) => id !== "managers" || who.owner);
 
   return (
     <>
@@ -40,7 +46,7 @@ export default async function SettingsPage() {
         {/* Jump links (sticky on big screens) */}
         <nav aria-label="Settings sections" className="lg:sticky lg:top-20 lg:self-start">
           <ul className="flex flex-wrap gap-1 lg:flex-col">
-            {SECTIONS.map(([id, label]) => (
+            {sections.map(([id, label]) => (
               <li key={id}>
                 <a
                   href={`#${id}`}
@@ -74,7 +80,8 @@ export default async function SettingsPage() {
           )}
           <ClosedDaysEditor days={closed ?? []} today={storeToday()} />
           <InventoryForm s={s} />
-          <PasswordForm email={user.email} />
+          {team && <ManagersEditor managers={team.managers} ready={team.ready} />}
+          <PasswordForm email={user.email} name={who.owner ? null : who.name} />
         </div>
       </div>
     </>

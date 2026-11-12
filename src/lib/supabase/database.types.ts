@@ -7,15 +7,21 @@ export type Database = {
         Row: {
           created_at: string;
           user_id: string;
+          name: string | null;
+          role: "owner" | "manager";
         };
         ComputedFields: never;
         Insert: {
           created_at?: string;
           user_id: string;
+          name?: string | null;
+          role?: "owner" | "manager";
         };
         Update: {
           created_at?: string;
           user_id?: string;
+          name?: string | null;
+          role?: "owner" | "manager";
         };
         Relationships: [];
       };

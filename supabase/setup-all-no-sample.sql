@@ -6030,6 +6030,25 @@ $$;
 revoke execute on function public.staff_credit_balances() from public, anon;
 grant execute on function public.staff_credit_balances() to authenticated, service_role;
 
+-- >>>>>>>>>>>>>>>>>>>>>>>> 20261112000023_managers.sql >>>>>>>>>>>>>>>>>>>>>>>>
+-- =============================================================================
+-- School Store — update 23: manager accounts
+-- =============================================================================
+-- The store can now have more than one admin login:
+--   - the owner (the account made with `npm run create-admin`), and
+--   - managers (like Matthew and Dylan), who sign in with their name and
+--     their own password and can use everything in the dashboard except
+--     adding or removing managers.
+-- Every admin row gets a name and a role. Existing rows are the owner.
+-- =============================================================================
+
+alter table public.admins
+  add column if not exists name text,
+  add column if not exists role text not null default 'owner' check (role in ('owner', 'manager'));
+
+-- Two managers can't share a name (it's what they type to sign in).
+create unique index if not exists admins_name_unique on public.admins (lower(name)) where name is not null;
+
 -- >>>>>>>>>>>>>>>>>>>>>>>> record what was applied >>>>>>>>>>>>>>>>>>>>>>>>
 create schema if not exists supabase_migrations;
 create table if not exists supabase_migrations.schema_migrations (
@@ -6059,7 +6078,8 @@ insert into supabase_migrations.schema_migrations (version, name) values
   ('20261110000019', 'receipt_inbox'),
   ('20261110000020', 'team_tools'),
   ('20261111000021', 'cost_percent'),
-  ('20261111000022', 'credit_restock_reminders')
+  ('20261111000022', 'credit_restock_reminders'),
+  ('20261112000023', 'managers')
 on conflict (version) do nothing;
 
 -- Tell the API about the new tables and functions right away.
