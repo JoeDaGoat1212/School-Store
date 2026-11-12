@@ -15,8 +15,13 @@ export function LoginForm({ next, initialError }: { next: string; initialError?:
       <input type="hidden" name="next" value={next} />
 
       <div className="grid gap-2">
-        <Label htmlFor="password">Admin password</Label>
-        <Input id="password" name="password" type="password" autoComplete="current-password" required autoFocus className="h-11" />
+        <Label htmlFor="name">Your name</Label>
+        <Input id="name" name="name" autoComplete="username" placeholder="Leave blank if you're the owner" className="h-11" />
+      </div>
+
+      <div className="grid gap-2">
+        <Label htmlFor="password">Password</Label>
+        <Input id="password" name="password" type="password" autoComplete="current-password" required className="h-11" />
       </div>
 
       {state.error && (

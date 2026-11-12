@@ -430,6 +430,14 @@ The person shopping has to be signed in with the admin login on their phone. Cod
 `src/app/admin/inventory/shopping-list/`, `src/app/admin/expenses/receipt-*.ts(x)` and
 `supabase/migrations/20261110000019_receipt_inbox.sql`.
 
+### Manager accounts (update 23)
+
+Run `supabase/sql-editor/20261112000023_managers.sql` once in the SQL Editor.
+
+- **Add managers:** the owner goes to **Settings → Managers**, types a name (like Matthew) and a password, and taps **Add manager**.
+- **Signing in:** managers go to `/login`, type their name and their own password. The owner leaves the name blank and uses the admin password, same as before.
+- **What managers can do:** everything in the dashboard except add, change or remove managers. The owner can set a new password for a manager or remove them there too.
+
 ### Credit, restock photos and reminders (update 22)
 
 Run `supabase/sql-editor/20261111000022_credit_restock_reminders.sql` once in the SQL Editor, then have Android employees download the new app (version 1.5).

@@ -188,16 +188,22 @@ export function InventoryForm({ s }: { s: StoreSettings }) {
   );
 }
 
-export function PasswordForm({ email }: { email: string }) {
+export function PasswordForm({ email, name }: { email: string; name?: string | null }) {
   return (
     <SectionForm
       id="account"
-      title="Admin login"
+      title="Your login"
       description={
-        <>
-          Logged in as <strong className="font-medium text-foreground">{email}</strong>. To use a different email, run{" "}
-          <code className="rounded bg-muted px-1 py-0.5 text-xs">npm run create-admin</code> (see the README).
-        </>
+        name ? (
+          <>
+            Signed in as <strong className="font-medium text-foreground">{name}</strong> (manager). You sign in with your name and this password.
+          </>
+        ) : (
+          <>
+            Logged in as <strong className="font-medium text-foreground">{email}</strong> (owner). To use a different email, run{" "}
+            <code className="rounded bg-muted px-1 py-0.5 text-xs">npm run create-admin</code> (see the README).
+          </>
+        )
       }
       action={changePassword}
       saveLabel="Change password"
