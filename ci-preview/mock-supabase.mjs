@@ -130,7 +130,7 @@ const summary = () => ({
   expiring_soon: 1,
 });
 const tables = {
-  admins: [{ user_id: ADMIN_ID }],
+  admins: [{ user_id: ADMIN_ID, name: null, role: "owner" }, { user_id: "b0000000-0000-0000-0000-0000000000a1", name: "Matthew", role: "manager", created_at: "2026-11-12T16:00:00Z" }, { user_id: "b0000000-0000-0000-0000-0000000000a2", name: "Dylan", role: "manager", created_at: "2026-11-12T16:00:00Z" }],
   staff: [
     { id: "a", name: "Maya R", status: "active" }, { id: "b", name: "Ben K", status: "active" }, { id: "c", name: "Ava T", status: "active" },
     { id: "d", name: "Leo M", status: "active" }, { id: "e", name: "Jordan P", status: "pending" },
