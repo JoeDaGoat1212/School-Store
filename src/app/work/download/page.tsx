@@ -1,10 +1,11 @@
 import type { Metadata } from "next";
+import { headers } from "next/headers";
 import Link from "next/link";
 import { ArrowLeftIcon, DownloadIcon } from "lucide-react";
 import { ANDROID_APP_URL, APK_SIZE_MB } from "../app-link";
 import { CopyLink } from "./copy-link";
 
-export const metadata: Metadata = { title: "Get the Android app" };
+export const metadata: Metadata = { title: "Get the Firebird Store app" };
 
 const STEPS = [
   { title: "Tap Download", body: `It's about ${APK_SIZE_MB} MB. If Chrome says the file might be harmful, tap Download anyway. It's the store's own app.` },
@@ -13,11 +14,42 @@ const STEPS = [
   { title: "Tap Install", body: "Then open Firebirds Nest and sign in with your name and PIN. Already have the app? Installing again updates it." },
 ];
 
+const IPHONE_STEPS = [
+  { title: "Tap Open the app", body: "Below. It opens the employee app here in Safari (it has to be Safari, not Chrome)." },
+  { title: "Tap the Share button", body: "The square with an arrow pointing up, at the bottom of the screen." },
+  { title: "Tap Add to Home Screen", body: "Scroll down the list to find it, then tap Add. Use the new icon on your home screen from now on." },
+  { title: "Sign in", body: "Your name and your 4-digit store PIN. Then tap Turn on notifications so you get messages and reminders." },
+];
+
+/** The iPhone steps: the app is the website, added to the home screen. */
+function IphoneSteps() {
+  return (
+    <section className="glass grid gap-3 rounded-2xl p-4">
+      <h2 className="text-lg font-semibold">On an iPhone</h2>
+      <ol className="grid gap-2.5">
+        {IPHONE_STEPS.map((s, i) => (
+          <li key={s.title} className="flex gap-3">
+            <span className="grid size-7 shrink-0 place-items-center rounded-lg bg-white/[0.08] font-heading text-base font-bold">{i + 1}</span>
+            <span>
+              <span className="block font-semibold">{s.title}</span>
+              <span className="block text-sm text-muted-foreground">{s.body}</span>
+            </span>
+          </li>
+        ))}
+      </ol>
+      <Link href="/work" className="ember flex h-12 items-center justify-center rounded-xl font-bold">
+        Open the app
+      </Link>
+    </section>
+  );
+}
+
 /**
  * Downloading the Android app, step by step. Its own page (not a button in the
  * app header) so it works from the home-screen version of the site too.
  */
-export default function DownloadPage() {
+export default async function DownloadPage() {
+  const iphone = /iphone|ipad|ipod/i.test((await headers()).get("user-agent") ?? "");
   return (
     <div className="dark night relative isolate min-h-svh bg-background px-4 pt-[max(1.25rem,env(safe-area-inset-top))] pb-12">
       <div aria-hidden className="night-sky -z-10">
@@ -33,9 +65,15 @@ export default function DownloadPage() {
           <h1 className="font-heading text-6xl leading-[0.9] font-bold">
             Get the <span className="text-ember">app</span>
           </h1>
-          <p className="mt-2 text-sm text-muted-foreground">For Android phones. iPhones keep using this website in Safari.</p>
+          <p className="mt-2 text-sm text-muted-foreground">
+            {iphone ? "On iPhone, the app is added to your home screen from Safari." : "Android: download and install it below. iPhone: see the steps further down."}
+          </p>
         </div>
 
+        {iphone ? (
+          <IphoneSteps />
+        ) : (
+          <>
         <a
           href={ANDROID_APP_URL}
           target="_blank"
@@ -67,6 +105,10 @@ export default function DownloadPage() {
             &ldquo;App not installed&rdquo;? Delete the old Firebirds Nest app first, then install again.
           </p>
         </section>
+
+        <IphoneSteps />
+          </>
+        )}
       </main>
     </div>
   );
