@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ArrowLeftIcon, ArrowUpIcon, CheckIcon, Loader2Icon, PlusIcon, UsersIcon } from "lucide-react";
+import { ArrowLeftIcon, ArrowUpIcon, CheckIcon, Loader2Icon, PlusIcon, UsersIcon, Trash2Icon } from "lucide-react";
 import { Avatar } from "@/components/staff/avatar";
 
 /*
@@ -30,6 +30,8 @@ export type MessagesActions = {
   direct: (member: string) => Promise<Err & { id?: string }>;
   group: (name: string, members: string[]) => Promise<Err & { id?: string }>;
   leave: (id: string) => Promise<Err & { ok?: true }>;
+  /** Only given to the owner: delete any message. */
+  remove?: (messageId: string) => Promise<Err & { ok?: true }>;
 };
 
 const TZ = "America/Phoenix";
@@ -366,6 +368,7 @@ function Conversation({ id, actions, onBack, onChanged, showBack }: { id: string
                   )}
                   <div className={`flex max-w-[78%] flex-col ${m.mine ? "items-end" : "items-start"}`}>
                     {firstOfRun && showNames && !m.mine && <span className="mb-1 px-3 text-xs font-semibold text-muted-foreground">{m.senderName}</span>}
+                    <div className={`group/msg flex items-center gap-1 ${m.mine ? "flex-row-reverse" : ""}`}>
                     <div
                       className={`px-3.5 py-2 text-[0.9375rem] leading-snug whitespace-pre-wrap break-words ${
                         m.mine
@@ -375,6 +378,27 @@ function Conversation({ id, actions, onBack, onChanged, showBack }: { id: string
                       title={new Date(m.at).toLocaleString("en-US", { timeZone: TZ })}
                     >
                       {m.body}
+                    </div>
+                    {actions.remove && (
+                      <button
+                        type="button"
+                        aria-label={`Delete message from ${m.senderName}`}
+                        title="Delete for everyone"
+                        onClick={async () => {
+                          if (!window.confirm(`Delete this message from ${m.mine ? "you" : m.senderName}? It's removed for everyone.`)) return;
+                          const r = await actions.remove!(m.id);
+                          if (r.error) setError(r.error);
+                          else {
+                            setMessages((list) => (list ?? []).filter((x) => x.id !== m.id));
+                            count.current -= 1;
+                            onChanged();
+                          }
+                        }}
+                        className="grid size-7 shrink-0 place-items-center rounded-full text-muted-foreground opacity-60 transition hover:bg-destructive/10 hover:text-destructive hover:opacity-100 sm:opacity-0 sm:group-hover/msg:opacity-100 focus-visible:opacity-100"
+                      >
+                        <Trash2Icon className="size-3.5" />
+                      </button>
+                    )}
                     </div>
                     {lastOfRun && <span className="mt-1 px-2 text-[0.7rem] text-muted-foreground">{when(m.at)}</span>}
                   </div>
