@@ -7,6 +7,7 @@ import { MessagesView, type MessagesActions } from "@/components/staff/messages-
 import { Button } from "@/components/ui/button";
 import { NotificationsToggle } from "@/components/staff/notifications-toggle";
 import {
+  adminDeleteMessage,
   adminDirect,
   adminGroup,
   adminLeave,
@@ -21,8 +22,11 @@ import {
 
 const actions: MessagesActions = { list: adminThreads, open: adminThread, send: adminSend, direct: adminDirect, group: adminGroup, leave: adminLeave };
 
-export function AdminMessages({ initialChat }: { initialChat: string | null }) {
-  return <MessagesView actions={actions} initialChat={initialChat} wide />;
+const ownerActions: MessagesActions = { ...actions, remove: adminDeleteMessage };
+
+/** The owner also gets a delete button on every message. */
+export function AdminMessages({ initialChat, owner = false }: { initialChat: string | null; owner?: boolean }) {
+  return <MessagesView actions={owner ? ownerActions : actions} initialChat={initialChat} wide />;
 }
 
 /** "Turn on notifications" for the manager: absences, skipped restocks and messages. */

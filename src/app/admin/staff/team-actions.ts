@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { requireAdmin } from "@/lib/auth";
+import { isOwner } from "@/lib/managers";
 import { removePushSubscription, savePushSubscription, testFcmAccount } from "@/lib/push";
 import { createSecretClient } from "@/lib/supabase/server";
 import { ADMIN, contacts, createGroup, leaveGroup, listThreads, openDirect, readThread, sendMessage } from "@/lib/team";
@@ -17,6 +18,21 @@ export async function adminThread(id: string) {
   await requireAdmin();
   return readThread(ADMIN, id);
 }
+/** The owner only: delete anyone's message in a chat the owner can see. It disappears for everyone. */
+export async function adminDeleteMessage(messageId: string) {
+  const { user } = await requireAdmin();
+  if (!(await isOwner(user.id))) return { error: "Only the owner can delete messages." };
+  if (!/^[0-9a-f-]{36}$/.test(messageId)) return { error: "That message wasn't found." };
+  const db = createSecretClient();
+  const { data: msg } = await db.from("chat_messages").select("id, thread_id").eq("id", messageId).maybeSingle();
+  if (!msg) return { error: "That message was already deleted." };
+  // Only in chats the owner can open (Everyone, or ones the manager is in).
+  const { error: seeError } = await readThread(ADMIN, msg.thread_id);
+  if (seeError) return { error: "That message wasn't found." };
+  const { error } = await db.from("chat_messages").delete().eq("id", messageId);
+  return error ? { error: "Couldn't delete it. Try again." } : { ok: true as const };
+}
+
 export async function adminSend(id: string, body: string) {
   await requireAdmin();
   return sendMessage(ADMIN, id, body);
